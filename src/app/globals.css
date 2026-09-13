@@ -486,3 +486,164 @@ tfoot td {
   font-weight: 600;
   margin-top: 1px;
 }
+
+/* ---------- registration form ---------- */
+.reg {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 20px;
+}
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 620px) {
+  .field-grid { grid-template-columns: 1fr; }
+}
+.field.span2 { grid-column: 1 / -1; }
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.field .req {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin-left: 5px;
+}
+.field input[type='text'],
+.field input:not([type]) {
+  width: 100%;
+}
+.reg input:not([type='checkbox']):not([type='hidden']) {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.reg input:focus {
+  outline: 2px solid var(--jade);
+  outline-offset: 1px;
+  border-color: var(--jade);
+}
+.reg input.err {
+  border-color: var(--rust);
+  background: var(--rust-soft);
+}
+.hint {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin: 5px 0 0;
+  line-height: 1.4;
+}
+.hint.err-text,
+.field input.err + .hint {
+  color: var(--rust);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.chip:hover { border-color: var(--jade); color: var(--jade); }
+.chip.on {
+  background: var(--jade);
+  border-color: var(--jade);
+  color: #fff;
+  font-weight: 600;
+}
+.chip:focus-visible { outline: 2px solid var(--jade); outline-offset: 2px; }
+.ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.ack input { margin-top: 2px; }
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+button.primary {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  padding: 11px 20px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--jade);
+  color: #fff;
+  cursor: pointer;
+}
+button.primary:hover { filter: brightness(1.1); }
+button.primary:disabled { opacity: 0.6; cursor: default; }
+a.secondary {
+  font-size: 13.5px;
+  color: var(--ink-3);
+  padding: 11px 6px;
+}
+a.secondary:hover { color: var(--ink); }
+.timer {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.timer .ok { color: var(--ok); font-weight: 700; }
+.timer .over { color: var(--rust); font-weight: 700; }
+
+/* ---------- new-patient entry points ---------- */
+a.cta {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 650;
+  padding: 8px 14px;
+  border-radius: 7px;
+  background: var(--jade);
+  color: #fff;
+}
+a.cta:hover { filter: brightness(1.1); }
+nav.main a.newpt {
+  background: var(--jade);
+  color: #fff;
+  font-weight: 650;
+  margin-bottom: 4px;
+  justify-content: flex-start;
+  gap: 7px;
+}
+nav.main a.newpt:hover { filter: brightness(1.1); background: var(--jade); color: #fff; }
+.welcome {
+  border-left: 3px solid var(--ok);
+  background: var(--jade-soft);
+  padding: 11px 14px;
+  border-radius: 0 7px 7px 0;
+  font-size: 13px;
+  margin-bottom: 16px;
+}

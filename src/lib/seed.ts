@@ -24,6 +24,7 @@ import {
   type PaymentMode,
 } from '@/domain/ledger';
 import { rupees, fromRupeeString, negate, add, type Paise, ZERO } from '@/domain/money';
+import { shared } from '@/lib/store';
 
 export const BRANCH = {
   id: 'br-kothrud',
@@ -65,7 +66,7 @@ export interface SeedPatient {
   lastVisit: string;
 }
 
-export const PATIENTS: SeedPatient[] = [
+const SEED_PATIENTS: SeedPatient[] = [
   { id: 'p1', fileNumber: 'KOT-0412', fullName: 'Meera Kulkarni', phone: '98220 41155', sex: 'F', age: 34, branchId: 'br-kothrud', referralSource: 'Patient referral', lastVisit: '2026-09-13' },
   { id: 'p2', fileNumber: 'KOT-0413', fullName: 'Rohan Deshpande', phone: '99700 28841', sex: 'M', age: 41, branchId: 'br-kothrud', referralSource: 'Google', lastVisit: '2026-09-13' },
   { id: 'p3', fileNumber: 'KOT-0398', fullName: 'Aisha Sheikh', phone: '90280 77310', sex: 'F', age: 27, branchId: 'br-kothrud', referralSource: 'Dr. Bhide (referral)', lastVisit: '2026-09-12' },
@@ -73,6 +74,9 @@ export const PATIENTS: SeedPatient[] = [
   { id: 'p5', fileNumber: 'KOT-0355', fullName: 'Sunita Joshi', phone: '97640 33218', sex: 'F', age: 61, branchId: 'br-kothrud', referralSource: 'Patient referral', lastVisit: '2026-06-18' },
   { id: 'p6', fileNumber: 'BNR-0106', fullName: 'Farhan Qureshi', phone: '96570 11902', sex: 'M', age: 29, branchId: 'br-baner', referralSource: 'Instagram', lastVisit: '2026-09-13' },
 ];
+
+/** Shared across every server chunk — see src/lib/store.ts for why. */
+export const PATIENTS: SeedPatient[] = shared('patients', SEED_PATIENTS);
 
 export interface SeedInvoice {
   id: string;
@@ -113,7 +117,7 @@ function makeInvoice(
   return { id, number, patientId, branchId, issuedOn, doctor, computed, allocatedPaise: allocated };
 }
 
-export const INVOICES: SeedInvoice[] = [
+const SEED_INVOICES: SeedInvoice[] = [
   makeInvoice('i1', 'KOT/2026-27/00412', 'p1', 'br-kothrud', '2026-09-13', 'Dr. Anshul Vij', [
     { desc: 'Root canal treatment, tooth 26', price: '6000.00', cat: 'exempt_healthcare' },
     { desc: 'Zirconia crown, tooth 26', price: '12000.00', cat: 'goods_prosthetic' },
@@ -144,6 +148,8 @@ export const INVOICES: SeedInvoice[] = [
   ], rupees(18000)),
 ];
 
+export const INVOICES: SeedInvoice[] = shared('invoices', SEED_INVOICES);
+
 export interface SeedReceipt {
   id: string;
   number: string;
@@ -155,13 +161,15 @@ export interface SeedReceipt {
   amountPaise: Paise;
 }
 
-export const RECEIPTS: SeedReceipt[] = [
+const SEED_RECEIPTS: SeedReceipt[] = [
   { id: 'r1', number: 'KOT/R/00871', patientId: 'p1', branchId: 'br-kothrud', receivedOn: '2026-09-13', mode: 'cash', amountPaise: rupees(10000) },
   { id: 'r2', number: 'KOT/R/00872', patientId: 'p1', branchId: 'br-kothrud', receivedOn: '2026-09-13', mode: 'upi', reference: 'meera@okhdfc', amountPaise: rupees(9735) },
   { id: 'r3', number: 'KOT/R/00873', patientId: 'p2', branchId: 'br-kothrud', receivedOn: '2026-09-13', mode: 'card', reference: 'PineLabs 4417', amountPaise: rupees(20000) },
   { id: 'r4', number: 'KOT/R/00874', patientId: 'p3', branchId: 'br-kothrud', receivedOn: '2026-09-13', mode: 'upi', reference: 'aisha.s@ybl', amountPaise: rupees(5000) },
   { id: 'r5', number: 'KOT/R/00875', patientId: 'p5', branchId: 'br-kothrud', receivedOn: '2026-09-13', mode: 'cash', amountPaise: rupees(3000) },
 ];
+
+export const RECEIPTS: SeedReceipt[] = shared('receipts', SEED_RECEIPTS);
 
 export const TODAY = '2026-09-13';
 
@@ -306,4 +314,94 @@ export function unbilledValue(): Paise {
 
 export function allocationPreview(patientId: string, amount: Paise) {
   return allocateReceipt(amount, outstandingFor(patientId).filter((o) => o.totalPaise > o.allocatedPaise));
+}
+
+// ---------------------------------------------------------------------------
+// Writes
+// ---------------------------------------------------------------------------
+
+/**
+ * Registration mutates this module's in-memory arrays, which persist for the
+ * life of the dev server process and reset on restart. That is fine for a demo
+ * and wrong for anything else — it does not survive a restart and would not
+ * work across serverless instances. Replaced by an INSERT against
+ * `patientRegistrations` when the data layer lands.
+ */
+
+export const REFERRAL_SOURCES = [
+  'Walk-in',
+  'Patient referral',
+  'Doctor referral',
+  'Google',
+  'Instagram',
+  'Practo',
+  'Returning patient',
+] as const;
+
+export interface NewPatientInput {
+  fullName: string;
+  phone: string;
+  sex: string;
+  age: number;
+  branchId: string;
+  referralSource: string;
+  referralDetail?: string;
+}
+
+/**
+ * Next file number for a branch. In the real system this locks a counter row
+ * (see `invoiceSeries` in the schema) so numbering stays gapless; here it just
+ * reads the highest existing number.
+ */
+function nextFileNumber(branchId: string): string {
+  const branch = branchById(branchId);
+  const prefix = branch?.code ?? 'GEN';
+  const existing = PATIENTS.filter((p) => p.fileNumber.startsWith(`${prefix}-`)).map((p) =>
+    Number(p.fileNumber.split('-')[1] ?? 0),
+  );
+  const next = (existing.length ? Math.max(...existing) : 0) + 1;
+  return `${prefix}-${String(next).padStart(4, '0')}`;
+}
+
+/**
+ * Possible duplicates, checked before a new record is created.
+ *
+ * A patient registered twice is two ledgers, two histories and an owner who
+ * stops trusting the numbers — so this runs on every registration, not as an
+ * occasional cleanup. Matching is on mobile first (the primary handle), then on
+ * a loose name match.
+ */
+export function findPossibleDuplicates(phone: string, fullName: string): SeedPatient[] {
+  const digits = phone.replace(/\D/g, '');
+  const name = fullName.trim().toLowerCase();
+  if (digits.length < 4 && name.length < 3) return [];
+
+  return PATIENTS.filter((p) => {
+    const pDigits = p.phone.replace(/\D/g, '');
+    if (digits.length >= 6 && pDigits.endsWith(digits.slice(-6))) return true;
+    if (name.length >= 3) {
+      const pName = p.fullName.toLowerCase();
+      if (pName.includes(name) || name.includes(pName)) return true;
+    }
+    return false;
+  });
+}
+
+export function addPatient(input: NewPatientInput): SeedPatient {
+  const id = `p${PATIENTS.length + 1}-${Date.now().toString(36)}`;
+  const patient: SeedPatient = {
+    id,
+    fileNumber: nextFileNumber(input.branchId),
+    fullName: input.fullName.trim(),
+    phone: input.phone.trim(),
+    sex: input.sex,
+    age: input.age,
+    branchId: input.branchId,
+    referralSource: input.referralDetail
+      ? `${input.referralSource} — ${input.referralDetail}`
+      : input.referralSource,
+    lastVisit: TODAY,
+  };
+  PATIENTS.push(patient);
+  return patient;
 }

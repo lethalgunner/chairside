@@ -23,6 +23,10 @@ function Sidebar() {
       </div>
 
       <nav className="main">
+        <a href="/patients/new" className="newpt">
+          <span>+</span> New patient
+        </a>
+
         <div className="sec">Today</div>
         <a href="/">Dashboard</a>
         <a href="/day-close">

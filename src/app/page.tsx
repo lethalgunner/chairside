@@ -16,6 +16,8 @@ import {
   patientById,
 } from '@/lib/seed';
 
+export const dynamic = 'force-dynamic';
+
 export default function Dashboard() {
   const billed = billedToday();
   const collected = collectedToday();
@@ -34,6 +36,7 @@ export default function Dashboard() {
         eyebrow={`${BRANCH.name} · ${new Date(TODAY).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}`}
         title="Today"
         sub="Everything on this screen is computed by the tested domain engine, not hardcoded."
+        right={<a className="cta" href="/patients/new">+ New patient</a>}
       />
 
       <div className="tiles">

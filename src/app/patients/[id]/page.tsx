@@ -10,9 +10,7 @@ import {
   branchById,
 } from '@/lib/seed';
 
-export function generateStaticParams() {
-  return PATIENTS.map((p) => ({ id: p.id }));
-}
+export const dynamic = 'force-dynamic';
 
 const TYPE_LABEL: Record<string, string> = {
   invoice: 'Invoice',
@@ -24,8 +22,15 @@ const TYPE_LABEL: Record<string, string> = {
   write_off: 'Write-off',
 };
 
-export default async function PatientPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PatientPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ welcome?: string }>;
+}) {
   const { id } = await params;
+  const { welcome } = await searchParams;
   const p = patientById(id);
   if (!p) notFound();
 
@@ -49,6 +54,14 @@ export default async function PatientPage({ params }: { params: Promise<{ id: st
           )
         }
       />
+
+      {welcome ? (
+        <div className="welcome">
+          <strong>Registered.</strong> File number {p.fileNumber} created at{' '}
+          {branchById(p.branchId)?.name}. The ledger below is empty until the first procedure is
+          billed — which is exactly what it should look like for a new patient.
+        </div>
+      ) : null}
 
       <Card title="Ledger" note="Running balance, derived from entries every time" flush>
         <div className="tablewrap">

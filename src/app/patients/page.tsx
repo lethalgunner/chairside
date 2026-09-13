@@ -2,12 +2,15 @@ import { PageHead, Card, Initials } from '@/components/ui';
 import { formatINR } from '@/domain/money';
 import { PATIENTS, balanceFor, branchById } from '@/lib/seed';
 
+export const dynamic = 'force-dynamic';
+
 export default function PatientsPage() {
   return (
     <>
       <PageHead
         title="Patients"
         sub="One patient, one record — however many branches they visit."
+        right={<a className="cta" href="/patients/new">+ New patient</a>}
       />
       <Card title={`${PATIENTS.length} patients`} note="Balance derived from ledger entries, never cached" flush>
         <div className="tablewrap">
