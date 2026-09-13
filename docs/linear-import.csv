@@ -1,0 +1,41 @@
+Title,Description,Labels,Priority,Estimate,Status
+"Platform: org, branch and chair hierarchy","Org to branch to chair. Every record branch-scoped, rolling up to the org. A solo practice has exactly one branch. PLAT-01.","Chairside: Platform",2,3,Todo
+"Platform: roles and permissions","Owner, Branch Manager, Front Desk, Doctor, Associate, Assistant, Accountant, Auditor. Grantable per branch so a user can be Doctor at A and Owner across all. PLAT-02.","Chairside: Platform",2,5,Todo
+"Platform: field-level permissions on financial data","An associate sees their own production and payout, never the branch P&L or another doctor's numbers. PLAT-03.","Chairside: Platform",2,3,Todo
+"Platform: append-only audit log","Actor, timestamp, branch, entity, before/after for every financial and clinical write. Queryable in-app by Owner and Auditor. PLAT-04.","Chairside: Platform",2,3,Todo
+"Platform: auth behind our own interface","Supabase auth referenced only through src/lib/auth so the provider stays swappable. ADR-003.","Chairside: Platform",2,3,Todo
+"Platform: gapless numbering per branch per FY","Invoices, receipts, credit notes. A table not a sequence, because sequences leak numbers on rollback and a gap is an auditor's question. PLAT-10.","Chairside: Platform",2,2,Todo
+"Platform: import tooling with dry-run and rollback","CSV/Excel and incumbent exports, mapping UI, duplicate detection, rollback of a completed import. First-class module, not a services task. PLAT-07.","Chairside: Platform",1,8,Todo
+"Platform: free full data export","Patients, treatments, ledgers, attachments. Advertised openly in the sales conversation. PLAT-08.","Chairside: Platform",3,2,Todo
+"Patients: org-level master with branch registrations","One human, one record, however many branches. Registered at one, found instantly at another. PAT-01.","Chairside: Platform",2,3,Todo
+"Patients: 40-second registration","Mobile as primary handle. Mandatory fields limited to name, mobile, sex, age or DOB. Speed is an acceptance criterion. PAT-02.","Chairside: Platform",2,3,Todo
+"Patients: duplicate detection and guided merge","Fuzzy match on mobile, name and DOB at registration. Merge carries ledger, clinical and appointment history. PAT-03.","Chairside: Platform",2,5,Todo
+"Patients: household grouping","One payer settles for dependants; one mobile serves several patients. PAT-04.","Chairside: Platform",3,2,Todo
+"Patients: referral source capture","Configurable taxonomy at registration. Feeds attribution later. PAT-06.","Chairside: Platform",3,1,Todo
+"Scheduling: calendar against doctor and chair","Multi-resource booking, 15-minute default granularity, per-procedure durations from the catalogue. SCH-01.","Chairside: Books",2,5,Todo
+"Scheduling: day, week and chair-column views","Drag to reschedule, colour by status. SCH-02.","Chairside: Books",2,5,Todo
+"Scheduling: visiting specialist availability","A doctor at branch A on Tuesdays and branch B on Thursdays. Cross-branch double-booking structurally impossible. SCH-03.","Chairside: Books",2,3,Todo
+"Billing: service catalogue","Code, name, duration, price, tax treatment, payout rule reference. Adding a specialty is a data import, not a release. BIL-01.","Chairside: Books",1,3,Todo
+"Billing: invoice from performed procedures","Line-level discount with reason code and approval threshold above which a manager must authorise. BIL-02.","Chairside: Books",1,5,Todo
+"Billing: line-level GST classification","DONE in domain layer. Exempt SAC 9993 vs taxable HSN 9021, HSN 3306 and cosmetic. Each line prints its own code, base, rate, amount. BIL-03.","Chairside: Compliance",1,5,Done
+"Billing: registered and unregistered branch profiles","DONE in domain layer. An unregistered branch charges nothing whatever the catalogue says. BIL-04.","Chairside: Compliance",1,2,Done
+"Billing: receipts across all payment modes","Cash, UPI with VPA, card per terminal, bank transfer, cheque, financing. Part payment across one or many invoices. BIL-05.","Chairside: Books",1,5,Todo
+"Billing: patient ledger with running balance","DONE in domain layer. Across all branches, shareable as a document. Derived from entries, never cached. BIL-06.","Chairside: Books",1,3,Done
+"Billing: advances as unearned revenue","DONE in domain layer. Held and drawn down as procedures are delivered. Essential for implant and ortho cases. BIL-07.","Chairside: Books",1,3,Done
+"Billing: instalment schedules and collections worklist","Due dates, overdue flagging, worklist sorted by ageing bucket. BIL-08.","Chairside: Books",2,5,Todo
+"Billing: credit notes, refunds and write-offs","Each requires a reason code and role-gated approval. Permanently visible in the audit log and ledger. BIL-09.","Chairside: Books",2,3,Todo
+"Billing: unbilled procedure exception report","Completed procedures with no invoice line after 24 hours, surfaced daily to the branch manager. The core leakage control. BIL-10.","Chairside: Books",1,3,Todo
+"Billing: invoice PDF template","Logo, registration numbers, doctor name and registration, branch address, terms, payment QR. BIL-12.","Chairside: Books",2,3,Todo
+"Books: day-book close","PARTIAL - reconciliation logic done, UI outstanding. Expected vs counted cash, denominations, mandatory variance explanation, lock, audited reopen. FIN-01.","Chairside: Books",1,5,Todo
+"Books: doctor payout engine","Percentage of collection or billing, flat per session or day, per procedure, minimum guarantee. Net of lab, consumables, discount. Versioned by effective date; a run is an immutable snapshot. FIN-03.","Chairside: Books",1,8,Todo
+"Books: self-serve payout statements","Every procedure, patient, date, collected amount, deductions, resulting share. The feature that ends payout disputes. FIN-04.","Chairside: Books",1,5,Todo
+"Books: expense capture by cost centre","Rent, salaries, lab, consumables, utilities, marketing. Vendor master, bill image, approval above threshold. FIN-06.","Chairside: Books",2,5,Todo
+"Books: branch P&L","Revenue, direct costs, operating costs, contribution, per branch per month, with drill-through. FIN-07.","Chairside: Books",1,5,Todo
+"Books: profitability by doctor, procedure and chair-hour","Which chair earns least per hour. A differentiating report no incumbent produces well. FIN-08.","Chairside: Books",2,5,Todo
+"Books: GST working papers","DONE in domain layer for the summary. Outward supply register split exempt/taxable, HSN/SAC summary, ITC apportionment. FIN-09.","Chairside: Compliance",2,5,Todo
+"Books: Tally-compatible export","XML against a mapped chart of accounts so the CA imports rather than re-keys. FIN-10.","Chairside: Books",1,5,Todo
+"Analytics: owner dashboard","Collections, billings, new vs returning, chair utilisation, receivables ageing, contribution. All branches side by side. ANA-01.","Chairside: Books",1,5,Todo
+"Analytics: branch manager dashboard","Today's schedule, arrivals, unbilled exceptions, cash position, collections worklist. ANA-02.","Chairside: Books",1,5,Todo
+"Analytics: drill-through on every figure","Numbers a user cannot audit are numbers they will not trust. ANA-06.","Chairside: Books",2,3,Todo
+"Compliance: confirm GST treatment with a CA","BLOCKING any customer-facing claim. The implant and cosmetic boundaries and the ITC apportionment approach. BRD Q5. Highest-damage error available to us.","Chairside: Compliance",1,2,Todo
+"Compliance: reserve coded diagnosis capture for ABDM","Column exists in schema and is unused in Phase 0. Retrofitting codes across a live patient database is the most commonly reported ABDM failure.","Chairside: Compliance",3,1,Done
