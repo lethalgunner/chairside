@@ -59,6 +59,13 @@ export async function outstandingInvoices(
     .filter((r) => r.totalPaise > r.allocatedPaise);
 }
 
+/** Open bills at the active branch that a payment from this patient would settle. */
+export async function openBillsForReceipt(ctx: TenantContext, patientId: string): Promise<(OutstandingInvoice & { number: string })[]> {
+  const branchId = requireActiveBranch(ctx);
+  assertCan(ctx, 'receipt.record', branchId);
+  return outstandingInvoices(getDb(), ctx.orgId, branchId, patientId);
+}
+
 /** What a payment of this size would settle, shown to the desk before they save. */
 export async function previewAllocation(
   ctx: TenantContext,

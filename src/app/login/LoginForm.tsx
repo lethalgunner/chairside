@@ -1,0 +1,28 @@
+'use client';
+
+import { useActionState } from 'react';
+import { signInAction } from '@/app/actions/auth';
+
+export default function LoginForm() {
+  const [state, action, pending] = useActionState(signInAction, null);
+  return (
+    <form action={action} className="stack" noValidate>
+      <div className="field">
+        <label htmlFor="email">Email</label>
+        <input id="email" name="email" type="email" autoComplete="username" required autoFocus />
+      </div>
+      <div className="field">
+        <label htmlFor="password">Password</label>
+        <input id="password" name="password" type="password" autoComplete="current-password" required />
+      </div>
+      {state?.error ? (
+        <div className="callout warn" role="alert">
+          {state.error}
+        </div>
+      ) : null}
+      <button className="primary" type="submit" disabled={pending}>
+        {pending ? 'Signing in…' : 'Sign in'}
+      </button>
+    </form>
+  );
+}

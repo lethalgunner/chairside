@@ -1,0 +1,150 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useMemo, useState, useTransition } from 'react';
+import { closeDayAction, recordCashOutAction } from '@/app/actions/money';
+import { formatINR, subtract, type Paise } from '@/domain/money';
+
+interface Props {
+  denominations: number[];
+  expectedCashPaise: Paise;
+  tolerancePaise: Paise;
+  billCount: number;
+  collectedPaise: Paise;
+  canCashOut: boolean;
+}
+
+const COINS = new Set([1, 2, 5, 10, 20]);
+
+export default function DayCloseForm({ denominations, expectedCashPaise, tolerancePaise, billCount, collectedPaise, canCashOut }: Props) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [counts, setCounts] = useState<Record<string, string>>({});
+  const [reason, setReason] = useState('');
+  const [legacyCount, setLegacyCount] = useState('');
+  const [legacyAmount, setLegacyAmount] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cashAmt, setCashAmt] = useState('');
+  const [cashWhat, setCashWhat] = useState('');
+  const [cashMsg, setCashMsg] = useState<string | null>(null);
+
+  const counted = useMemo(
+    () => denominations.reduce((s, d) => s + d * 100 * (Number(counts[String(d)] || 0) || 0), 0) as Paise,
+    [counts, denominations],
+  );
+  const touched = Object.values(counts).some((v) => v !== '');
+  const variance = subtract(counted, expectedCashPaise);
+  const needsReason = Math.abs(variance) > tolerancePaise;
+  const legacyN = legacyCount === '' ? null : Number(legacyCount);
+  const missing = legacyN !== null && legacyN > billCount ? legacyN - billCount : 0;
+
+  function close() {
+    setError(null);
+    if (!touched) return setError('Count the cash in the drawer first (enter 0 if it is empty).');
+    if (needsReason && reason.trim().length < 5) return setError('Write what happened to the difference before closing.');
+    if (!confirming) return setConfirming(true);
+    const denoms: Record<string, number> = {};
+    for (const d of denominations) denoms[String(d)] = Number(counts[String(d)] || 0) || 0;
+    start(async () => {
+      const res = await closeDayAction({ denominations: denoms, varianceReason: reason || undefined, legacyBillCount: legacyCount || undefined, legacyCollected: legacyAmount || undefined });
+      if (!res.ok) {
+        setConfirming(false);
+        return setError(res.error);
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      {canCashOut ? (
+        <div className="card">
+          <header><h2>Cash paid out of the drawer</h2></header>
+          <div className="body">
+            <div className="inline-form">
+              <label className="sr-only" htmlFor="cash-amt">Amount paid out in rupees</label>
+              <input id="cash-amt" inputMode="decimal" placeholder="₹" className="small-in" value={cashAmt} onChange={(e) => setCashAmt(e.target.value)} />
+              <label className="sr-only" htmlFor="cash-what">What it was for</label>
+              <input id="cash-what" placeholder="What for (e.g. courier, tea)" value={cashWhat} onChange={(e) => setCashWhat(e.target.value)} />
+              <button
+                type="button"
+                className="secondary-btn"
+                disabled={pending || !cashAmt || !cashWhat}
+                onClick={() =>
+                  start(async () => {
+                    const res = await recordCashOutAction(cashAmt, cashWhat);
+                    if (!res.ok) return setCashMsg(res.error);
+                    setCashAmt('');
+                    setCashWhat('');
+                    setCashMsg('Recorded.');
+                    router.refresh();
+                  })
+                }
+              >
+                Add
+              </button>
+            </div>
+            {cashMsg ? <p className="small muted" role="status">{cashMsg}</p> : null}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="card">
+        <header><h2>Count the drawer</h2><span className="note">Should be {formatINR(expectedCashPaise)}</span></header>
+        <div className="body">
+          <div className="denoms">
+            {denominations.map((d) => (
+              <div className="denom" key={d}>
+                <label htmlFor={`d${d}`} className="d">₹{d} {COINS.has(d) && d !== 20 ? 'coins' : d === 20 ? 'notes/coins' : 'notes'}</label>
+                <input id={`d${d}`} inputMode="numeric" className="c" value={counts[String(d)] ?? ''} onChange={(e) => { setCounts((c) => ({ ...c, [String(d)]: e.target.value.replace(/\D/g, '').slice(0, 5) })); setConfirming(false); }} />
+              </div>
+            ))}
+          </div>
+          <p className="big-line" aria-live="polite">
+            Counted <strong>{formatINR(counted)}</strong> ·{' '}
+            {!touched ? <span className="muted">enter the count</span> : variance === 0 ? <span className="variance-ok">matches exactly</span> : <span className={needsReason ? 'variance-bad' : 'variance-ok'}>{variance > 0 ? 'over' : 'short'} by {formatINR(Math.abs(variance) as Paise)}</span>}
+          </p>
+          {touched && needsReason ? (
+            <div className="field">
+              <label htmlFor="reason">What happened to the difference? <span className="req">required</span></label>
+              <input id="reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+          ) : null}
+
+          <fieldset className="tally">
+            <legend>Check against the old system (pilot)</legend>
+            <div className="field-grid">
+              <div className="field">
+                <label htmlFor="legacy-count">Bills in the old system today</label>
+                <input id="legacy-count" inputMode="numeric" value={legacyCount} onChange={(e) => setLegacyCount(e.target.value.replace(/\D/g, ''))} />
+              </div>
+              <div className="field">
+                <label htmlFor="legacy-amt">Collected in the old system (₹)</label>
+                <input id="legacy-amt" inputMode="decimal" value={legacyAmount} onChange={(e) => setLegacyAmount(e.target.value)} />
+              </div>
+            </div>
+            {legacyN !== null ? (
+              <p className={missing ? 'variance-bad' : 'variance-ok'} aria-live="polite">
+                {missing ? `You entered ${billCount} of ${legacyN} bills. ${missing} missing: add them before closing if you can.` : `All ${legacyN} bills entered.`}
+                {legacyAmount ? ` Chairside collected ${formatINR(collectedPaise)}.` : ''}
+              </p>
+            ) : null}
+          </fieldset>
+
+          {error ? <div className="callout warn" role="alert">{error}</div> : null}
+          {confirming ? (
+            <div className="callout confirm" role="alert">
+              Close today with <strong>{formatINR(counted)}</strong> counted ({variance === 0 ? 'no difference' : `${variance > 0 ? 'over' : 'short'} by ${formatINR(Math.abs(variance) as Paise)}`})? Nothing more can be billed or received today unless the owner reopens it.
+            </div>
+          ) : null}
+          <div className="actions">
+            <button className="primary" type="button" disabled={pending} onClick={close}>
+              {pending ? 'Closing…' : confirming ? 'Yes, close the day' : 'Close the day'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
