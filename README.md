@@ -2,7 +2,7 @@
 
 A clinic operating system for Indian dental practices — books-first, dental-native, and branch-aware whether a customer has one clinic or fifteen.
 
-**Status:** Phase 0, early. The domain layer and schema exist and are tested. There is no UI yet.
+**Status:** Pilot 0 (parallel run at two branches). Login-protected web app on Postgres: patients, bills, payments, ledger, day close, receivables and GST working papers. See `docs/PILOT0-SPEC.md`, `docs/QA-REPORT.md` and `docs/DEPLOY.md`.
 
 ---
 
