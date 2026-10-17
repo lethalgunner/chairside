@@ -49,16 +49,18 @@ export async function signInWithPassword(emailRaw: string, password: string): Pr
   }
 
   await db.delete(loginFailures).where(eq(loginFailures.email, email));
+  return { ok: true, ...(await createSession(user.orgId, user.id, 'sign_in')) };
+}
+
+/** Issue a fresh session for a verified user. */
+export async function createSession(orgId: string, userId: string, reason: string): Promise<{ sessionId: string; expiresAt: Date }> {
+  const db = getDb();
   const sessionId = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  await db.insert(sessions).values({ id: sessionId, orgId: user.orgId, userId: user.id, expiresAt });
-  await writeAudit(db, { orgId: user.orgId, userId: user.id }, {
-    action: 'sign_in',
-    entityType: 'user',
-    entityId: user.id,
-  });
+  await db.insert(sessions).values({ id: sessionId, orgId, userId, expiresAt });
+  await writeAudit(db, { orgId, userId }, { action: reason, entityType: 'user', entityId: userId });
   await db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
-  return { ok: true, sessionId, expiresAt };
+  return { sessionId, expiresAt };
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {

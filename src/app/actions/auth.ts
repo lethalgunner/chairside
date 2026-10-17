@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { requireContext, setActiveBranch, signIn, signOut } from '@/lib/auth';
+import { acceptInvite, requireContext, setActiveBranch, signIn, signOut } from '@/lib/auth';
 
 export async function signInAction(_prev: { error?: string } | null, form: FormData): Promise<{ error?: string }> {
   const res = await signIn(String(form.get('email') ?? ''), String(form.get('password') ?? ''));
@@ -21,4 +21,10 @@ export async function switchBranchAction(branchId: string): Promise<void> {
   if (branchId === 'all' && ctx.branchIds.length < 2) return;
   await setActiveBranch(branchId);
   revalidatePath('/', 'layout');
+}
+
+export async function acceptInviteAction(_prev: { error?: string } | null, form: FormData): Promise<{ error?: string }> {
+  const res = await acceptInvite(String(form.get('token') ?? ''), String(form.get('password') ?? ''), String(form.get('confirm') ?? ''));
+  if (!res.ok) return { error: res.error };
+  redirect('/');
 }

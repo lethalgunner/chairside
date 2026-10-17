@@ -15,10 +15,11 @@
     "test:db": "vitest run --config vitest.db.config.ts",
     "test:e2e": "playwright test",
     "db:migrate": "tsx scripts/migrate.ts",
-    "user:add": "tsx scripts/add-user.ts"
+    "user:add": "tsx scripts/add-user.ts",
+    "vercel-build": "tsx scripts/migrate.ts && next build"
   },
   "dependencies": {
-    "drizzle-orm": "^0.36.4",
+    "drizzle-orm": "^0.45.4",
     "next": "^15.1.0",
     "postgres": "^3.4.5",
     "react": "^19.0.0",
@@ -32,7 +33,7 @@
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
-    "drizzle-kit": "^0.28.1",
+    "drizzle-kit": "^0.31.11",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
@@ -40,6 +41,10 @@
   "overrides": {
     "@axe-core/playwright": {
       "playwright-core": "1.56.1"
-    }
+    },
+    "postcss": "^8.5.28"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

@@ -7,7 +7,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  if (pathname === '/login' || pathname === '/api/health') return NextResponse.next();
+  if (pathname === '/login' || pathname === '/setup' || pathname === '/api/health') return NextResponse.next();
   if (!req.cookies.get('cs_session')) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';

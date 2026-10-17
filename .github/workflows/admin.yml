@@ -1,0 +1,71 @@
+name: Admin
+
+# Run by hand from GitHub → Actions → Admin → "Run workflow".
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   DATABASE_URL_MIGRATE  Supabase *session pooler* connection string (IPv4, port 5432)
+#   APP_URL               The live app address, e.g. https://chairside.vercel.app
+# Invite links appear in the run's Summary. They work once, for 72 hours.
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: What to do
+        type: choice
+        options: [migrate, seed, invite]
+        default: invite
+      seed_file:
+        description: "seed: which file"
+        default: seed/pilot0.json
+      org:
+        description: "invite: organisation name exactly as seeded"
+        default: Dr. Vij Dental Clinic & Implant Center
+      email:
+        description: "invite: the person's email"
+      name:
+        description: "invite: their name (leave blank with link_doctor)"
+      link_doctor:
+        description: "invite: existing doctor name to give a login, e.g. Dr. Anshul Vij"
+      roles:
+        description: "invite: roles, space-separated (owner, branch_manager, front_desk, doctor, accountant…)"
+        default: front_desk
+      branch:
+        description: "invite: branch code (KNP, PUN); blank = all branches"
+
+concurrency: admin
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL_MIGRATE }}
+      DATABASE_URL_MIGRATE: ${{ secrets.DATABASE_URL_MIGRATE }}
+      APP_URL: ${{ secrets.APP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Migrate
+        if: inputs.task == 'migrate'
+        run: npm run db:migrate
+      - name: Seed
+        if: inputs.task == 'seed'
+        run: npm run seed -- "${{ inputs.seed_file }}"
+      - name: Invite
+        if: inputs.task == 'invite'
+        env:
+          ORG: ${{ inputs.org }}
+          EMAIL: ${{ inputs.email }}
+          NAME: ${{ inputs.name }}
+          LINK_DOCTOR: ${{ inputs.link_doctor }}
+          ROLES: ${{ inputs.roles }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          args=(--invite --org "$ORG" --email "$EMAIL")
+          if [ -n "$LINK_DOCTOR" ]; then args+=(--link-doctor "$LINK_DOCTOR"); else args+=(--name "$NAME"); fi
+          for r in $ROLES; do args+=(--role "$r"); done
+          if [ -n "$BRANCH" ]; then args+=(--branch "$BRANCH"); fi
+          npx tsx scripts/add-user.ts "${args[@]}"

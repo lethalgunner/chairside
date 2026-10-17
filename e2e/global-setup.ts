@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import postgres from 'postgres';
 
 /** Fresh e2e database with the demo org and two synthetic logins. Refuses non-e2e databases. */
@@ -24,4 +25,10 @@ export default async function globalSetup() {
     env: { ...env, CHAIRSIDE_NEW_PASSWORD: 'demo-desk-pass' },
     stdio: 'ignore',
   });
+  const out = execSync('npx tsx scripts/add-user.ts --invite --org "Demo Dental Group" --email newdesk@demo.local --name "Ravi (new desk)" --role front_desk --branch DKN', {
+    env: { ...env, APP_URL: 'http://localhost:3100' },
+  }).toString();
+  const link = out.split('\n').find((l) => l.startsWith('http'));
+  if (!link) throw new Error('No invite link printed');
+  writeFileSync('e2e/.invite-link', link.trim());
 }

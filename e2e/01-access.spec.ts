@@ -62,3 +62,24 @@ test.describe('roles and branch context', () => {
     await expect(page.getByRole('cell', { name: 'Demo Pune' })).toBeVisible();
   });
 });
+
+test.describe('invite links', () => {
+  test('an invited person sets their own password once and lands in their branch', async ({ page, context }) => {
+    const { readFileSync } = await import('node:fs');
+    const link = readFileSync('e2e/.invite-link', 'utf8').trim();
+    await page.goto(link);
+    await expect(page.getByRole('heading', { name: 'Welcome, Ravi (new desk)' })).toBeVisible();
+    await page.getByLabel('New password').fill('short');
+    await page.getByLabel('Type it again').fill('short');
+    await page.getByRole('button', { name: 'Set password and sign in' }).click();
+    await expect(page.locator('.callout[role="alert"]')).toContainText('at least 10');
+    await page.getByLabel('New password').fill('ravi likes clean books');
+    await page.getByLabel('Type it again').fill('ravi likes clean books');
+    await page.getByRole('button', { name: 'Set password and sign in' }).click();
+    await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
+    await expect(page.locator('.branch-banner')).toContainText('Demo Kanpur');
+    await context.clearCookies();
+    await page.goto(link);
+    await expect(page.getByRole('heading', { name: 'Link not valid' })).toBeVisible();
+  });
+});

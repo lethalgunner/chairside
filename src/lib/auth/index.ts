@@ -7,6 +7,7 @@ import 'server-only';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { TenantContext } from '@/services/context';
+import { redeemInvite } from './invite';
 import { contextFromSession, revokeSession, signInWithPassword } from './session';
 
 export const SESSION_COOKIE = 'cs_session';
@@ -49,6 +50,15 @@ export async function requireContext(): Promise<TenantContext> {
 
 export async function signIn(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
   const result = await signInWithPassword(email, password);
+  if (!result.ok) return { ok: false, error: result.error };
+  const jar = await cookies();
+  jar.set(SESSION_COOKIE, result.sessionId, cookieOptions(result.expiresAt));
+  return { ok: true };
+}
+
+/** Set a password from an invite link and sign straight in. */
+export async function acceptInvite(token: string, password: string, confirm: string): Promise<{ ok: boolean; error?: string }> {
+  const result = await redeemInvite(token, password, confirm);
   if (!result.ok) return { ok: false, error: result.error };
   const jar = await cookies();
   jar.set(SESSION_COOKIE, result.sessionId, cookieOptions(result.expiresAt));

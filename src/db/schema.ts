@@ -864,3 +864,25 @@ export const loginFailures = pgTable(
   },
   (t) => ({ emailIdx: index('login_failures_email_idx').on(t.email, t.occurredAt) }),
 );
+
+/**
+ * One-time links that let an invited person set their own password (Pilot 0).
+ * Only the SHA-256 of the token is stored; the link itself is shown once.
+ */
+export const passwordSetupTokens = pgTable(
+  'password_setup_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ tokenUnique: uniqueIndex('password_setup_token_unique').on(t.tokenHash) }),
+);
