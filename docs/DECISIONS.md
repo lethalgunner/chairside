@@ -118,3 +118,194 @@ Same rule for invoice outstanding amounts and day-book totals.
   Anything wanting truncation-toward-zero must say so explicitly.
 - **Invoice totals:** rounded to the nearest whole rupee, with the difference
   recorded on the invoice as `roundingPaise`, so the document reconciles.
+
+---
+
+## ADR-007 — Clinical artifacts are separate typed tables, not one jsonb column
+
+**Date:** 2026-09-17 · **Status:** accepted (records PRD Q8, settled 2026-09-13)
+
+Each specialty attaches its structured clinical data as its own child tables
+referencing `encounter_id` (`dental_chart_entry`, `perio_exam`, later an
+aesthetics artifact). `encounters` keeps only what every specialty shares:
+`encounter_type`, `specialty_module_id`, a universal `soap_note` and coded
+`diagnosis_codes`.
+
+**Why:** real foreign keys, indexes and queries on data a medico-legal dispute
+will ask about ("what did tooth 36 look like at visit 4"); consistency with a
+domain layer that already prefers explicit types; and no forty nullable
+dental-only columns on `encounters`.
+
+**Rejected: one jsonb column with a Zod discriminated union.** Ships a new
+specialty faster, but moves integrity from Postgres into application code and
+makes cross-patient clinical reporting slow and fragile. A new specialty is
+already only one migration plus one registry entry, so jsonb buys little.
+
+---
+
+## ADR-008 — Provider is separate from User
+
+**Date:** 2026-09-17 · **Status:** accepted
+
+A `User` is a login. A `Provider` is a clinician the practice bills and pays
+for: org-scoped, carrying council registration number, specialty and
+`engagement_type` (`owner_partner | salaried | associate | visiting`), with
+branch-scoped `provider_memberships`. `providers.user_id` is nullable.
+Clinical and financial foreign keys (`doctor_id` on appointments, encounters,
+procedures, price lists, payout rules) point at `providers`, not `users`.
+
+**Why:** a visiting specialist may be billed and paid for without ever having
+a login; a practice manager has a login and is not a provider; and a doctor
+floating across branches must be one identity so production rolls up without
+joining on names. Employment terms belong to the provider, not to access
+control (see ADR-009).
+
+**Invariant:** a membership with role `doctor` requires the user to be linked
+to an active provider.
+
+---
+
+## ADR-009 — Seven roles, capability-checked, granted per branch
+
+**Date:** 2026-09-17 · **Status:** accepted
+
+Roles: `owner`, `branch_manager`, `doctor`, `clinical_assistant`,
+`front_desk`, `accountant`, `auditor`.
+
+A user may hold several grants. A grant with `branch_id = null` is org-wide.
+`owner` is only ever org-wide. Code never checks a role name: it checks a
+capability (`invoice.issue`, `day.reopen`, `finance.view_branch`,
+`payout.view_own`…) against a role→capability matrix held as data in
+`src/domain/permissions.ts`, so the role list can change without touching
+feature code.
+
+| Capability | owner | branch_manager | doctor | clinical_assistant | front_desk | accountant | auditor |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Register / edit patient demographics | ✓ | ✓ | ✓ | ✓ | ✓ | | |
+| View clinical record | ✓ | ✓ | ✓ | ✓ | | | |
+| Record encounter, diagnosis, prescription (sign) | | | ✓ | | | | |
+| Draft clinical notes / chart for a doctor to sign | | | ✓ | ✓ | | | |
+| Issue invoice, take receipt | ✓ | ✓ | ✓ | | ✓ | | |
+| Discount above threshold, credit note, write-off | ✓ | ✓ | | | | | |
+| Close day | ✓ | ✓ | | | ✓ | | |
+| Reopen a locked day | ✓ | | | | | | |
+| Own production and payout | ✓ | ✓ | ✓ | | | | |
+| Branch P&L, all doctors' figures, GST papers | ✓ | ✓ (own branches) | | | | ✓ | ✓ read |
+| Exports (Tally, full data) | ✓ | | | | | ✓ | |
+| Catalogue and price lists | ✓ | ✓ (branch overrides) | | | | | |
+| Manage users | ✓ | ✓ (own branch, not owner) | | | | | |
+| Audit log | ✓ | | | | | | ✓ |
+
+An owner who is also a dentist holds `owner` + `doctor`. Clinical signing is
+deliberately **not** in `owner`: signing a prescription needs a registered
+dentist, not an owner. Accountants and auditors never see clinical data (DPDP
+data minimisation). Auditor grants carry an expiry (`memberships.expires_at`).
+
+**Why not the six generic roles in PRD v1.0** (org_admin, branch_admin,
+clinician, front_desk, accountant, auditor)? The case for them is real: fewer
+roles, and "clinician" sounds specialty-neutral. It fails on one point that
+matters: `clinician` puts assistants, hygienists and nurses in the same bucket
+as the dentist, so either assistants can sign diagnoses and prescriptions (a
+medico-legal problem) or the dentist cannot. That split has to exist.
+`org_admin`/`branch_admin` also read like IT roles to a clinic owner, and
+`owner`/`branch_manager` already appear in the schema, seed and Phase-0 PRD.
+
+**Why the schema's `associate_doctor` is dropped:** the case for keeping it is
+that associates must not see branch money. But no doctor who is not an owner
+or manager should see branch money, salaried or not — so the role grants
+nothing `doctor` doesn't. What does differ is how they are paid, which is
+`providers.engagement_type` plus `payout_rules`. Keeping pay terms inside
+access control means that promoting an associate to partner silently changes
+what they can see. Removing a Postgres enum value later is painful; removing
+it before the first migration costs nothing.
+
+`assistant` becomes `clinical_assistant` so the same role covers dental
+assistants, derma therapists and nurses without renaming later.
+
+**Deferred, not rejected:** an org policy limiting doctors to patients
+booked with them, for chains with visiting consultants. It is a policy
+setting, not a role.
+
+---
+
+## ADR-010 — Document numbering: 16-character, per-branch, per-FY series
+
+**Date:** 2026-09-17 · **Status:** accepted (format to be seen by the CA
+together with PRD Q4)
+
+CGST Rules 46(b) (tax invoice), 49 (bill of supply), 50 (receipt voucher) and
+53 (credit note) require a **consecutive serial number of at most 16
+characters, using only letters, digits, `-` and `/`, unique for a financial
+year**, in one or several series. The format proposed on 2026-09-13
+(`KNP/2026-27/000123`, 18 characters) breaks that rule and is withdrawn.
+
+| Series | Format | Example | Length |
+| --- | --- | --- | --- |
+| Sales documents | `BBB/YY-YY/NNNNN` | `KNP/26-27/00123` | 15 |
+| Receipts | `BBBR/YY-YY/NNNNN` | `KNPR/26-27/00123` | 16 |
+| Credit notes | `BBBC/YY-YY/NNNNN` | `KNPC/26-27/00012` | 16 |
+
+- `BBB` is the branch code: exactly three uppercase letters or digits, unique
+  in the org, **immutable once a document has been issued**.
+- `YY-YY` is the Indian financial year (April–March); the counter resets each
+  FY. That is standard practice, and carrying the FY keeps numbers unique
+  across years, so a patient's two `00123`s never meet.
+- Five digits give 99,999 documents per branch per series per year. The
+  formatter **throws** past that or past 16 characters, with a test at the
+  limit. It never silently widens.
+- One sales series covers every sale document. Under GST its title depends on
+  what it contains: a **tax invoice** (all taxable), a **bill of supply** (all
+  exempt), or an **invoice-cum-bill of supply** (Rule 46A: mixed, to an
+  unregistered person — every patient). Title is computed at issue from the
+  lines. If each title had its own series, a draft whose lines changed would
+  change series. An unregistered branch issues a plain bill from the same
+  series with no GST particulars.
+- A number is assigned **at issue, never at draft**, inside the issuing
+  transaction, from a locked `invoice_series` row. A voided document keeps
+  its number and stays visible, so the series has no holes.
+
+**Uniqueness is really per GSTIN.** GST registration is per state, so two
+branches in one state share a GSTIN. Branch codes keep their series apart.
+This also means registration status is a property of the org in a state, not
+a free per-branch flag: the data layer must stop two same-state branches
+disagreeing on `gst_registered`/`gstin`.
+
+**Rejected:** one org-wide counter (branches block each other and a branch
+cannot be read off the number); separate series per document title (see
+above); dropping the FY (legal, but every year repeats numbers).
+
+---
+
+## ADR-011 — Staff sign in with an emailed one-time code
+
+**Date:** 2026-09-17 · **Status:** accepted for Phase 1
+
+Email is the identity. Staff enter their email, receive a **6-digit code**,
+and type it in. No passwords in Phase 1. Implemented behind
+`src/lib/auth` with a Supabase adapter (`signInWithOtp` / `verifyOtp`, with
+the magic-link template changed to send `{{ .Token }}`).
+
+**Why a code, not a magic link:** a reception PC is often not where the staff
+member reads email. A link opened on a phone signs in the phone, not the desk.
+A code works across devices.
+
+**Why not passwords:** the case for them is speed — no trip to the inbox. But
+staff sign in about once a day on long sessions, so the saving is small.
+Meanwhile shared reception passwords end up on sticky notes, and shared logins
+destroy the audit trail this product sells on. Phone OTP may still fit front
+desks better, but it costs per SMS and needs DLT registration in India, so it
+waits.
+
+**Conditions before any real clinic uses it:**
+- **Custom SMTP** (Resend, Postmark or SES). Supabase's built-in sender
+  allows about 2 emails an hour and is for development only.
+- **One email per person, no shared accounts.** Onboarding says so
+  explicitly.
+- Sessions long enough for a clinic day (target: 12-hour idle timeout,
+  re-auth at most daily). Sensitive actions such as day reopen and write-off
+  re-verify with a fresh code later.
+- A rejected email address (not invited) gets a generic response, so the form
+  cannot be used to enumerate staff.
+
+**Revisit when:** a design partner's front desk finds the daily code friction
+real, or SMS/WhatsApp OTP cost is folded into the model.
