@@ -10,6 +10,7 @@ export default defineConfig({
     include: ['src/**/*.db.test.ts'],
     globalSetup: ['./src/test/db-global-setup.ts'],
     fileParallelism: false,
+    env: { DATABASE_URL: process.env.DATABASE_URL_TEST ?? '' },
     testTimeout: 30_000,
     hookTimeout: 60_000,
   },
