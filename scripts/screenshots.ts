@@ -71,6 +71,7 @@ async function main() {
   await mp.getByLabel('Password').fill('demo-owner-pass');
   await mp.getByRole('button', { name: 'Sign in' }).click();
   await mp.waitForURL(`${base}/`);
+  await mp.getByRole('heading', { name: 'Today', exact: true }).waitFor();
   await mp.screenshot({ path: `${out}/8-mobile-dashboard.png`, fullPage: true });
   await browser.close();
 }
