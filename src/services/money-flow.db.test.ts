@@ -335,3 +335,42 @@ describe('patient registration', () => {
     expect(found[0]!.fileNumbers[0]).toMatch(new RegExp(`^${f.pune.code}-\\d{4}$`));
   });
 });
+
+describe('allocations against partly paid bills (regression: unqualified correlated subquery)', () => {
+  it('settles only what is still due and keeps the rest as an advance', async () => {
+    const desk = f.ctx('desk');
+    await reopenDay(f.ctx('owner'), { branchId: f.pune.id, date: today, reason: 'Regression test' }).catch(() => {});
+    const patientId = await newPatient();
+    const res = await issueBill(desk, { patientId, doctorId: f.doctorId, idempotencyKey: key(), mode: 'issue', lines: [{ catalogueItemId: f.items.rct, quantity: 1 }] });
+    if (res.kind !== 'issued') throw new Error();
+    // 4,500 bill: pay 4,000, then 1,000 → 500 settles the bill, 500 is an advance.
+    await recordReceipt(desk, { patientId, amountPaise: 400_000, mode: 'cash', idempotencyKey: key() });
+    const second = await recordReceipt(desk, { patientId, amountPaise: 100_000, mode: 'upi', idempotencyKey: key() });
+    expect(second.allocations).toEqual([{ invoiceId: res.invoiceId, amountPaise: 50_000 }]);
+    expect(second.advancePaise).toBe(50_000);
+    const preview = await previewAllocation(desk, patientId, 10_000 as Paise);
+    expect(preview.open).toEqual([]);
+  });
+
+  it('spends an advance once, not on every later bill', async () => {
+    const desk = f.ctx('desk');
+    const patientId = await newPatient();
+    await recordReceipt(desk, { patientId, amountPaise: 100_000, mode: 'cash', idempotencyKey: key() });
+    const a = await issueBill(desk, { patientId, doctorId: f.doctorId, idempotencyKey: key(), mode: 'issue', lines: [{ catalogueItemId: f.items.brush, quantity: 5 }] });
+    const b = await issueBill(desk, { patientId, doctorId: f.doctorId, idempotencyKey: key(), mode: 'issue', lines: [{ catalogueItemId: f.items.rct, quantity: 1 }] });
+    if (a.kind !== 'issued' || b.kind !== 'issued') throw new Error();
+    // Brush ×5 = 600.00 + 18% 108.00 = 708.00 (fully covered by the 1,000 advance); RCT gets the remaining 292.00.
+    expect((await getInvoice(desk, a.invoiceId))!.paidPaise).toBe(70_800);
+    expect((await getInvoice(desk, b.invoiceId))!.paidPaise).toBe(29_200);
+    expect((await getInvoice(desk, b.invoiceId))!.duePaise).toBe(420_800);
+    expect((await patientAccount(desk, patientId)).balancePaise).toBe(420_800);
+  });
+
+  it('dashboard "patients owe" equals the receivables total', async () => {
+    const owner = f.ctx('owner', 'all');
+    const { receivables } = await import('./reports');
+    const d = await dashboard(owner, owner.branchIds);
+    const r = await receivables(owner, owner.branchIds);
+    expect(d.reduce((s, x) => s + x.outstandingPaise, 0)).toBe(r.ageing.total);
+  });
+});

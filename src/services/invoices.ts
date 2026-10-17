@@ -368,7 +368,7 @@ async function applyAdvances(tx: Tx, orgId: string, branchId: string, patientId:
   const open = await tx
     .select({
       id: receipts.id,
-      unallocated: sql<string>`${receipts.amountPaise} - coalesce((select sum(a.amount_paise) from receipt_allocations a where a.receipt_id = ${receipts.id}), 0)`,
+      unallocated: sql<string>`receipts.amount_paise - coalesce((select sum(a.amount_paise) from receipt_allocations a where a.receipt_id = receipts.id), 0)`,
     })
     .from(receipts)
     .where(and(eq(receipts.orgId, orgId), eq(receipts.branchId, branchId), eq(receipts.patientId, patientId)))
@@ -544,7 +544,7 @@ export async function listInvoices(
 ): Promise<InvoiceRow[]> {
   const ids = opts.branchIds.filter((b) => ctx.branchIds.includes(b));
   if (ids.length === 0) return [];
-  const paid = sql<string>`coalesce((select sum(a.amount_paise) from receipt_allocations a where a.invoice_id = ${invoices.id}), 0)`;
+  const paid = sql<string>`coalesce((select sum(a.amount_paise) from receipt_allocations a where a.invoice_id = invoices.id), 0)`;
   const conds = [eq(invoices.orgId, ctx.orgId), inArray(invoices.branchId, ids)];
   if (opts.patientId) conds.push(eq(invoices.patientId, opts.patientId));
   if (opts.openOnly) conds.push(eq(invoices.status, 'issued'), sql`${invoices.totalPaise} > ${paid}`);
@@ -564,7 +564,7 @@ export async function listInvoices(
     .innerJoin(patients, eq(patients.id, invoices.patientId))
     .innerJoin(branches, eq(branches.id, invoices.branchId))
     .where(and(...conds))
-    .orderBy(opts.openOnly ? asc(invoices.issuedOn) : desc(invoices.createdAt))
+    .orderBy(...(opts.openOnly ? [asc(invoices.issuedOn), asc(invoices.createdAt)] : [desc(invoices.createdAt)]))
     .limit(opts.limit ?? 200);
   return rows.map((r) => {
     const total = r.totalPaise as Paise;

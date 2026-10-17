@@ -28,7 +28,7 @@ export default async function Dashboard() {
         right={
           canBill ? (
             <Link className="cta" href="/patients">
-              New bill
+              Find patient to bill
             </Link>
           ) : null
         }

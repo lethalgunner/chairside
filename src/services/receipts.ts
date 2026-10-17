@@ -36,7 +36,7 @@ export async function outstandingInvoices(
       number: invoices.number,
       issuedOn: invoices.issuedOn,
       totalPaise: invoices.totalPaise,
-      allocated: sql<string>`coalesce((select sum(a.amount_paise) from receipt_allocations a where a.invoice_id = ${invoices.id}), 0)`,
+      allocated: sql<string>`coalesce((select sum(a.amount_paise) from receipt_allocations a where a.invoice_id = invoices.id), 0)`,
     })
     .from(invoices)
     .where(

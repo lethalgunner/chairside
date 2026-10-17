@@ -67,7 +67,7 @@ export async function dashboard(ctx: TenantContext, branchIds: string[], date = 
   const outstanding = await db
     .select({
       b: invoices.branchId,
-      t: sql<string>`sum(${invoices.totalPaise} - coalesce((select sum(a.amount_paise) from receipt_allocations a where a.invoice_id = ${invoices.id}), 0))`,
+      t: sql<string>`sum(invoices.total_paise - coalesce((select sum(a.amount_paise) from receipt_allocations a where a.invoice_id = invoices.id), 0))`,
     })
     .from(invoices)
     .where(and(eq(invoices.orgId, ctx.orgId), inArray(invoices.branchId, ids), eq(invoices.status, 'issued')))

@@ -32,3 +32,11 @@ export function testSeriesEnabled(): boolean {
 export function isUuid(v: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }
+
+/*
+ * Note for correlated subqueries: inside a `sql` template, Drizzle renders a
+ * column such as ${invoices.id} WITHOUT its table name when the outer query has
+ * a single table. In a subquery over receipt_allocations that silently binds to
+ * the inner table's `id`. Write the outer column fully qualified as plain SQL
+ * (`invoices.id`) instead. Regression: money-flow.db.test.ts "allocations".
+ */

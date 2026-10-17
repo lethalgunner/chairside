@@ -7,6 +7,7 @@ import { canDo } from '@/services/context';
 import { getPatient } from '@/services/patients';
 import { unbilledProcedures } from '@/services/reports';
 import { PageHead } from '@/components/ui';
+import { formatIndianMobile } from '@/domain/phone';
 import BillBuilder from './BillBuilder';
 
 export default async function NewBillPage({ searchParams }: { searchParams: Promise<{ patient?: string }> }) {
@@ -34,7 +35,7 @@ export default async function NewBillPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHead eyebrow={`${branch.name} · ${patient.fileNumbers.join(', ')}`} title={`Bill for ${patient.fullName}`} sub={patient.age !== null ? `${patient.age} yrs · ${patient.phone}` : patient.phone} />
+      <PageHead eyebrow={`${branch.name} · ${patient.fileNumbers.join(', ')}`} title={`Bill for ${patient.fullName}`} sub={patient.age !== null ? `${patient.age} yrs · ${formatIndianMobile(patient.phone)}` : formatIndianMobile(patient.phone)} />
       {catalogue.length === 0 || doctors.length === 0 ? (
         <div className="callout warn">This branch has no {catalogue.length === 0 ? 'price list' : 'doctors'} set up yet. Ask KS to load it.</div>
       ) : (

@@ -254,7 +254,7 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
                         </td>
                         <td className="num strong">{cl ? formatINR(cl.lineTotalPaise) : '—'}</td>
                         <td>
-                          <button type="button" className="linkish" aria-label={`Remove ${l.name}`} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>Remove</button>
+                          <button type="button" className="icon-btn" aria-label={`Remove ${l.name}`} title="Remove" onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>✕</button>
                         </td>
                       </tr>
                     );

@@ -19,3 +19,7 @@ yarn-error.log*
 coverage/
 .vercel
 drizzle/meta/_journal.json.bak
+
+# Test output
+playwright-report/
+test-results/

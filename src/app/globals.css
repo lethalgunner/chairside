@@ -1022,3 +1022,76 @@ input.small-in {
   flex-wrap: wrap;
   margin-top: 14px;
 }
+.icon-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--ink-3);
+  min-width: 28px;
+  min-height: 28px;
+  font-size: 14px;
+}
+.icon-btn:hover {
+  color: var(--rust);
+  border-color: var(--line);
+}
+.bill-grid input.small-in {
+  width: 84px;
+}
+.bill-grid td,
+.bill-grid th {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+/* Phones: keep the numbers on the first screen; nav becomes one scrolling row. */
+@media (max-width: 860px) {
+  .sidebar {
+    padding: 10px 12px;
+    gap: 10px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .sidebar .brand {
+    flex: 0 0 auto;
+  }
+  .branch-switch {
+    flex: 1 1 180px;
+    padding: 0;
+    background: none;
+    border: 0;
+  }
+  .branch-switch .lbl {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  nav.main {
+    flex: 1 1 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 4px;
+    padding-bottom: 2px;
+  }
+  nav.main .sec {
+    display: none;
+  }
+  nav.main a {
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+  .sidebar-foot {
+    flex: 1 1 100%;
+    margin-top: 0;
+  }
+  .topbar .global-search,
+  .topbar .global-search input {
+    width: 100%;
+  }
+  .topbar .global-search {
+    flex: 1 1 100%;
+  }
+}
