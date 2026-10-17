@@ -309,3 +309,34 @@ waits.
 
 **Revisit when:** a design partner's front desk finds the daily code friction
 real, or SMS/WhatsApp OTP cost is folded into the model.
+
+---
+
+## ADR-012 — Pilot 0 posture: parallel run, deferred controls, minimal auth
+
+**Date:** 2026-10-17 · **Status:** accepted for Pilot 0 only (KS decision, 17 Oct)
+
+Both Dr Vij branches keep their incumbent software as the system of record and
+enter the same work into Chairside for a few days. KS chose speed over the
+Phase 1 gates for this window. Consequences:
+
+- **Deferred, each with the trigger that brings it back:** row-level security
+  and composite FKs (before a second org exists); PITR, the downtime runbook,
+  the CA gate and the DPA (before any clinic stops using its incumbent); MFA,
+  PIN switching and an append-only audit log (before go-live or any non-family
+  clinic); the ADR-008 providers table and ADR-009 role rename (Phase 1).
+  Doctors are `users` rows without passwords until then.
+- **Kept:** authentication on every page and server action, invite-only
+  accounts, minimal personal data (name, phone, age, sex, referral), Indian
+  hosting, secrets outside the repo, daily backups, and a `T` test document
+  series so no Chairside bill is mistaken for a legal one.
+- **Auth for Pilot 0 is our own minimal password login** (scrypt, database
+  sessions, httpOnly cookie, rate-limited) behind `src/lib/auth`, instead of
+  ADR-011's emailed codes. It removes the SMTP and Supabase-Auth dependencies
+  for a ten-user invite-only test. ADR-011 is the target for Phase 1; the
+  interface is shaped so the swap touches only `src/lib/auth`.
+- **Data is disposable** and will be wiped before any real go-live, so schema
+  changes during Pilot 0 need no data migration.
+- Voiding an invoice changes its status and writes a reversing ledger entry;
+  amounts on posted rows are never updated. Linking a procedure to the invoice
+  line that billed it is the one other permitted update.
