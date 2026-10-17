@@ -112,6 +112,9 @@ export const dayBookStatusEnum = pgEnum('day_book_status', [
   'reopened',
 ]);
 
+/** Numbered document series (ADR-010). Each has its own gapless counter per branch per FY. */
+export const documentTypeEnum = pgEnum('document_type', ['sale', 'receipt', 'credit_note']);
+
 export const payoutBasisEnum = pgEnum('payout_basis', [
   'percent_of_collection',
   'percent_of_billing',
@@ -161,6 +164,13 @@ export const branches = pgTable(
     /** Reserved for ABDM. Each facility gets its own HIP ID — see BRD 10.2. */
     abdmHipId: text('abdm_hip_id'),
 
+    // Day close: a cash variance above this, either way, needs a written reason.
+    dayCloseTolerancePaise: bigint('day_close_tolerance_paise', { mode: 'number' })
+      .notNull()
+      .default(10_000),
+    // Cash left in the drawer at the start of each day.
+    defaultFloatPaise: bigint('default_float_paise', { mode: 'number' }).notNull().default(0),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -198,6 +208,9 @@ export const users = pgTable(
      * Kept behind our own interface deliberately so the provider stays swappable.
      */
     authSubject: text('auth_subject').unique(),
+    // Pilot 0 only (ADR-012): scrypt hash. Null means the user cannot sign in
+    // (e.g. a doctor recorded for attribution who has no login yet).
+    passwordHash: text('password_hash'),
     fullName: text('full_name').notNull(),
     email: text('email'),
     phone: text('phone'),
@@ -206,7 +219,11 @@ export const users = pgTable(
     active: boolean('active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({ orgIdx: index('users_org_idx').on(t.orgId) }),
+  (t) => ({
+    orgIdx: index('users_org_idx').on(t.orgId),
+    // Sign-in identity. Stored lower-cased; Postgres allows many NULLs.
+    emailUnique: uniqueIndex('users_email_unique').on(t.email),
+  }),
 );
 
 /**
@@ -251,6 +268,8 @@ export const patients = pgTable(
     dateOfBirth: date('date_of_birth'),
     /** Used when the patient knows their age but not their date of birth. */
     approximateAge: integer('approximate_age'),
+    // The date the approximate age was given, so it can be aged forward.
+    ageRecordedOn: date('age_recorded_on'),
 
     /** ABHA is an attribute, never the primary key — see BRD section 11. */
     abhaNumber: text('abha_number'),
@@ -491,7 +510,7 @@ export const invoiceSeries = pgTable(
       .references(() => branches.id),
     /** e.g. '2026-27' */
     financialYear: text('financial_year').notNull(),
-    documentType: text('document_type').notNull(),
+    documentType: documentTypeEnum('document_type').notNull(),
     lastNumber: integer('last_number').notNull().default(0),
   },
   (t) => ({
@@ -536,12 +555,21 @@ export const invoices = pgTable(
     roundingPaise: bigint('rounding_paise', { mode: 'number' }).notNull().default(0),
     totalPaise: bigint('total_paise', { mode: 'number' }).notNull(),
 
+    doctorId: uuid('doctor_id').references(() => users.id),
+    // Client-generated per submission so a double click issues one invoice.
+    idempotencyKey: text('idempotency_key').notNull(),
+
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     voidedByInvoiceId: uuid('voided_by_invoice_id'),
+    // Voiding is a status transition; amounts are never changed (ADR-012).
+    voidedAt: timestamp('voided_at', { withTimezone: true }),
+    voidedBy: uuid('voided_by').references(() => users.id),
+    voidReason: text('void_reason'),
   },
   (t) => ({
     numberUnique: uniqueIndex('invoices_number_unique').on(t.branchId, t.number),
+    idempotencyUnique: uniqueIndex('invoices_idempotency_unique').on(t.orgId, t.idempotencyKey),
     patientIdx: index('invoices_patient_idx').on(t.patientId),
     branchDateIdx: index('invoices_branch_date_idx').on(t.branchId, t.issuedOn),
   }),
@@ -610,13 +638,15 @@ export const receipts = pgTable(
     reference: text('reference'),
     amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
     /** Amount not yet applied to any invoice, i.e. sitting as an advance. */
-    unallocatedPaise: bigint('unallocated_paise', { mode: 'number' }).notNull().default(0),
+    // Unallocated (advance) amount is derived: amountPaise minus its allocations (ADR-005).
+    idempotencyKey: text('idempotency_key').notNull(),
     dayBookId: uuid('day_book_id'),
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     numberUnique: uniqueIndex('receipts_number_unique').on(t.branchId, t.number),
+    idempotencyUnique: uniqueIndex('receipts_idempotency_unique').on(t.orgId, t.idempotencyKey),
     branchDateIdx: index('receipts_branch_date_idx').on(t.branchId, t.receivedOn),
     patientIdx: index('receipts_patient_idx').on(t.patientId),
   }),
@@ -704,6 +734,10 @@ export const dayBooks = pgTable(
 
     openingFloatPaise: bigint('opening_float_paise', { mode: 'number' }).notNull().default(0),
 
+    // Pilot 0 tally against the incumbent system, typed in by the desk at close.
+    legacyBillCount: integer('legacy_bill_count'),
+    legacyCollectedPaise: bigint('legacy_collected_paise', { mode: 'number' }),
+
     closedBy: uuid('closed_by').references(() => users.id),
     closedAt: timestamp('closed_at', { withTimezone: true }),
     reopenedBy: uuid('reopened_by').references(() => users.id),
@@ -732,6 +766,9 @@ export const expenses = pgTable(
     gstPaise: bigint('gst_paise', { mode: 'number' }).notNull().default(0),
     incurredOn: date('incurred_on').notNull(),
     paidOn: date('paid_on'),
+    // True when the money came out of the front-desk drawer; feeds expected cash at close.
+    paidFromDrawer: boolean('paid_from_drawer').notNull().default(false),
+    createdBy: uuid('created_by').references(() => users.id),
     approvedBy: uuid('approved_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -793,4 +830,37 @@ export const auditLog = pgTable(
     entityIdx: index('audit_entity_idx').on(t.entityType, t.entityId),
     orgTimeIdx: index('audit_org_time_idx').on(t.orgId, t.occurredAt),
   }),
+);
+
+
+// ---------------------------------------------------------------------------
+// Pilot 0 authentication (ADR-012). Replaced by ADR-011 emailed codes in Phase 1.
+// ---------------------------------------------------------------------------
+
+export const sessions = pgTable(
+  'sessions',
+  {
+    // 256-bit random token, base64url. Unguessable and never exposed beyond the
+    // httpOnly cookie. A new one is issued on every sign-in.
+    id: text('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => ({ userIdx: index('sessions_user_idx').on(t.userId) }),
+);
+
+export const loginFailures = pgTable(
+  'login_failures',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ emailIdx: index('login_failures_email_idx').on(t.email, t.occurredAt) }),
 );
