@@ -36,6 +36,7 @@ Local Postgres 16 is enough; set `PW_CHROMIUM` to a Chromium binary if Playwrigh
 - Domain logic is pure functions in `src/domain/*` with unit tests. Pages and actions never do money arithmetic.
 - Only the data-access layer imports Drizzle or the schema. Every repository function requires a `TenantContext`. Feature code never queries raw.
 - Only `src/lib/auth/*` handles identity. No Supabase-specific SQL. Row-level security is deferred until a second org exists (ADR-012); until then every query filters by `orgId` and the cross-org tests in `money-flow.db.test.ts` must stay green.
+- Every new table's migration must `ENABLE ROW LEVEL SECURITY` (no policies). This closes Supabase's public Data API; the app connects as owner and is unaffected (see `drizzle/0002_close_data_api.sql`).
 - In `sql` templates, write outer columns of correlated subqueries fully qualified (`invoices.id`), never `${invoices.id}` (see `src/services/util.ts`).
 - Permissions are checked by **capability** (`src/domain/permissions.ts`), never by role name (ADR-009).
 - Every write to a mutable table goes through the audit wrapper.

@@ -47,6 +47,20 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Check the database secret (never printed)
+        run: |
+          node -e '
+            const raw = process.env.DATABASE_URL || "";
+            const fail = (m) => { console.log("::error::" + m); process.exit(1); };
+            if (!raw) fail("Secret DATABASE_URL_MIGRATE is missing. Add it under Settings → Secrets and variables → Actions.");
+            if (/\[YOUR-PASSWORD\]|\s/.test(raw)) fail("DATABASE_URL_MIGRATE still contains [YOUR-PASSWORD] or a space/newline. Paste the string again with your real password.");
+            let u; try { u = new URL(raw); } catch { fail("DATABASE_URL_MIGRATE is not a valid URL. If your password has symbols like @ # / ? %, reset it to letters and digits only."); }
+            if (!/^postgres(ql)?:$/.test(u.protocol)) fail("DATABASE_URL_MIGRATE must start with postgresql://");
+            if (!u.hostname.includes("pooler.supabase.com")) fail("Use the Session pooler string (host ends in pooler.supabase.com), not the Direct connection.");
+            if (u.port !== "5432") fail("Use the Session pooler on port 5432 for admin tasks (6543 is for the app).");
+            if (!u.username.startsWith("postgres.")) fail("The user should look like postgres.<project-ref>.");
+            console.log("Database secret looks right: " + u.username.replace(/\..*/, ".***") + "@" + u.hostname + ":" + u.port);
+          '
       - run: npm ci
       - name: Migrate
         if: inputs.task == 'migrate'
@@ -64,6 +78,9 @@ jobs:
           ROLES: ${{ inputs.roles }}
           BRANCH: ${{ inputs.branch }}
         run: |
+          if [ -z "$EMAIL" ]; then echo "::error::Fill in 'invite: the person's email'."; exit 1; fi
+          if [ -z "$NAME" ] && [ -z "$LINK_DOCTOR" ]; then echo "::error::Fill in their name (or an existing doctor's name under link_doctor)."; exit 1; fi
+          if [ -z "$APP_URL" ]; then echo "::error::Secret APP_URL is missing, e.g. https://chairside.vercel.app"; exit 1; fi
           args=(--invite --org "$ORG" --email "$EMAIL")
           if [ -n "$LINK_DOCTOR" ]; then args+=(--link-doctor "$LINK_DOCTOR"); else args+=(--name "$NAME"); fi
           for r in $ROLES; do args+=(--role "$r"); done

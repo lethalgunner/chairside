@@ -7,12 +7,19 @@ Steps marked **KS** need you because they involve passwords or connection string
 Clone the bundle and push it (see `chairside-wip/HOW-TO-USE.md`). Branches: `pilot0` (the app) and `main`. In GitHub, make `pilot0` the default branch, or merge it into `main`.
 
 ## 2. Supabase (KS)
-1. New project, region **South Asia (Mumbai)**, Pro plan. Save the database password in your password manager.
-2. *Connect* → copy two strings, replacing `[YOUR-PASSWORD]` (URL-encode special characters such as `@ # / ?`):
+**Done 17 Oct 2026:** project `chairside-pilot0` (ref `rypamdfnuirxztvwvmnf`, Mumbai, free plan) was created through the Supabase connector. Migrations 0000–0002 are applied and recorded in `drizzle.__drizzle_migrations`, so the Vercel build's migrate step is a no-op. `seed/demo.json` is loaded. The older Seoul project (`rlydjraowqmodbhkbasn`) is unused and empty.
+
+Because the connector created the project, nobody knows its database password. **Reset it first:** *Project Settings → Database → Reset database password*, letters and digits only, saved in your password manager.
+
+Free plan caveats: no daily backups (fine while data is disposable) and the project pauses after 7 days without use. Upgrade to Pro before the parallel run.
+
+1. (Done.) Region **South Asia (Mumbai)**.
+2. *Connect* → copy two strings, replacing `[YOUR-PASSWORD]` (a letters-and-digits password needs no encoding):
    - **Transaction pooler** (port **6543**) → for the app. Call it `DATABASE_URL`.
    - **Session pooler** (port **5432**) → for migrations and admin tasks. Call it `DATABASE_URL_MIGRATE`.
    Both pooler hosts are IPv4, which Vercel and GitHub Actions need. The "direct connection" is IPv6-only, so don't use it here.
 3. Don't create Supabase Auth users or copy the service-role key. Chairside signs people in itself (ADR-012).
+4. Supabase also serves every `public` table through its Data API using the public key. Migration `0002_close_data_api` enables RLS with no policies on every table, so that API returns nothing. The app connects as the table owner and is unaffected. **Every new table needs the same `ENABLE ROW LEVEL SECURITY` line in its migration.** Check *Advisors → Security* after schema changes.
 
 ## 3. Vercel (KS)
 1. *Add New → Project* → import the GitHub repo. Framework: Next.js. Production branch: the one from step 1.

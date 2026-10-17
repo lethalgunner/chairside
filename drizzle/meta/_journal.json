@@ -15,6 +15,13 @@
       "when": 1792226347649,
       "tag": "0001_invite_links",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792231200000,
+      "tag": "0002_close_data_api",
+      "breakpoints": true
     }
   ]
 }
