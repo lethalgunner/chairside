@@ -1,0 +1,61 @@
+{
+  "_readme": "Pilot 0 setup for the Dr Vij branches. Replace every value marked CONFIRM with what the clinic gives you (Pilot 0 plan §5), then run: npm run seed -- seed/pilot0.json. Re-running updates names, prices and tax fields in place; it never deletes.",
+  "org": { "name": "Dr. Vij Dental Clinic & Implant Center" },
+  "branches": [
+    {
+      "code": "KNP",
+      "name": "Kanpur",
+      "addressLine": "Govind Nagar",
+      "city": "Kanpur",
+      "state": "Uttar Pradesh",
+      "phone": "85730 20202",
+      "gstRegistered": false,
+      "gstin": null,
+      "_confirm": "GST registration status and GSTIN from the clinic or its CA",
+      "dayCloseTolerancePaise": 10000,
+      "defaultFloatPaise": 0
+    },
+    {
+      "code": "PUN",
+      "name": "Pune",
+      "addressLine": "Shop 107, Nawu Imperio, Gahunje",
+      "city": "Pune",
+      "state": "Maharashtra",
+      "phone": "93730 09990",
+      "gstRegistered": false,
+      "gstin": null,
+      "_confirm": "GST registration status and GSTIN from the clinic or its CA",
+      "dayCloseTolerancePaise": 10000,
+      "defaultFloatPaise": 0
+    }
+  ],
+  "doctors": [
+    { "fullName": "Dr. Anshul Vij", "branches": null },
+    { "fullName": "Dr. Richa Vohra Vij", "branches": null }
+  ],
+  "_catalogueNote": "Placeholder price list (CONFIRM every price against the clinic's own list). Rates for prosthetics and oral-care goods use 5%, the GST 2.0 rate reported by secondary sources from 22 Sep 2025; a CA must confirm before any customer-facing use. Treatment by a registered dentist is exempt (SAC 9993).",
+  "catalogue": [
+    { "code": "CONS", "name": "Consultation", "category": "Diagnostics", "pricePaise": 50000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "IOPA", "name": "IOPA X-ray", "category": "Diagnostics", "pricePaise": 30000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "OPG", "name": "OPG X-ray", "category": "Diagnostics", "pricePaise": 80000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "SCAL", "name": "Scaling and polishing", "category": "Preventive", "pricePaise": 150000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "FLUO", "name": "Fluoride application", "category": "Preventive", "pricePaise": 80000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "COMP", "name": "Composite filling", "category": "Restorative", "pricePaise": 150000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "GIC", "name": "GIC filling", "category": "Restorative", "pricePaise": 100000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "RCTA", "name": "Root canal treatment, anterior", "category": "Endodontics", "pricePaise": 450000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "RCTM", "name": "Root canal treatment, molar", "category": "Endodontics", "pricePaise": 650000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "PULP", "name": "Pulpectomy (child)", "category": "Paediatric", "pricePaise": 300000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "EXT", "name": "Extraction, simple", "category": "Surgery", "pricePaise": 100000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "EXTS", "name": "Extraction, surgical", "category": "Surgery", "pricePaise": 350000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "IMPS", "name": "Implant placement (surgery)", "category": "Implants", "pricePaise": 1500000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "IMPF", "name": "Implant fixture", "category": "Implants", "pricePaise": 1800000, "taxCategory": "goods_prosthetic", "hsnSacCode": "9021", "gstRateBp": 500 },
+    { "code": "CPFM", "name": "Crown, PFM", "category": "Prosthodontics", "pricePaise": 450000, "taxCategory": "goods_prosthetic", "hsnSacCode": "9021", "gstRateBp": 500 },
+    { "code": "CZIR", "name": "Crown, zirconia", "category": "Prosthodontics", "pricePaise": 1000000, "taxCategory": "goods_prosthetic", "hsnSacCode": "9021", "gstRateBp": 500 },
+    { "code": "DENT", "name": "Complete denture (per arch)", "category": "Prosthodontics", "pricePaise": 1500000, "taxCategory": "goods_prosthetic", "hsnSacCode": "9021", "gstRateBp": 500 },
+    { "code": "ORTA", "name": "Orthodontic monthly adjustment", "category": "Orthodontics", "pricePaise": 200000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "ORTB", "name": "Orthodontic braces (metal), fitting", "category": "Orthodontics", "pricePaise": 3500000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "WHIT", "name": "Teeth whitening (in-office)", "category": "Cosmetic", "pricePaise": 800000, "taxCategory": "cosmetic_service", "hsnSacCode": "9997", "gstRateBp": 1800 },
+    { "code": "TPST", "name": "Toothpaste (retail)", "category": "Retail", "pricePaise": 15000, "taxCategory": "goods_retail", "hsnSacCode": "3306", "gstRateBp": 500 },
+    { "code": "IDBR", "name": "Interdental brush pack (retail)", "category": "Retail", "pricePaise": 25000, "taxCategory": "goods_retail", "hsnSacCode": "9603", "gstRateBp": 500 }
+  ]
+}

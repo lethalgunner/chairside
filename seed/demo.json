@@ -1,0 +1,20 @@
+{
+  "_readme": "Invented demo org for local development, QA and screenshots. Not real data.",
+  "org": { "name": "Demo Dental Group" },
+  "branches": [
+    { "code": "DKN", "name": "Demo Kanpur", "city": "Kanpur", "state": "Uttar Pradesh", "gstRegistered": false, "gstin": null, "dayCloseTolerancePaise": 10000, "defaultFloatPaise": 200000 },
+    { "code": "DPN", "name": "Demo Pune", "city": "Pune", "state": "Maharashtra", "gstRegistered": true, "gstin": "27AAAAA0000A1Z5", "dayCloseTolerancePaise": 10000, "defaultFloatPaise": 200000 }
+  ],
+  "doctors": [
+    { "fullName": "Dr. Demo Owner", "branches": null },
+    { "fullName": "Dr. Demo Associate", "branches": ["DPN"] }
+  ],
+  "catalogue": [
+    { "code": "RCT", "name": "Root canal treatment", "category": "Endodontics", "pricePaise": 450000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "CRN", "name": "Zirconia crown", "category": "Prosthodontics", "pricePaise": 600000, "taxCategory": "goods_prosthetic", "hsnSacCode": "9021", "gstRateBp": 1200 },
+    { "code": "TBR", "name": "Toothbrush", "category": "Retail", "pricePaise": 12000, "taxCategory": "goods_retail", "hsnSacCode": "3306", "gstRateBp": 1800 },
+    { "code": "SCAL", "name": "Scaling and polishing", "category": "Preventive", "pricePaise": 150000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 },
+    { "code": "WHIT", "name": "Teeth whitening", "category": "Cosmetic", "pricePaise": 800000, "taxCategory": "cosmetic_service", "hsnSacCode": "9997", "gstRateBp": 1800 },
+    { "code": "CONS", "name": "Consultation", "category": "Diagnostics", "pricePaise": 50000, "taxCategory": "exempt_healthcare", "hsnSacCode": "9993", "gstRateBp": 0 }
+  ]
+}
