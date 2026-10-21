@@ -15,21 +15,21 @@ function refresh() {
 
 export async function issueBillAction(input: IssueBillInput): Promise<ActionResult<IssueBillResult>> {
   const ctx = await requireContext();
-  const res = await run(() => issueBill(ctx, input));
+  const res = await run('bill.issue', () => issueBill(ctx, input));
   if (res.ok) refresh();
   return res;
 }
 
 export async function recordReceiptAction(input: RecordReceiptInput): Promise<ActionResult<RecordReceiptResult>> {
   const ctx = await requireContext();
-  const res = await run(() => recordReceipt(ctx, input));
+  const res = await run('receipt.record', () => recordReceipt(ctx, input));
   if (res.ok) refresh();
   return res;
 }
 
 export async function voidInvoiceAction(invoiceId: string, reason: string): Promise<ActionResult> {
   const ctx = await requireContext();
-  const res = await run(async () => {
+  const res = await run('invoice.void', async () => {
     await voidInvoice(ctx, invoiceId, reason);
     return undefined;
   });
@@ -47,7 +47,7 @@ function rupees(input: string, what: string): Paise {
 
 export async function recordCashOutAction(amount: string, description: string): Promise<ActionResult> {
   const ctx = await requireContext();
-  const res = await run(async () => {
+  const res = await run('cash.out', async () => {
     await recordCashOut(ctx, { amountPaise: rupees(amount, 'the amount'), description });
     return undefined;
   });
@@ -62,7 +62,7 @@ export async function closeDayAction(input: {
   legacyCollected?: string;
 }): Promise<ActionResult<{ variancePaise: number }>> {
   const ctx = await requireContext();
-  const res = await run(async () => {
+  const res = await run('day.close', async () => {
     const payload: CloseDayInput = {
       denominations: input.denominations,
       varianceReason: input.varianceReason,
@@ -78,7 +78,7 @@ export async function closeDayAction(input: {
 
 export async function reopenDayAction(branchId: string, date: string, reason: string): Promise<ActionResult> {
   const ctx = await requireContext();
-  const res = await run(async () => {
+  const res = await run('day.reopen', async () => {
     await reopenDay(ctx, { branchId, date, reason });
     return undefined;
   });

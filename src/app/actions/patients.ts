@@ -22,7 +22,7 @@ export async function registerPatientAction(input: {
   acknowledgedDuplicate: boolean;
 }): Promise<RegisterFormState> {
   const ctx = await requireContext();
-  const res = await run(() =>
+  const res = await run('patient.register', () =>
     registerPatient(ctx, {
       fullName: input.fullName,
       phone: input.phone,
