@@ -25,6 +25,10 @@ export default async function globalSetup() {
     env: { ...env, CHAIRSIDE_NEW_PASSWORD: 'demo-desk-pass' },
     stdio: 'ignore',
   });
+  execSync('npx tsx scripts/add-user.ts --org "Demo Dental Group" --email kdesk@demo.local --name "Meena (Kanpur desk)" --role front_desk --branch DKN', {
+    env: { ...env, CHAIRSIDE_NEW_PASSWORD: 'demo-kdesk-pass' },
+    stdio: 'ignore',
+  });
   const out = execSync('npx tsx scripts/add-user.ts --invite --org "Demo Dental Group" --email newdesk@demo.local --name "Ravi (new desk)" --role front_desk --branch DKN', {
     env: { ...env, APP_URL: `http://localhost:${Number(process.env.E2E_PORT ?? 3100)}` },
   }).toString();

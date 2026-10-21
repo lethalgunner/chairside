@@ -34,6 +34,7 @@ test('owner cancels a mistaken payment; the bill is due again and the payment is
   await page.getByRole('button', { name: /Record ₹500\.00 Cash/ }).click();
   await expect(page.getByRole('status')).toContainText('recorded');
   await page.getByRole('link', { name: /Back to Vikram/ }).click();
+  await expect(page.getByRole('heading', { name: 'Vikram Wrongpay', exact: true })).toBeVisible();
 
   await page.locator('table').first().getByRole('link').first().click();
   // A paid bill explains how to cancel it instead of hiding the button.
@@ -51,4 +52,23 @@ test('owner cancels a mistaken payment; the bill is due again and the payment is
   await page.getByRole('link', { name: 'Patient account →' }).click();
   await expect(page.locator('.tile.alert .k')).toHaveText('₹500.00');
   await expect(page.getByRole('row', { name: /Cancelled payment/ })).toBeVisible();
+});
+
+test('front desk cancels its own unpaid bill the same day, and is told who can cancel the rest', async ({ page }) => {
+  await login(page, 'kanpurDesk');
+  await expect(page.locator('.branch-banner')).toContainText('Demo Kanpur');
+  await registerAndBill(page, 'Rekha Wrongbill', 'consult', 'Dr. Demo Owner');
+  await page.getByRole('link', { name: 'View bill' }).click();
+  await page.getByRole('button', { name: 'Cancel this bill…' }).click();
+  await page.getByLabel(/Why is DKNT\/.* being cancelled\?/).fill('Billed the wrong patient');
+  await page.getByRole('button', { name: /^Cancel DKNT\// }).click();
+  await expect(page.getByText('Cancelled: Billed the wrong patient.')).toBeVisible();
+
+  // The owner's bill from the test above: the desk sees why it can't cancel it.
+  await page.goto(`/patients?q=${encodeURIComponent('Vikram Wrongpay')}`);
+  await page.getByRole('link', { name: 'Vikram Wrongpay' }).click();
+  await expect(page.getByRole('heading', { name: 'Vikram Wrongpay', exact: true })).toBeVisible();
+  await page.locator('table').first().getByRole('link').first().click();
+  await expect(page.getByText('Only the owner can cancel this bill. You can cancel only bills you issued yourself.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Cancel this bill…' })).toHaveCount(0);
 });

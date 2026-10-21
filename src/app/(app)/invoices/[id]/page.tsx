@@ -5,7 +5,7 @@ import { displayDate } from '@/domain/dates';
 import { add, formatINR, type Paise } from '@/domain/money';
 import type { TaxCategory } from '@/domain/tax';
 import { canDo } from '@/services/context';
-import { getInvoice } from '@/services/invoices';
+import { billCancellationFor, getInvoice } from '@/services/invoices';
 import { CategoryLabel, Card, MODE_LABEL, PageHead, StatusPill, TaxPill } from '@/components/ui';
 import VoidForm from './VoidForm';
 
@@ -26,7 +26,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const tax = add(t.cgstPaise, t.sgstPaise, t.igstPaise);
   const sameBranch = ctx.activeBranchId === inv.branchId;
   const canPay = sameBranch && inv.status === 'issued' && inv.duePaise > 0 && canDo(ctx, 'receipt.record', inv.branchId);
-  const canVoid = inv.status === 'issued' && inv.paidPaise === 0 && canDo(ctx, 'invoice.void', inv.branchId);
+  const cancel = billCancellationFor(ctx, inv);
 
   return (
     <>
@@ -134,8 +134,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           <p><Link className="link" href={`/patients/${inv.patientId}`}>Patient account →</Link></p>
         </Card>
       </div>
-      {canVoid ? <VoidForm invoiceId={inv.id} number={inv.number} /> : null}
-      {inv.status === 'issued' && inv.paidPaise > 0 && canDo(ctx, 'invoice.void', inv.branchId) ? (
+      {cancel.allowed ? <VoidForm invoiceId={inv.id} number={inv.number} /> : null}
+      {!cancel.allowed && inv.status === 'issued' && !cancel.needsPaymentsCancelled ? <p className="muted small">{cancel.reason}</p> : null}
+      {!cancel.allowed && cancel.needsPaymentsCancelled ? (
         // Never hide Cancel without saying why (QA Q7).
         <div className="callout">
           This bill has payments. Cancel them first:{' '}

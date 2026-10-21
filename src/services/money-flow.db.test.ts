@@ -228,7 +228,8 @@ describe('advances, void and unbilled', () => {
     const patientId = await newPatient();
     const res = await issueBill(desk, { patientId, doctorId: f.doctorId, idempotencyKey: key(), mode: 'issue', lines: [{ catalogueItemId: f.items.rct, quantity: 1 }] });
     if (res.kind !== 'issued') throw new Error();
-    await expect(voidInvoice(desk, res.invoiceId, 'Wrong patient')).rejects.toThrow(ForbiddenError);
+    // T20: the desk may now cancel its own unpaid same-day bill; roles without either capability still can't.
+    await expect(voidInvoice(f.ctx('accountant'), res.invoiceId, 'Wrong patient')).rejects.toThrow(ForbiddenError);
     await voidInvoice(manager, res.invoiceId, 'Wrong patient selected');
     const inv = await getInvoice(manager, res.invoiceId);
     expect(inv!.status).toBe('void');

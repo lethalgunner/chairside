@@ -17,10 +17,11 @@ import {
 } from '@/db/schema';
 import { businessDate } from '@/domain/dates';
 import { add, negate, subtract, min, isPositive, ZERO, type Paise } from '@/domain/money';
+import { billCancellation, type BillCancellation } from '@/domain/corrections';
 import { computeInvoice, TaxError, type LineInput, type TaxCategory } from '@/domain/tax';
 import { getBranch } from './branches';
 import { listCatalogue } from './catalogue';
-import { assertCan, ForbiddenError, requireActiveBranch, UserFacingError, type TenantContext } from './context';
+import { assertCan, canDo, ForbiddenError, requireActiveBranch, UserFacingError, type TenantContext } from './context';
 import { writeAudit } from './audit';
 import { ensureDayOpen } from './daybook';
 import { nextDocumentNumber } from './numbering';
@@ -398,16 +399,26 @@ export async function voidInvoice(ctx: TenantContext, invoiceId: string, reasonR
       .where(and(eq(invoices.id, invoiceId), eq(invoices.orgId, ctx.orgId)))
       .for('update');
     if (!inv) throw new ForbiddenError();
-    assertCan(ctx, 'invoice.void', inv.branchId);
-    if (inv.status !== 'issued') throw new UserFacingError('Only an issued bill can be cancelled.');
+    if (!ctx.branchIds.includes(inv.branchId)) throw new ForbiddenError();
+    const canVoidAny = canDo(ctx, 'invoice.void', inv.branchId);
+    const canVoidOwnToday = canDo(ctx, 'invoice.void_own_today', inv.branchId);
+    if (!canVoidAny && !canVoidOwnToday) throw new ForbiddenError();
     const [alloc] = await tx
-      .select({ n: sql<string>`count(*)` })
+      .select({ n: sql<string>`coalesce(sum(${receiptAllocations.amountPaise}), 0)` })
       .from(receiptAllocations)
       .innerJoin(receipts, eq(receipts.id, receiptAllocations.receiptId))
       .where(and(eq(receiptAllocations.invoiceId, inv.id), isNull(receipts.cancelledAt)));
-    if (Number(alloc?.n ?? 0) > 0) {
-      throw new UserFacingError('This bill has payments. Cancel them first, then cancel the bill.');
-    }
+    const verdict = billCancellation({
+      status: inv.status,
+      paidPaise: toPaise(alloc?.n),
+      issuedOn: inv.issuedOn,
+      createdBy: inv.createdBy,
+      userId: ctx.userId,
+      today: businessDate(),
+      canVoidAny,
+      canVoidOwnToday,
+    });
+    if (!verdict.allowed) throw new UserFacingError(verdict.reason);
     const branch = await getBranch(ctx, inv.branchId, tx);
     const date = businessDate();
     await ensureDayOpen(tx, { orgId: ctx.orgId, branchId: inv.branchId, branchName: branch.name, date, defaultFloatPaise: branch.defaultFloatPaise });
@@ -456,6 +467,7 @@ export interface InvoiceDetail {
   patientName: string;
   doctorName: string | null;
   voidReason: string | null;
+  createdBy: string | null;
   totals: {
     subtotalPaise: Paise;
     discountPaise: Paise;
@@ -510,6 +522,7 @@ export async function getInvoice(ctx: TenantContext, invoiceId: string): Promise
     patientName: row.patientName,
     doctorName: row.doctorName,
     voidReason: i.voidReason,
+    createdBy: i.createdBy,
     totals: {
       subtotalPaise: i.subtotalPaise as Paise,
       discountPaise: i.discountPaise as Paise,
@@ -584,5 +597,19 @@ export async function listInvoices(
       paidPaise: p,
       duePaise: r.status === 'issued' ? subtract(total, p) : ZERO,
     };
+  });
+}
+
+/** What the bill screen should offer this user for cancelling (same rule as voidInvoice). */
+export function billCancellationFor(ctx: TenantContext, inv: InvoiceDetail): BillCancellation {
+  return billCancellation({
+    status: inv.status,
+    paidPaise: inv.paidPaise,
+    issuedOn: inv.issuedOn,
+    createdBy: inv.createdBy,
+    userId: ctx.userId,
+    today: businessDate(),
+    canVoidAny: canDo(ctx, 'invoice.void', inv.branchId),
+    canVoidOwnToday: canDo(ctx, 'invoice.void_own_today', inv.branchId),
   });
 }

@@ -3,6 +3,7 @@ import { expect, type Page } from '@playwright/test';
 export const USERS = {
   owner: { email: 'owner@demo.local', password: 'demo-owner-pass' },
   desk: { email: 'desk@demo.local', password: 'demo-desk-pass' },
+  kanpurDesk: { email: 'kdesk@demo.local', password: 'demo-kdesk-pass' },
 };
 
 export async function login(page: Page, who: keyof typeof USERS) {

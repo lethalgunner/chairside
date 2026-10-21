@@ -32,7 +32,13 @@ export type Capability =
   /** Edit branch details: GST registration, GSTIN, day-close tolerance, float. Owner only (slice 2). */
   | 'branch.manage'
   /** Cancel a payment recorded by mistake. Owner only (slice 3, T19). */
-  | 'receipt.cancel';
+  | 'receipt.cancel'
+  /**
+   * Cancel a bill you issued yourself, today, before any payment (slice 3,
+   * T20). Pilot 0 latitude for the front desk: test-series bills only;
+   * revisit at G1. See billCancellation() in domain/corrections.ts.
+   */
+  | 'invoice.void_own_today';
 
 const ALL: Capability[] = [
   'patient.register',
@@ -49,6 +55,7 @@ const ALL: Capability[] = [
   'staff.manage',
   'branch.manage',
   'receipt.cancel',
+  'invoice.void_own_today',
 ];
 
 /** Capabilities only the owner holds in Pilot 0. */
@@ -61,6 +68,7 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
     'patient.register',
     'patient.view',
     'invoice.issue',
+    'invoice.void_own_today',
     'receipt.record',
     'expense.record_cash',
     'day.close',
