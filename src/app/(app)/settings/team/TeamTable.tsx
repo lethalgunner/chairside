@@ -5,6 +5,7 @@ import { reissueInviteAction, setStaffActiveAction } from '@/app/actions/setting
 import type { InviteStatus } from '@/domain/staff';
 import InviteLink from './InviteLink';
 import { useActionForm } from '@/lib/nav/use-action-form';
+import NotSent from '@/components/NotSent';
 
 export interface TeamRow {
   id: string;
@@ -25,7 +26,7 @@ function LoginPill({ row }: { row: TeamRow }) {
 }
 
 export default function TeamTable({ rows }: { rows: TeamRow[] }) {
-  const { busy: pending, send, release, navigate } = useActionForm('staff.update');
+  const { busy: pending, notSent, send, release, navigate } = useActionForm('staff.update');
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<{ token: string; name: string } | null>(null);
 
@@ -45,6 +46,7 @@ export default function TeamTable({ rows }: { rows: TeamRow[] }) {
     <>
       {link ? <div className="body"><InviteLink token={link.token} name={link.name} onDone={() => setLink(null)} /></div> : null}
       {error ? <div className="body"><div className="callout warn" role="alert">{error}</div></div> : null}
+      <NotSent message={notSent} />
       <div className="tablewrap">
         <table>
           <thead>

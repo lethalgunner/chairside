@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { saveBranchAction } from '@/app/actions/settings';
 import { useActionForm } from '@/lib/nav/use-action-form';
+import NotSent from '@/components/NotSent';
 
 interface Branch {
   id: string;
@@ -20,7 +21,7 @@ interface Branch {
 
 /** One branch's details. Field ids carry the branch code so two forms on the page never clash. */
 export default function BranchForm({ branch, states }: { branch: Branch; states: string[] }) {
-  const { busy: pending, send, release, navigate } = useActionForm('branch.update');
+  const { busy: pending, notSent, send, release, navigate } = useActionForm('branch.update');
   const [d, setD] = useState(branch);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +121,7 @@ export default function BranchForm({ branch, states }: { branch: Branch; states:
           </div>
         </div>
         {error ? <div className="callout warn" role="alert">{error}</div> : null}
+        <NotSent message={notSent} />
         {saved ? <div className="callout good" role="status">{d.name} saved.</div> : null}
         <div className="actions">
           <button className="primary" type="submit" disabled={pending}>{pending ? 'Saving…' : `Save ${branch.name}`}</button>

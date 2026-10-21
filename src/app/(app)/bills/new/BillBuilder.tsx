@@ -9,6 +9,7 @@ import { computeInvoice, type LineInput } from '@/domain/tax';
 import type { CatalogueEntry, DoctorOption } from '@/services/catalogue';
 import { TaxPill } from '@/components/ui';
 import { useActionForm } from '@/lib/nav/use-action-form';
+import NotSent from '@/components/NotSent';
 
 interface Line {
   key: string;
@@ -47,7 +48,7 @@ function parseDiscount(s: string): Paise | null {
  * the preview and the issued bill cannot disagree.
  */
 export default function BillBuilder({ patient, branch, catalogue, doctors, unbilled }: Props) {
-  const { busy: pending, send, release, navigate } = useActionForm('bill.issue');
+  const { busy: pending, notSent, send, release, navigate } = useActionForm('bill.issue');
   const idem = useRef<string>(crypto.randomUUID());
   const [doctorId, setDoctorId] = useState(doctors.length === 1 ? doctors[0]!.id : '');
   const [filter, setFilter] = useState('');
@@ -295,6 +296,7 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
           <div className="body">
             {problem ? <div className="callout warn" role="alert">{problem}</div> : null}
             {error ? <div className="callout warn" role="alert">{error}</div> : null}
+            <NotSent message={notSent} />
             {confirming && computed ? (
               <div className="callout confirm" role="alert">
                 Issue a bill of <strong>{formatINR(total)}</strong> to <strong>{patient.name}</strong> from <strong>{branch.name}</strong>? It gets a number and can only be cancelled, not edited.

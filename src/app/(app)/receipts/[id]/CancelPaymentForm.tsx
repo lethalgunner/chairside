@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { cancelReceiptAction } from '@/app/actions/money';
 import { useActionForm } from '@/lib/nav/use-action-form';
+import NotSent from '@/components/NotSent';
 
 /** Owner only. The payment keeps its number and shows as cancelled; the bills it paid become due again. */
 export default function CancelPaymentForm({ receiptId, number }: { receiptId: string; number: string }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { busy, send, release, navigate } = useActionForm('receipt.cancel');
+  const { busy, notSent, send, release, navigate } = useActionForm('receipt.cancel');
   if (!open) {
     return (
       <p>
@@ -26,6 +27,7 @@ export default function CancelPaymentForm({ receiptId, number }: { receiptId: st
         </div>
         <p className="muted small">The payment keeps its number and shows as cancelled. Bills it paid show as due again, and today’s totals drop by this amount.</p>
         {error ? <div className="callout warn" role="alert">{error}</div> : null}
+        <NotSent message={notSent} />
         <div className="actions">
           <button
             type="button"

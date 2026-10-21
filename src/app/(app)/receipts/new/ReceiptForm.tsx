@@ -7,6 +7,7 @@ import { allocateReceipt, type OutstandingInvoice } from '@/domain/ledger';
 import { add, formatINR, parseRupeesInput, subtract, type Paise } from '@/domain/money';
 import { MODE_LABEL } from '@/components/ui';
 import { useActionForm } from '@/lib/nav/use-action-form';
+import NotSent from '@/components/NotSent';
 
 const MODES = ['cash', 'upi', 'card', 'bank_transfer', 'cheque', 'financing'] as const;
 
@@ -19,7 +20,7 @@ interface Props {
 
 /** The allocation is spelled out as a sentence before saving, so the desk sees the reasoning instead of trusting it. */
 export default function ReceiptForm({ patient, branchName, open, balancePaise }: Props) {
-  const { busy: pending, send, release } = useActionForm('receipt.record');
+  const { busy: pending, notSent, send, release } = useActionForm('receipt.record');
   const idem = useRef<string>(crypto.randomUUID());
   const [amount, setAmount] = useState('');
   const [mode, setMode] = useState<(typeof MODES)[number]>('cash');
@@ -132,6 +133,7 @@ export default function ReceiptForm({ patient, branchName, open, balancePaise }:
         ) : null}
 
         {error ? <div className="callout warn" role="alert">{error}</div> : null}
+        <NotSent message={notSent} />
         <div className="actions">
           <button className="primary" type="submit" disabled={pending || !parsed}>
             {pending ? 'Saving…' : parsed ? `Record ${formatINR(parsed)} ${MODE_LABEL[mode]}` : 'Record payment'}

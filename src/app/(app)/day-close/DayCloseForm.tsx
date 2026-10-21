@@ -6,6 +6,7 @@ import { formatINR, parseRupeesInput, subtract, type Paise } from '@/domain/mone
 import { compareWithLegacy } from '@/domain/parallel';
 import LegacyCompare from '@/components/LegacyCompare';
 import { useActionForm } from '@/lib/nav/use-action-form';
+import NotSent from '@/components/NotSent';
 
 interface Props {
   denominations: number[];
@@ -99,6 +100,7 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
             </div>
             {cashParsed && !cashParsed.ok ? <p className="small err-text" id="cash-amt-err">{cashParsed.error}</p> : null}
             {cashMsg ? <p className="small muted" role="status">{cashMsg}</p> : null}
+            <NotSent message={cashOut.notSent} />
           </div>
         </div>
       ) : null}
@@ -145,6 +147,7 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
           </fieldset>
 
           {error ? <div className="callout warn" role="alert">{error}</div> : null}
+          <NotSent message={closing.notSent} />
           {confirming ? (
             <div className="callout confirm" role="alert">
               Close today with <strong>{formatINR(counted)}</strong> counted ({variance === 0 ? 'no difference' : `${variance > 0 ? 'over' : 'short'} by ${formatINR(Math.abs(variance) as Paise)}`})? Nothing more can be billed or received today unless the owner reopens it.

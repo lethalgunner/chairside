@@ -6,6 +6,7 @@ import { formatINR, type Paise } from '@/domain/money';
 import { CategoryLabel, TaxPill } from '@/components/ui';
 import type { TaxCategory } from '@/domain/tax';
 import { useActionForm } from '@/lib/nav/use-action-form';
+import NotSent from '@/components/NotSent';
 
 interface Item {
   id: string;
@@ -30,7 +31,7 @@ type Draft = { code: string; name: string; category: string; price: string; taxC
 const EMPTY: Draft = { code: '', name: '', category: '', price: '', taxCategory: 'exempt_healthcare', hsnSacCode: '9993', gstRateBp: 0 };
 
 export default function CatalogueEditor({ items, taxCategories, rates }: Props) {
-  const { busy: pending, send, release, navigate } = useActionForm('catalogue.save');
+  const { busy: pending, notSent, send, release, navigate } = useActionForm('catalogue.save');
   const [editing, setEditing] = useState<string | 'new' | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -89,6 +90,7 @@ export default function CatalogueEditor({ items, taxCategories, rates }: Props) 
     <>
       {saved ? <div className="callout good" role="status">{saved}</div> : null}
       {error ? <div className="callout warn" role="alert">{error}</div> : null}
+      <NotSent message={notSent} />
       {editing ? (
         <form className="card" onSubmit={save} noValidate aria-label={editing === 'new' ? 'New item' : `Edit ${draft.name}`}>
           <header><h2>{editing === 'new' ? 'New item' : `Edit ${draft.code}`}</h2></header>

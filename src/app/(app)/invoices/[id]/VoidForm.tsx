@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { voidInvoiceAction } from '@/app/actions/money';
 import { useActionForm } from '@/lib/nav/use-action-form';
+import NotSent from '@/components/NotSent';
 
 /** Cancel an unpaid bill. Its number stays used; a reversing entry clears the patient's balance. */
 export default function VoidForm({ invoiceId, number }: { invoiceId: string; number: string }) {
-  const { busy: pending, send, release, navigate } = useActionForm('invoice.void');
+  const { busy: pending, notSent, send, release, navigate } = useActionForm('invoice.void');
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +27,7 @@ export default function VoidForm({ invoiceId, number }: { invoiceId: string; num
         </div>
         <p className="muted small">The bill keeps its number and shows as cancelled. Any procedures on it go back to “Done, not billed”.</p>
         {error ? <div className="callout warn" role="alert">{error}</div> : null}
+        <NotSent message={notSent} />
         <div className="actions">
           <button
             type="button"

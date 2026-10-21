@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { registerPatientAction, type RegisterFormState } from '@/app/actions/patients';
 import { formatIndianMobile } from '@/domain/phone';
 import { useActionForm } from '@/lib/nav/use-action-form';
+import NotSent from '@/components/NotSent';
 
 const SEXES = [
   { v: 'F', label: 'Female' },
@@ -18,7 +19,7 @@ const SEXES = [
  * All fields are controlled, so a failed submit never wipes what was typed.
  */
 export default function NewPatientForm({ referralSources, initialPhone, initialName }: { referralSources: string[]; initialPhone: string; initialName: string }) {
-  const { busy: pending, send, release, navigate } = useActionForm('patient.register');
+  const { busy: pending, notSent, send, release, navigate } = useActionForm('patient.register');
   const [phone, setPhone] = useState(initialPhone);
   const [fullName, setFullName] = useState(initialName);
   const [sex, setSex] = useState('');
@@ -117,6 +118,7 @@ export default function NewPatientForm({ referralSources, initialPhone, initialN
           </div>
         ) : null}
 
+        <NotSent message={notSent} />
         {state.error ? (
           <div className="callout warn" role="alert">
             {state.error}

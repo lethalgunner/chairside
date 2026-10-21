@@ -6,7 +6,7 @@ export default function ErrorPage({ reset }: { error: Error & { digest?: string 
   return (
     <div className="state-block">
       <h1>This page didn’t load</h1>
-      <p className="muted">Nothing you were entering has been saved twice. Try again; if it keeps happening, tell KS what you were doing.</p>
+      <p className="muted">Check the internet and try again. Bills and payments already saved are safe and are never saved twice; if it keeps happening, tell KS what you were doing.</p>
       <div className="actions">
         <button className="primary" onClick={() => reset()}>
           Try again

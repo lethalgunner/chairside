@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { reopenDayAction } from '@/app/actions/money';
 import { useActionForm } from '@/lib/nav/use-action-form';
+import NotSent from '@/components/NotSent';
 
 export default function ReopenForm({ branchId, date }: { branchId: string; date: string }) {
-  const { busy: pending, send, release, navigate } = useActionForm('day.reopen');
+  const { busy: pending, notSent, send, release, navigate } = useActionForm('day.reopen');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   return (
@@ -31,6 +32,7 @@ export default function ReopenForm({ branchId, date }: { branchId: string; date:
         Reopen day
       </button>
       {error ? <span className="variance-bad small" role="alert">{error}</span> : null}
+      <NotSent message={notSent} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { inviteStaffAction } from '@/app/actions/settings';
 import InviteLink from './InviteLink';
 import { useActionForm } from '@/lib/nav/use-action-form';
+import NotSent from '@/components/NotSent';
 
 interface Props {
   roles: { value: string; label: string }[];
@@ -13,7 +14,7 @@ interface Props {
 
 /** Invite a new person, or give an existing record (a doctor from the price list load) a login. */
 export default function InviteForm({ roles, branches, unlinked }: Props) {
-  const { busy: pending, send, release, navigate } = useActionForm('staff.invite');
+  const { busy: pending, notSent, send, release, navigate } = useActionForm('staff.invite');
   const [who, setWho] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -99,6 +100,7 @@ export default function InviteForm({ roles, branches, unlinked }: Props) {
         </div>
       </div>
       {error ? <div className="callout warn" role="alert">{error}</div> : null}
+      <NotSent message={notSent} />
       <div className="actions">
         <button className="primary" type="submit" disabled={pending}>{pending ? 'Creating link…' : 'Create invite link'}</button>
       </div>
