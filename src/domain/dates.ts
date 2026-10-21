@@ -47,3 +47,11 @@ export function displayDate(isoDate: string): string {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return `${Number(d)} ${months[Number(m) - 1] ?? m} ${y}`;
 }
+
+/** Shift an ISO date by whole days: addDays('2026-03-01', -1) === '2026-02-28'. */
+export function addDays(isoDate: string, days: number): string {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) throw new Error(`Not an ISO date: '${isoDate}'`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}

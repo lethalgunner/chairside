@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import {
   branches,
@@ -12,7 +12,8 @@ import {
   receipts,
   users,
 } from '@/db/schema';
-import { businessDate } from '@/domain/dates';
+import { addDays, businessDate } from '@/domain/dates';
+import { compareWithLegacy, type LegacyComparison } from '@/domain/parallel';
 import { ageReceivables, statement, type AgeingBuckets, type LedgerEntry, type LedgerRow, type PaymentMode } from '@/domain/ledger';
 import { add, ZERO, type Paise } from '@/domain/money';
 import type { TaxCategory } from '@/domain/tax';
@@ -261,4 +262,64 @@ export async function patientReceipts(ctx: TenantContext, patientId: string) {
 
 export function assertReport(ctx: TenantContext, branchId: string) {
   assertCan(ctx, 'report.branch', branchId);
+}
+
+export interface ParallelRunRow {
+  date: string;
+  branchId: string;
+  branchName: string;
+  dayStatus: 'open' | 'reconciling' | 'closed' | 'reopened' | null;
+  comparison: LegacyComparison | null;
+  billCount: number;
+  collectedPaise: Paise;
+}
+
+/**
+ * The parallel run, last `days` business days × branch (T21): Chairside's
+ * bills and collections against the old system's figures typed in at close.
+ * Days with no day book and no activity are left out. Newest first.
+ */
+export async function parallelRun(ctx: TenantContext, branchIds: string[], today = businessDate(), days = 7): Promise<ParallelRunRow[]> {
+  const ids = branchIds.filter((b) => canDo(ctx, 'report.branch', b));
+  if (ids.length === 0) return [];
+  const from = addDays(today, -(days - 1));
+  const db = getDb();
+  const names = await db.select({ id: branches.id, name: branches.name }).from(branches).where(and(eq(branches.orgId, ctx.orgId), inArray(branches.id, ids)));
+  const books = await db
+    .select({ b: dayBooks.branchId, d: dayBooks.businessDate, status: dayBooks.status, legacyN: dayBooks.legacyBillCount, legacyP: dayBooks.legacyCollectedPaise })
+    .from(dayBooks)
+    .where(and(eq(dayBooks.orgId, ctx.orgId), inArray(dayBooks.branchId, ids), gte(dayBooks.businessDate, from), lte(dayBooks.businessDate, today)));
+  const bills = await db
+    .select({ b: invoices.branchId, d: invoices.issuedOn, n: sql<string>`count(*)` })
+    .from(invoices)
+    .where(and(eq(invoices.orgId, ctx.orgId), inArray(invoices.branchId, ids), eq(invoices.status, 'issued'), gte(invoices.issuedOn, from), lte(invoices.issuedOn, today)))
+    .groupBy(invoices.branchId, invoices.issuedOn);
+  const cash = await db
+    .select({ b: receipts.branchId, d: receipts.receivedOn, t: sql<string>`sum(${receipts.amountPaise})` })
+    .from(receipts)
+    .where(and(eq(receipts.orgId, ctx.orgId), inArray(receipts.branchId, ids), isNull(receipts.cancelledAt), gte(receipts.receivedOn, from), lte(receipts.receivedOn, today)))
+    .groupBy(receipts.branchId, receipts.receivedOn);
+
+  const keys = new Set<string>([...books, ...bills, ...cash].map((r) => `${r.d}|${r.b}`));
+  const rows: ParallelRunRow[] = [...keys].map((k) => {
+    const [date, branchId] = k.split('|') as [string, string];
+    const book = books.find((x) => x.b === branchId && x.d === date);
+    const billCount = toInt(bills.find((x) => x.b === branchId && x.d === date)?.n);
+    const collectedPaise = toPaise(cash.find((x) => x.b === branchId && x.d === date)?.t);
+    return {
+      date,
+      branchId,
+      branchName: names.find((n) => n.id === branchId)?.name ?? '',
+      dayStatus: (book?.status ?? null) as ParallelRunRow['dayStatus'],
+      billCount,
+      collectedPaise,
+      comparison: compareWithLegacy({
+        legacyBillCount: book?.legacyN ?? null,
+        legacyCollectedPaise: (book?.legacyP ?? null) as Paise | null,
+        billCount,
+        collectedPaise,
+      }),
+    };
+  });
+  return rows.sort((a, b) => b.date.localeCompare(a.date) || a.branchName.localeCompare(b.branchName));
 }

@@ -3,13 +3,13 @@ import { requireContext } from '@/lib/auth';
 import { businessDate, displayDate } from '@/domain/dates';
 import { add, formatINR, type Paise } from '@/domain/money';
 import { canDo, scopeBranchIds } from '@/services/context';
-import { dashboard } from '@/services/reports';
+import { dashboard, parallelRun } from '@/services/reports';
 import { Card, Empty, MODE_LABEL, PageHead, StatusPill, Tile } from '@/components/ui';
 
 export default async function Dashboard() {
   const ctx = await requireContext();
   const today = businessDate();
-  const rows = await dashboard(ctx, scopeBranchIds(ctx), today);
+  const [rows, pilot] = await Promise.all([dashboard(ctx, scopeBranchIds(ctx), today), parallelRun(ctx, scopeBranchIds(ctx), today)]);
   const single = ctx.activeBranchId !== 'all' ? ctx.activeBranchId : null;
   const sum = (f: (r: (typeof rows)[number]) => Paise) => add(...rows.map(f));
   const billed = sum((r) => r.billedPaise);
@@ -51,7 +51,7 @@ export default async function Dashboard() {
 
           <Card title={rows.length > 1 ? 'Branches today' : 'Today at this branch'} flush>
             <div className="tablewrap">
-              <table>
+              <table className="stack-table">
                 <thead>
                   <tr>
                     <th scope="col">Branch</th>
@@ -66,21 +66,21 @@ export default async function Dashboard() {
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.branchId}>
-                      <td className="strong">{r.branchName}</td>
-                      <td>
+                      <td data-label="Branch" className="strong">{r.branchName}</td>
+                      <td data-label="Day">
                         <StatusPill status={r.dayStatus} />
                       </td>
-                      <td className="num">{r.billCount}</td>
-                      <td className="num">{formatINR(r.billedPaise)}</td>
-                      <td className="muted small">
+                      <td data-label="Bills" className="num">{r.billCount}</td>
+                      <td data-label="Billed" className="num">{formatINR(r.billedPaise)}</td>
+                      <td data-label="By mode" className="muted small">
                         {Object.entries(r.byMode).length === 0
                           ? '—'
                           : Object.entries(r.byMode)
                               .map(([m, v]) => `${MODE_LABEL[m] ?? m} ${formatINR(v as Paise, { paise: false })}`)
                               .join(' · ')}
                       </td>
-                      <td className="num strong">{formatINR(r.collectedPaise)}</td>
-                      <td className="num">
+                      <td data-label="Collected" className="num strong">{formatINR(r.collectedPaise)}</td>
+                      <td data-label="Old system bills" className="num">
                         {r.legacyBillCount === null ? (
                           <span className="muted">at close</span>
                         ) : (
@@ -95,6 +95,40 @@ export default async function Dashboard() {
               </table>
             </div>
           </Card>
+
+          {pilot.length > 0 ? (
+            <Card title="Parallel run" note="Last 7 days · old system vs Chairside" flush>
+              <div className="tablewrap">
+                <table className="stack-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Day</th>
+                      <th scope="col">Branch</th>
+                      <th scope="col">Closed?</th>
+                      <th scope="col" className="num">Bills old / new</th>
+                      <th scope="col" className="num">Collected old / new</th>
+                      <th scope="col">Difference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pilot.map((p) => {
+                      const c = p.comparison;
+                      return (
+                        <tr key={`${p.date}-${p.branchId}`} className={c && !c.matches ? 'diff-row' : undefined}>
+                          <td data-label="Day">{displayDate(p.date)}</td>
+                          <td data-label="Branch" className="strong">{p.branchName}</td>
+                          <td data-label="Closed?">{p.dayStatus === 'closed' ? 'Closed' : p.dayStatus === 'reopened' ? 'Reopened' : 'Not yet'}</td>
+                          <td data-label="Bills old / new" className="num">{c?.bills.old ?? '—'} / {p.billCount}</td>
+                          <td data-label="Collected old / new" className="num">{c?.collected.old != null ? formatINR(c.collected.old, { paise: false }) : '—'} / {formatINR(p.collectedPaise, { paise: false })}</td>
+                          <td data-label="Difference" className={c ? (c.matches ? 'variance-ok' : 'variance-bad strong') : 'muted'}>{c ? c.verdict : 'Old figures not entered'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : null}
 
           <div className="row">
             {unbilledCount > 0 ? (

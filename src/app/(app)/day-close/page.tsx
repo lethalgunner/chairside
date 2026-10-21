@@ -7,6 +7,8 @@ import { canDo } from '@/services/context';
 import { getDaySummary } from '@/services/daybook';
 import { Card, MODE_LABEL, PageHead, StatusPill } from '@/components/ui';
 import DayCloseForm from './DayCloseForm';
+import LegacyCompare from '@/components/LegacyCompare';
+import { compareWithLegacy } from '@/domain/parallel';
 import ReopenForm from './ReopenForm';
 
 export default async function DayClosePage() {
@@ -81,8 +83,11 @@ export default async function DayClosePage() {
             <dt>Difference</dt>
             <dd className={s.closed.variancePaise === 0 ? 'variance-ok' : 'variance-bad'}>{formatINR(s.closed.variancePaise)}</dd>
             {s.closed.varianceReason ? (<><dt>Reason</dt><dd>{s.closed.varianceReason}</dd></>) : null}
-            {s.closed.legacyBillCount !== null ? (<><dt>Old system bills</dt><dd>{s.closed.legacyBillCount} (Chairside: {s.billCount})</dd></>) : null}
           </dl>
+          {(() => {
+            const c = compareWithLegacy({ legacyBillCount: s.closed.legacyBillCount, legacyCollectedPaise: s.closed.legacyCollectedPaise, billCount: s.billCount, collectedPaise: s.totalCollectedPaise });
+            return c ? <LegacyCompare c={c} /> : <p className="muted small">No old-system figures were entered at close.</p>;
+          })()}
           {canReopen ? <ReopenForm branchId={branchId} date={today} /> : <p className="muted small">Only the owner can reopen a closed day.</p>}
         </Card>
       ) : (

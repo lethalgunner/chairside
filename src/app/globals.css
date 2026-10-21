@@ -1115,3 +1115,49 @@ input.small-in {
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 13px;
 }
+
+/* Old system vs Chairside (Slice 3, T21) */
+.legacy-compare {
+  margin-top: 12px;
+}
+.legacy-compare table.compact th,
+.legacy-compare table.compact td {
+  padding: 6px 10px;
+}
+.legacy-compare .verdict {
+  margin: 8px 0 0;
+}
+tr.diff-row td {
+  background: var(--rust-soft);
+}
+/* Below 600 px each row becomes a small card, so the owner's phone never scrolls sideways. */
+@media (max-width: 600px) {
+  table.stack-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  table.stack-table,
+  table.stack-table tbody,
+  table.stack-table tr,
+  table.stack-table td {
+    display: block;
+    width: 100%;
+  }
+  table.stack-table tr {
+    border-bottom: 1px solid var(--line);
+    padding: 8px 0;
+  }
+  table.stack-table td {
+    border: 0;
+    padding: 2px 12px;
+    text-align: left;
+  }
+  table.stack-table td::before {
+    content: attr(data-label) ': ';
+    color: var(--ink-3);
+    font-weight: 400;
+  }
+}

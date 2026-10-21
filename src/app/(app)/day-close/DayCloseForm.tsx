@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { closeDayAction, recordCashOutAction } from '@/app/actions/money';
-import { formatINR, subtract, type Paise } from '@/domain/money';
+import { formatINR, fromRupeeString, subtract, type Paise } from '@/domain/money';
+import { compareWithLegacy } from '@/domain/parallel';
+import LegacyCompare from '@/components/LegacyCompare';
 import { useActionForm } from '@/lib/nav/use-action-form';
 
 interface Props {
@@ -38,7 +40,16 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
   const variance = subtract(counted, expectedCashPaise);
   const needsReason = Math.abs(variance) > tolerancePaise;
   const legacyN = legacyCount === '' ? null : Number(legacyCount);
-  const missing = legacyN !== null && legacyN > billCount ? legacyN - billCount : 0;
+  const legacyP = useMemo(() => {
+    if (!legacyAmount.trim()) return null;
+    try {
+      const v = fromRupeeString(legacyAmount);
+      return v >= 0 ? v : null;
+    } catch {
+      return null;
+    }
+  }, [legacyAmount]);
+  const comparison = compareWithLegacy({ legacyBillCount: legacyN, legacyCollectedPaise: legacyP, billCount, collectedPaise });
 
   function close() {
     setError(null);
@@ -131,11 +142,9 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
                 <input id="legacy-amt" inputMode="decimal" value={legacyAmount} onChange={(e) => setLegacyAmount(e.target.value)} />
               </div>
             </div>
-            {legacyN !== null ? (
-              <p className={missing ? 'variance-bad' : 'variance-ok'} aria-live="polite">
-                {missing ? `You entered ${billCount} of ${legacyN} bills. ${missing} missing: add them before closing if you can.` : `All ${legacyN} bills entered.`}
-                {legacyAmount ? ` Chairside collected ${formatINR(collectedPaise)}.` : ''}
-              </p>
+            {comparison ? <LegacyCompare c={comparison} /> : null}
+            {comparison && comparison.bills.diff !== null && comparison.bills.diff < 0 ? (
+              <p className="small muted">Add the missing bills before closing if you can.</p>
             ) : null}
           </fieldset>
 

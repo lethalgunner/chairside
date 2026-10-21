@@ -91,7 +91,7 @@ test('register → bill → part payment → ledger → day close → locked', a
   await page.getByLabel('₹50 notes').fill('1');
   await expect(page.locator('.big-line')).toContainText('short by ₹50.00');
   await page.getByLabel('Bills in the old system today').fill('99');
-  await expect(page.getByText(/You entered \d+ of 99 bills\. \d+ missing/)).toBeVisible();
+  await expect(page.locator('.legacy-compare .verdict')).toHaveText(/^\d+ bills may be missing from Chairside$/);
   await page.getByRole('button', { name: 'Close the day' }).click();
   await page.getByRole('button', { name: 'Yes, close the day' }).click();
   await expect(page.getByRole('heading', { name: 'Closed', exact: true })).toBeVisible();
