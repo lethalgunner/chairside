@@ -1,6 +1,7 @@
 import { requireContext } from '@/lib/auth';
 import { listBranches } from '@/services/branches';
 import { canAnywhere } from '@/services/context';
+import { hasAnySettings, settingsAccess } from '@/services/settings';
 import Sidebar from '@/components/Sidebar';
 import GlobalSearch from '@/components/GlobalSearch';
 
@@ -25,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           dayClose: canAnywhere(ctx, 'day.close'),
           reports: canAnywhere(ctx, 'report.branch'),
           gst: canAnywhere(ctx, 'report.gst'),
+          settings: hasAnySettings(settingsAccess(ctx)),
         }}
       />
       <div className="content">

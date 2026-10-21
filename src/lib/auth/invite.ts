@@ -5,7 +5,7 @@
  * Only the SHA-256 of the 256-bit token is stored.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
 import { getDb, type DB, type Tx } from '@/db/client';
 import { passwordSetupTokens, sessions, users } from '@/db/schema';
 import { hashPassword, MIN_PASSWORD_LENGTH } from './password';
@@ -28,6 +28,28 @@ export async function createInvite(db: DB | Tx, params: { orgId: string; userId:
   const expiresAt = new Date(now.getTime() + INVITE_TTL_MS);
   await db.insert(passwordSetupTokens).values({ orgId: params.orgId, userId: params.userId, tokenHash: hashToken(token), expiresAt });
   return { token, expiresAt };
+}
+
+/** Cancel any unused invite for this user (e.g. on deactivation). */
+export async function cancelInvites(db: DB | Tx, userId: string): Promise<void> {
+  const now = new Date();
+  await db
+    .update(passwordSetupTokens)
+    .set({ expiresAt: now })
+    .where(and(eq(passwordSetupTokens.userId, userId), isNull(passwordSetupTokens.usedAt), gt(passwordSetupTokens.expiresAt, now)));
+}
+
+/** The most recent invite per user, for the team list. Never returns the hash. */
+export async function latestInvites(orgId: string, userIds: string[]): Promise<Map<string, { expiresAt: Date; usedAt: Date | null }>> {
+  const out = new Map<string, { expiresAt: Date; usedAt: Date | null }>();
+  if (userIds.length === 0) return out;
+  const rows = await getDb()
+    .select({ userId: passwordSetupTokens.userId, expiresAt: passwordSetupTokens.expiresAt, usedAt: passwordSetupTokens.usedAt })
+    .from(passwordSetupTokens)
+    .where(and(eq(passwordSetupTokens.orgId, orgId), inArray(passwordSetupTokens.userId, userIds)))
+    .orderBy(desc(passwordSetupTokens.createdAt));
+  for (const r of rows) if (!out.has(r.userId)) out.set(r.userId, { expiresAt: r.expiresAt, usedAt: r.usedAt });
+  return out;
 }
 
 async function findValid(token: string) {

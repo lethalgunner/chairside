@@ -1,5 +1,7 @@
 /**
  * Invite-only accounts (ADR-012). Creates or updates a login and its role grants.
+ * The owner can now do the same from /settings/team; this stays for the first
+ * owner and for local development.
  *
  *   npm run user:add -- --org "Dr. Vij Dental Clinic & Implant Center" \
  *     --name "Front desk Pune" --email desk.pune@example.com \
@@ -13,17 +15,18 @@
  *  - Password (local development): read from CHAIRSIDE_NEW_PASSWORD, or
  *    generated and printed once.
  * Use --link-doctor "Dr. Anshul Vij" to give an existing doctor record a login.
+ * The rules (email lower-cased, other orgs' emails refused, grants) live in
+ * src/domain/staff.ts and src/services/staff.ts, shared with the app.
  */
 import { randomBytes } from 'node:crypto';
 import { appendFileSync } from 'node:fs';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { closeDb, getDb } from '../src/db/client';
-import { branches, memberships, organisations, users } from '../src/db/schema';
-import type { Role } from '../src/domain/permissions';
+import { branches, organisations, users } from '../src/db/schema';
+import { checkStaffGrant, normaliseEmail, type StaffGrant } from '../src/domain/staff';
 import { createInvite } from '../src/lib/auth/invite';
 import { hashPassword, MIN_PASSWORD_LENGTH } from '../src/lib/auth/password';
-
-const ROLES: Role[] = ['owner', 'branch_manager', 'front_desk', 'doctor', 'associate_doctor', 'assistant', 'accountant', 'auditor'];
+import { upsertStaffGrant } from '../src/services/staff';
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -35,17 +38,14 @@ function args(name: string): string[] {
 
 async function main() {
   const orgName = arg('org');
-  const email = arg('email')?.trim().toLowerCase();
+  const email = normaliseEmail(arg('email') ?? '');
   const name = arg('name');
   const linkDoctor = arg('link-doctor');
-  const roles = args('role') as Role[];
+  const roles = args('role');
   const branchCode = arg('branch');
   if (!orgName || !email || (!name && !linkDoctor) || roles.length === 0) {
     throw new Error('Required: --org, --email, --name (or --link-doctor), and at least one --role');
   }
-  for (const r of roles) if (!ROLES.includes(r)) throw new Error(`Unknown role ${r}`);
-  if (roles.includes('owner') && branchCode) throw new Error('Owner grants are org-wide; drop --branch');
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('That does not look like an email address');
 
   const db = getDb();
   const [org] = await db.select().from(organisations).where(eq(organisations.name, orgName)).limit(1);
@@ -56,6 +56,18 @@ async function main() {
     if (!b) throw new Error(`No branch ${branchCode}`);
     branchId = b.id;
   }
+  let linkUserId: string | null = null;
+  if (linkDoctor) {
+    const [d] = await db.select({ id: users.id }).from(users).where(and(eq(users.orgId, org.id), eq(users.fullName, linkDoctor))).limit(1);
+    if (!d) throw new Error(`No doctor named "${linkDoctor}"`);
+    linkUserId = d.id;
+  }
+
+  const grants: StaffGrant[] = roles.map((role) => {
+    const checked = checkStaffGrant({ fullName: name ?? '', email, role, branchId, linkUserId }, { orgWideAllowed: true });
+    if (!checked.ok) throw new Error(Object.values(checked.fieldErrors).join(' '));
+    return checked.value;
+  });
 
   const appUrl = process.env.APP_URL?.replace(/\/+$/, '');
   const inviteMode = process.argv.includes('--invite') || (!!appUrl && !process.env.CHAIRSIDE_NEW_PASSWORD);
@@ -72,32 +84,15 @@ async function main() {
     passwordHash = await hashPassword(password);
   }
 
-  let [user] = linkDoctor
-    ? await db.select().from(users).where(and(eq(users.orgId, org.id), eq(users.fullName, linkDoctor))).limit(1)
-    : await db.select().from(users).where(eq(users.email, email)).limit(1);
-  if (user && user.orgId !== org.id) throw new Error('That email belongs to another organisation');
-  if (user) {
-    await db
-      .update(users)
-      .set({ email, active: true, ...(passwordHash ? { passwordHash } : {}), ...(name ? { fullName: name } : {}) })
-      .where(eq(users.id, user.id));
-  } else {
-    if (linkDoctor) throw new Error(`No doctor named "${linkDoctor}"`);
-    [user] = await db.insert(users).values({ orgId: org.id, fullName: name!, email, passwordHash: passwordHash ?? null }).returning();
-  }
-
-  for (const role of roles) {
-    const [m] = await db
-      .select()
-      .from(memberships)
-      .where(and(eq(memberships.userId, user!.id), eq(memberships.role, role), branchId ? eq(memberships.branchId, branchId) : isNull(memberships.branchId)))
-      .limit(1);
-    if (!m) await db.insert(memberships).values({ orgId: org.id, userId: user!.id, branchId, role });
-  }
+  const userId = await db.transaction(async (tx) => {
+    let id = '';
+    for (const g of grants) id = (await upsertStaffGrant(tx, org.id, null, g, { passwordHash })).userId;
+    return id;
+  });
 
   const scope = `${roles.join(', ')}${branchCode ? ` at ${branchCode}` : ', all branches'}`;
   if (inviteMode) {
-    const { token, expiresAt } = await createInvite(db, { orgId: org.id, userId: user!.id });
+    const { token, expiresAt } = await createInvite(db, { orgId: org.id, userId });
     const link = `${appUrl}/setup?token=${token}`;
     console.log(`Invite for ${email} (${scope}). Send privately; it works once, until ${expiresAt.toISOString()}:`);
     console.log(link);

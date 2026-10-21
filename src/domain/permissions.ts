@@ -26,7 +26,9 @@ export type Capability =
   | 'day.reopen'
   | 'report.branch'
   | 'report.gst'
-  | 'catalogue.manage';
+  | 'catalogue.manage'
+  /** Invite, re-invite, deactivate and reactivate staff. Owner only, org-wide (Pilot 0 slice 2). */
+  | 'staff.manage';
 
 const ALL: Capability[] = [
   'patient.register',
@@ -40,11 +42,15 @@ const ALL: Capability[] = [
   'report.branch',
   'report.gst',
   'catalogue.manage',
+  'staff.manage',
 ];
+
+/** Capabilities only the owner holds in Pilot 0. */
+const OWNER_ONLY: readonly Capability[] = ['day.reopen', 'staff.manage'];
 
 export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
   owner: ALL,
-  branch_manager: ALL.filter((c) => c !== 'day.reopen'),
+  branch_manager: ALL.filter((c) => !OWNER_ONLY.includes(c)),
   front_desk: [
     'patient.register',
     'patient.view',
@@ -60,6 +66,21 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
   auditor: ['report.branch', 'report.gst'],
 };
 
+/** Every role, in the order the invite form lists them. */
+export const ROLES: readonly Role[] = ['owner', 'branch_manager', 'front_desk', 'doctor', 'associate_doctor', 'assistant', 'accountant', 'auditor'];
+
+/** Plain labels for clinic staff. */
+export const ROLE_LABELS: Record<Role, string> = {
+  owner: 'Owner (all branches)',
+  branch_manager: 'Branch manager',
+  front_desk: 'Front desk',
+  doctor: 'Doctor',
+  associate_doctor: 'Associate doctor',
+  assistant: 'Clinical assistant',
+  accountant: 'Accountant (reports only)',
+  auditor: 'Auditor (reports only)',
+};
+
 export interface Grant {
   role: Role;
   /** null means the grant applies at every branch in the org. */
@@ -72,6 +93,14 @@ export function can(grants: readonly Grant[], capability: Capability, branchId: 
       (g.branchId === null || g.branchId === branchId) &&
       ROLE_CAPABILITIES[g.role].includes(capability),
   );
+}
+
+/**
+ * For org-level settings (the team): the capability must come from an
+ * org-wide grant, so a grant at one branch never reaches people at another.
+ */
+export function canOrgWide(grants: readonly Grant[], capability: Capability): boolean {
+  return grants.some((g) => g.branchId === null && ROLE_CAPABILITIES[g.role].includes(capability));
 }
 
 /** Branches where the user holds any grant, given every branch in the org. */

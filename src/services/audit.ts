@@ -8,7 +8,8 @@ import type { DB, Tx } from '@/db/client';
  */
 export async function writeAudit(
   db: DB | Tx,
-  actor: { orgId: string; userId: string },
+  // userId is null only for command-line admin scripts, which have no signed-in actor.
+  actor: { orgId: string; userId: string | null },
   entry: {
     action: string;
     entityType: string;

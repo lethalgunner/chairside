@@ -4,7 +4,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { and, asc, eq, gt, lt, sql } from 'drizzle-orm';
-import { getDb } from '@/db/client';
+import { getDb, type DB, type Tx } from '@/db/client';
 import { branches, loginFailures, memberships, sessions, users } from '@/db/schema';
 import { accessibleBranches, type Grant, type Role } from '@/domain/permissions';
 import { writeAudit } from '@/services/audit';
@@ -65,6 +65,11 @@ export async function createSession(orgId: string, userId: string, reason: strin
 
 export async function revokeSession(sessionId: string): Promise<void> {
   await getDb().delete(sessions).where(eq(sessions.id, sessionId));
+}
+
+/** Sign a user out everywhere (on deactivation). */
+export async function revokeUserSessions(db: DB | Tx, userId: string): Promise<void> {
+  await db.delete(sessions).where(eq(sessions.userId, userId));
 }
 
 /**

@@ -1095,3 +1095,23 @@ input.small-in {
     flex: 1 1 100%;
   }
 }
+
+/* Settings (Pilot 0 slice 2) */
+.settings-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.row-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+.row-actions > * + * {
+  margin-left: 12px;
+}
+.invite-link p {
+  margin: 0 0 8px;
+}
+.invite-link input {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+}

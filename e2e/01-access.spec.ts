@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { login } from './helpers';
 
-const ROUTES = ['/', '/patients', '/patients/new', '/invoices', '/receivables', '/unbilled', '/day-close', '/gst', '/bills/new?patient=x', '/receipts/new?patient=x'];
+const ROUTES = ['/', '/patients', '/patients/new', '/invoices', '/receivables', '/unbilled', '/day-close', '/gst', '/bills/new?patient=x', '/receipts/new?patient=x', '/settings', '/settings/team'];
 
 test.describe('no anonymous access', () => {
   for (const r of ROUTES) {
@@ -47,6 +47,16 @@ test.describe('roles and branch context', () => {
     await expect(page.locator('#branch-select')).toHaveCount(0);
     await page.goto('/gst');
     await expect(page.getByText('You don’t have access to GST papers.')).toBeVisible();
+  });
+
+  test('front desk sees no Settings and is refused every settings screen', async ({ page }) => {
+    await login(page, 'desk');
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Settings' })).toHaveCount(0);
+    await page.goto('/settings');
+    await expect(page.getByText('You don’t have access to settings.')).toBeVisible();
+    await page.goto('/settings/team');
+    await expect(page.getByText('Only the owner can manage the team.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create invite link' })).toHaveCount(0);
   });
 
   test('owner on All branches must pick a branch before creating anything', async ({ page }) => {
