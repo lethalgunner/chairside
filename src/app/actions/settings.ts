@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requireContext } from '@/lib/auth';
+import { createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type SaveItemResult } from '@/services/catalogue';
 import { inviteStaff, reissueInvite, setStaffActive, type InviteStaffResult } from '@/services/staff';
 import { UserFacingError } from '@/services/context';
 import { run, type ActionResult } from './run';
@@ -35,11 +36,11 @@ export async function inviteStaffAction(input: z.input<typeof inviteInput>): Pro
   return res;
 }
 
-const userIdInput = z.string().uuid();
+const idInput = z.string().uuid();
 
 export async function reissueInviteAction(userId: string): Promise<ActionResult<{ token: string; expiresAt: Date; fullName: string }>> {
   const ctx = await requireContext();
-  const res = await run('staff.reinvite', () => reissueInvite(ctx, parse(userIdInput, userId)));
+  const res = await run('staff.reinvite', () => reissueInvite(ctx, parse(idInput, userId)));
   if (res.ok) revalidatePath('/settings/team');
   return res;
 }
@@ -47,9 +48,40 @@ export async function reissueInviteAction(userId: string): Promise<ActionResult<
 export async function setStaffActiveAction(userId: string, active: boolean): Promise<ActionResult> {
   const ctx = await requireContext();
   const res = await run(active ? 'staff.reactivate' : 'staff.deactivate', async () => {
-    await setStaffActive(ctx, parse(userIdInput, userId), parse(z.boolean(), active));
+    await setStaffActive(ctx, parse(idInput, userId), parse(z.boolean(), active));
     return undefined;
   });
   if (res.ok) revalidatePath('/settings/team');
+  return res;
+}
+
+const itemInput = z.object({
+  code: z.string().max(40),
+  name: z.string().max(200),
+  category: z.string().max(100),
+  price: z.string().max(30),
+  taxCategory: z.string().max(40),
+  hsnSacCode: z.string().max(20),
+  gstRateBp: z.number().int(),
+});
+
+/** Create when id is null, otherwise edit. */
+export async function saveCatalogueItemAction(id: string | null, input: z.input<typeof itemInput>): Promise<ActionResult<SaveItemResult>> {
+  const ctx = await requireContext();
+  const res = await run(id ? 'catalogue.update' : 'catalogue.create', () => {
+    const data = parse(itemInput, input);
+    return id ? updateCatalogueItem(ctx, parse(idInput, id), data) : createCatalogueItem(ctx, data);
+  });
+  if (res.ok && res.data.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+export async function setCatalogueItemActiveAction(id: string, active: boolean): Promise<ActionResult> {
+  const ctx = await requireContext();
+  const res = await run(active ? 'catalogue.reactivate' : 'catalogue.deactivate', async () => {
+    await setCatalogueItemActive(ctx, parse(idInput, id), parse(z.boolean(), active));
+    return undefined;
+  });
+  if (res.ok) revalidatePath('/', 'layout');
   return res;
 }

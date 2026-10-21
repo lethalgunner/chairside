@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { login } from './helpers';
+import { login, phone } from './helpers';
 
 /**
  * Owner settings (Pilot 0 slice 2). Runs after the golden path, so changes
@@ -47,4 +47,53 @@ test('team: owner invites a front desk user, the link sets a password, deactivat
 
   // The owner cannot switch themself off.
   await expect(page.getByRole('row', { name: /Dr\. Demo Owner/ }).getByRole('button', { name: /Deactivate/ })).toHaveCount(0);
+});
+
+test('price list: owner adds an item, the bill builder offers it, deactivating hides it', async ({ page }) => {
+  await login(page, 'owner');
+  await page.locator('#branch-select').selectOption({ label: 'Demo Pune' });
+  await expect(page.locator('.branch-banner')).toContainText('Demo Pune');
+  await page.goto('/settings/catalogue');
+  await expect(page.getByText('GST rates are not yet confirmed by a CA. Issued bills keep the rate they were issued with.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Add item' }).click();
+  await page.getByLabel('Code').fill('ngd');
+  await page.getByLabel(/^Name/).fill('Night guard');
+  await page.getByLabel('Category').fill('Prosthodontics');
+  await page.getByLabel('Price (₹)').fill('abc');
+  await page.getByLabel('GST treatment').selectOption('goods_prosthetic');
+  await expect(page.getByLabel('HSN/SAC')).toHaveValue('9021');
+  await page.getByLabel('GST %').selectOption('500');
+  await page.getByRole('button', { name: 'Add item' }).click();
+  await expect(page.getByLabel('Price (₹)')).toHaveAttribute('aria-invalid', 'true');
+  await page.getByLabel('Price (₹)').fill('2,500');
+  await page.getByRole('button', { name: 'Add item' }).click();
+  await expect(page.getByRole('status')).toContainText('Night guard saved.');
+  const row = page.getByRole('row', { name: /Night guard/ });
+  await expect(row).toContainText('NGD');
+  await expect(row).toContainText('₹2,500.00');
+  await expect(row).toContainText('5% · 9021');
+
+  // A patient at Demo Pune, then the bill builder.
+  await page.goto('/patients/new');
+  await page.getByLabel('Mobile').fill(phone());
+  await page.getByLabel('Full name').fill('Gita Nightguard');
+  await page.getByRole('button', { name: 'Female', exact: true }).click();
+  await page.getByLabel('Age in years').fill('38');
+  await page.getByRole('button', { name: 'Register patient' }).click();
+  await expect(page.getByRole('heading', { name: 'Gita Nightguard', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'New bill' }).click();
+  await expect(page.getByLabel('Add treatment or item')).toBeVisible();
+  const billUrl = page.url();
+  await page.getByLabel('Add treatment or item').fill('night');
+  const picks = page.getByRole('list', { name: 'Matching items' });
+  await expect(picks).toContainText('Night guard');
+  await expect(picks).toContainText('₹2,500.00');
+
+  await page.goto('/settings/catalogue');
+  await page.getByRole('button', { name: 'Deactivate Night guard' }).click();
+  await expect(row).toContainText('Inactive');
+  await page.goto(billUrl);
+  await page.getByLabel('Add treatment or item').fill('night');
+  await expect(picks).toContainText('Nothing matches');
 });

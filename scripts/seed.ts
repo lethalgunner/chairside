@@ -10,6 +10,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { closeDb, getDb } from '../src/db/client';
 import { branches, catalogueItems, memberships, organisations, users } from '../src/db/schema';
+import { isGoodsCategory } from '../src/domain/catalogue';
 import { isValidBranchCode } from '../src/domain/numbering';
 
 const file = z.object({
@@ -110,7 +111,7 @@ async function main() {
       taxCategory: c.taxCategory,
       hsnSacCode: c.hsnSacCode,
       gstRateBp: c.gstRateBp,
-      isGoods: c.taxCategory.startsWith('goods'),
+      isGoods: isGoodsCategory(c.taxCategory),
     };
     const [existing] = await db.select().from(catalogueItems).where(and(eq(catalogueItems.orgId, orgId), eq(catalogueItems.code, c.code))).limit(1);
     if (existing) await db.update(catalogueItems).set(values).where(eq(catalogueItems.id, existing.id));
