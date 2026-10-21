@@ -26,7 +26,7 @@ export default async function globalSetup() {
     stdio: 'ignore',
   });
   const out = execSync('npx tsx scripts/add-user.ts --invite --org "Demo Dental Group" --email newdesk@demo.local --name "Ravi (new desk)" --role front_desk --branch DKN', {
-    env: { ...env, APP_URL: 'http://localhost:3100' },
+    env: { ...env, APP_URL: `http://localhost:${Number(process.env.E2E_PORT ?? 3100)}` },
   }).toString();
   const link = out.split('\n').find((l) => l.startsWith('http'));
   if (!link) throw new Error('No invite link printed');

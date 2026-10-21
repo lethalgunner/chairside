@@ -5,7 +5,8 @@ import { defineConfig, devices } from '@playwright/test';
  * The global setup recreates the e2e database and seeds the invented demo org.
  * Tests run serially because the golden path closes the day at Demo Pune.
  */
-const PORT = 3100;
+// E2E_PORT lets two checkouts run their suites side by side without fighting over a port.
+const PORT = Number(process.env.E2E_PORT ?? 3100);
 const DB = process.env.DATABASE_URL_E2E ?? 'postgresql://postgres@localhost:5432/chairside_e2e';
 
 export default defineConfig({
