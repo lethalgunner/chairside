@@ -103,6 +103,7 @@ export const ledgerEntryTypeEnum = pgEnum('ledger_entry_type', [
   'credit_note', // credit: we reduced what they owe
   'refund', // debit: we gave money back
   'write_off', // credit: we gave up on collecting
+  'receipt_cancel', // debit: a payment recorded by mistake was cancelled (Slice 3, T19)
 ]);
 
 export const dayBookStatusEnum = pgEnum('day_book_status', [
@@ -643,6 +644,12 @@ export const receipts = pgTable(
     dayBookId: uuid('day_book_id'),
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    // Cancelling is a status transition, like voiding a bill: the row, its
+    // number and its allocations stay; every derived figure ignores it and a
+    // reversing ledger entry restores the balance (Slice 3, T19).
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    cancelledBy: uuid('cancelled_by').references(() => users.id),
+    cancelReason: text('cancel_reason'),
   },
   (t) => ({
     numberUnique: uniqueIndex('receipts_number_unique').on(t.branchId, t.number),

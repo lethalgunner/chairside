@@ -115,17 +115,41 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             <p className="muted">No payments against this bill yet.</p>
           ) : (
             <ul className="plain">
-              {inv.payments.map((p) => (
-                <li key={p.receiptId}>
-                  <span className="mono">{p.number}</span> · {displayDate(p.receivedOn)} · {MODE_LABEL[p.mode] ?? p.mode} · <strong>{formatINR(p.amountPaise)}</strong>
-                </li>
-              ))}
+              {inv.payments.map((p) =>
+                p.cancelledAt ? (
+                  <li key={p.receiptId} className="muted">
+                    <s>
+                      <Link className="link mono" href={`/receipts/${p.receiptId}`}>{p.number}</Link> · {displayDate(p.receivedOn)} · {MODE_LABEL[p.mode] ?? p.mode} · {formatINR(p.amountPaise)}
+                    </s>{' '}
+                    <span className="small">Cancelled: {p.cancelReason}</span>
+                  </li>
+                ) : (
+                  <li key={p.receiptId}>
+                    <Link className="link mono" href={`/receipts/${p.receiptId}`}>{p.number}</Link> · {displayDate(p.receivedOn)} · {MODE_LABEL[p.mode] ?? p.mode} · <strong>{formatINR(p.amountPaise)}</strong>
+                  </li>
+                ),
+              )}
             </ul>
           )}
           <p><Link className="link" href={`/patients/${inv.patientId}`}>Patient account →</Link></p>
         </Card>
       </div>
       {canVoid ? <VoidForm invoiceId={inv.id} number={inv.number} /> : null}
+      {inv.status === 'issued' && inv.paidPaise > 0 && canDo(ctx, 'invoice.void', inv.branchId) ? (
+        // Never hide Cancel without saying why (QA Q7).
+        <div className="callout">
+          This bill has payments. Cancel them first:{' '}
+          {inv.payments
+            .filter((p) => !p.cancelledAt)
+            .map((p, i) => (
+              <span key={p.receiptId}>
+                {i > 0 ? ', ' : ''}
+                <Link className="link mono" href={`/receipts/${p.receiptId}`}>{p.number}</Link> ({formatINR(p.amountPaise)})
+              </span>
+            ))}
+          . Then the bill can be cancelled here.
+        </div>
+      ) : null}
     </>
   );
 }

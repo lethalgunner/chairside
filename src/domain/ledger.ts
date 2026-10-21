@@ -35,7 +35,8 @@ export type LedgerEntryType =
   | 'advance_drawdown'
   | 'credit_note'
   | 'refund'
-  | 'write_off';
+  | 'write_off'
+  | 'receipt_cancel';
 
 export interface LedgerEntry {
   entryType: LedgerEntryType;

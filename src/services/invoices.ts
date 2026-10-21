@@ -25,7 +25,7 @@ import { writeAudit } from './audit';
 import { ensureDayOpen } from './daybook';
 import { nextDocumentNumber } from './numbering';
 import { registerAtBranch } from './patients';
-import { isUniqueViolation, isUuid, toPaise } from './util';
+import { isUniqueViolation, isUuid, paidOnInvoiceSql, toPaise } from './util';
 
 const paiseSchema = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 
@@ -371,7 +371,8 @@ async function applyAdvances(tx: Tx, orgId: string, branchId: string, patientId:
       unallocated: sql<string>`receipts.amount_paise - coalesce((select sum(a.amount_paise) from receipt_allocations a where a.receipt_id = receipts.id), 0)`,
     })
     .from(receipts)
-    .where(and(eq(receipts.orgId, orgId), eq(receipts.branchId, branchId), eq(receipts.patientId, patientId)))
+    // A cancelled payment is not money held; it can't fund a new bill.
+    .where(and(eq(receipts.orgId, orgId), eq(receipts.branchId, branchId), eq(receipts.patientId, patientId), isNull(receipts.cancelledAt)))
     .orderBy(asc(receipts.receivedOn), asc(receipts.createdAt))
     .for('update');
   let remaining = totalPaise;
@@ -402,9 +403,10 @@ export async function voidInvoice(ctx: TenantContext, invoiceId: string, reasonR
     const [alloc] = await tx
       .select({ n: sql<string>`count(*)` })
       .from(receiptAllocations)
-      .where(eq(receiptAllocations.invoiceId, inv.id));
+      .innerJoin(receipts, eq(receipts.id, receiptAllocations.receiptId))
+      .where(and(eq(receiptAllocations.invoiceId, inv.id), isNull(receipts.cancelledAt)));
     if (Number(alloc?.n ?? 0) > 0) {
-      throw new UserFacingError('This bill has payments against it. Payments must be moved before it can be cancelled.');
+      throw new UserFacingError('This bill has payments. Cancel them first, then cancel the bill.');
     }
     const branch = await getBranch(ctx, inv.branchId, tx);
     const date = businessDate();
@@ -468,7 +470,8 @@ export interface InvoiceDetail {
   paidPaise: Paise;
   duePaise: Paise;
   lines: (typeof invoiceLines.$inferSelect)[];
-  payments: { receiptId: string; number: string; receivedOn: string; mode: string; amountPaise: Paise }[];
+  /** Every payment ever allocated, cancelled ones included (marked) so the screen can strike them through. */
+  payments: { receiptId: string; number: string; receivedOn: string; mode: string; amountPaise: Paise; cancelledAt: Date | null; cancelReason: string | null }[];
 }
 
 export async function getInvoice(ctx: TenantContext, invoiceId: string): Promise<InvoiceDetail | null> {
@@ -486,13 +489,13 @@ export async function getInvoice(ctx: TenantContext, invoiceId: string): Promise
   assertCan(ctx, 'patient.view', row.inv.branchId);
   const lines = await db.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, invoiceId)).orderBy(asc(invoiceLines.lineNumber));
   const payments = await db
-    .select({ receiptId: receipts.id, number: receipts.number, receivedOn: receipts.receivedOn, mode: receipts.mode, amountPaise: receiptAllocations.amountPaise })
+    .select({ receiptId: receipts.id, number: receipts.number, receivedOn: receipts.receivedOn, mode: receipts.mode, amountPaise: receiptAllocations.amountPaise, cancelledAt: receipts.cancelledAt, cancelReason: receipts.cancelReason })
     .from(receiptAllocations)
     .innerJoin(receipts, eq(receipts.id, receiptAllocations.receiptId))
     .where(eq(receiptAllocations.invoiceId, invoiceId))
     .orderBy(asc(receipts.receivedOn));
   const i = row.inv;
-  const paid = add(...payments.map((p) => p.amountPaise as Paise));
+  const paid = add(...payments.filter((p) => !p.cancelledAt).map((p) => p.amountPaise as Paise));
   const total = i.totalPaise as Paise;
   return {
     id: i.id,
@@ -544,7 +547,7 @@ export async function listInvoices(
 ): Promise<InvoiceRow[]> {
   const ids = opts.branchIds.filter((b) => ctx.branchIds.includes(b));
   if (ids.length === 0) return [];
-  const paid = sql<string>`coalesce((select sum(a.amount_paise) from receipt_allocations a where a.invoice_id = invoices.id), 0)`;
+  const paid = paidOnInvoiceSql();
   const conds = [eq(invoices.orgId, ctx.orgId), inArray(invoices.branchId, ids)];
   if (opts.patientId) conds.push(eq(invoices.patientId, opts.patientId));
   if (opts.openOnly) conds.push(eq(invoices.status, 'issued'), sql`${invoices.totalPaise} > ${paid}`);

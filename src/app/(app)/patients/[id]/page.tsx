@@ -7,8 +7,8 @@ import { formatIndianMobile } from '@/domain/phone';
 import { canDo } from '@/services/context';
 import { listInvoices } from '@/services/invoices';
 import { getPatient } from '@/services/patients';
-import { patientAccount } from '@/services/reports';
-import { Card, Empty, PageHead, StatusPill } from '@/components/ui';
+import { patientAccount, patientReceipts } from '@/services/reports';
+import { Card, Empty, MODE_LABEL, PageHead, StatusPill } from '@/components/ui';
 
 const ENTRY_LABEL: Record<string, string> = {
   invoice: 'Bill',
@@ -18,6 +18,7 @@ const ENTRY_LABEL: Record<string, string> = {
   credit_note: 'Cancelled bill',
   refund: 'Refund',
   write_off: 'Written off',
+  receipt_cancel: 'Cancelled payment',
 };
 
 export default async function PatientPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ new?: string }> }) {
@@ -26,7 +27,7 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
   const { new: isNew } = await searchParams;
   const patient = await getPatient(ctx, id);
   if (!patient) notFound();
-  const [account, bills] = await Promise.all([patientAccount(ctx, id), listInvoices(ctx, { branchIds: ctx.branchIds, patientId: id, limit: 50 })]);
+  const [account, bills, payments] = await Promise.all([patientAccount(ctx, id), listInvoices(ctx, { branchIds: ctx.branchIds, patientId: id, limit: 50 }), patientReceipts(ctx, id)]);
   const branch = ctx.activeBranchId === 'all' ? null : ctx.activeBranchId;
   const canBill = branch ? canDo(ctx, 'invoice.issue', branch) : false;
   const canPay = branch ? canDo(ctx, 'receipt.record', branch) : false;
@@ -105,6 +106,38 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
           </div>
         )}
       </Card>
+
+      {payments.length > 0 ? (
+        <Card title="Payments" flush>
+          <div className="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Payment</th>
+                  <th scope="col">Date</th>
+                  <th scope="col">Branch</th>
+                  <th scope="col">Paid by</th>
+                  <th scope="col" className="num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((p) => (
+                  <tr key={p.id} className={p.cancelledAt ? 'muted' : undefined}>
+                    <td>
+                      <Link className="link mono" href={`/receipts/${p.id}`}>{p.cancelledAt ? <s>{p.number}</s> : p.number}</Link>
+                      {p.cancelledAt ? <div className="small">Cancelled: {p.cancelReason}</div> : null}
+                    </td>
+                    <td>{displayDate(p.receivedOn)}</td>
+                    <td>{p.branchName}</td>
+                    <td>{MODE_LABEL[p.mode] ?? p.mode}</td>
+                    <td className="num">{p.cancelledAt ? <s>{formatINR(p.amountPaise as Paise)}</s> : formatINR(p.amountPaise as Paise)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
 
       <Card title="Account statement" note="Every bill and payment, with the running balance" flush>
         {account.statement.length === 0 ? (

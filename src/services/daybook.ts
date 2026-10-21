@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { getDb, type Tx } from '@/db/client';
 import { dayBooks, expenses, invoices, receipts } from '@/db/schema';
 import { businessDate } from '@/domain/dates';
@@ -87,7 +87,7 @@ export async function getDaySummary(ctx: TenantContext, branchId: string, date =
   const modeRows = await db
     .select({ mode: receipts.mode, total: sql<string>`sum(${receipts.amountPaise})` })
     .from(receipts)
-    .where(and(eq(receipts.orgId, ctx.orgId), eq(receipts.branchId, branchId), eq(receipts.receivedOn, date)))
+    .where(and(eq(receipts.orgId, ctx.orgId), eq(receipts.branchId, branchId), eq(receipts.receivedOn, date), isNull(receipts.cancelledAt)))
     .groupBy(receipts.mode);
 
   const cashOut = await db
@@ -229,7 +229,7 @@ export async function closeDay(ctx: TenantContext, input: CloseDayInput): Promis
     const modeRows = await tx
       .select({ mode: receipts.mode, total: sql<string>`sum(${receipts.amountPaise})` })
       .from(receipts)
-      .where(and(eq(receipts.branchId, branchId), eq(receipts.receivedOn, date)))
+      .where(and(eq(receipts.branchId, branchId), eq(receipts.receivedOn, date), isNull(receipts.cancelledAt)))
       .groupBy(receipts.mode);
     const [cash] = await tx
       .select({ total: sql<string>`coalesce(sum(${expenses.amountPaise}), 0)` })

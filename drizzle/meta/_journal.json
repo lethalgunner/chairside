@@ -22,6 +22,13 @@
       "when": 1792231200000,
       "tag": "0002_close_data_api",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792599588562,
+      "tag": "0003_receipt_cancel",
+      "breakpoints": true
     }
   ]
 }

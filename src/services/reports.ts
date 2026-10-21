@@ -18,7 +18,7 @@ import { add, ZERO, type Paise } from '@/domain/money';
 import type { TaxCategory } from '@/domain/tax';
 import { assertCan, canAnywhere, canDo, ForbiddenError, type TenantContext } from './context';
 import { listInvoices } from './invoices';
-import { isUuid, toInt, toPaise } from './util';
+import { isUuid, paidOnInvoiceSql, toInt, toPaise } from './util';
 
 export interface BranchDay {
   branchId: string;
@@ -49,7 +49,7 @@ export async function dashboard(ctx: TenantContext, branchIds: string[], date = 
   const collected = await db
     .select({ b: receipts.branchId, mode: receipts.mode, t: sql<string>`sum(${receipts.amountPaise})` })
     .from(receipts)
-    .where(and(eq(receipts.orgId, ctx.orgId), inArray(receipts.branchId, ids), eq(receipts.receivedOn, date)))
+    .where(and(eq(receipts.orgId, ctx.orgId), inArray(receipts.branchId, ids), eq(receipts.receivedOn, date), isNull(receipts.cancelledAt)))
     .groupBy(receipts.branchId, receipts.mode);
   const books = await db
     .select({ b: dayBooks.branchId, status: dayBooks.status, legacy: dayBooks.legacyBillCount })
@@ -67,7 +67,7 @@ export async function dashboard(ctx: TenantContext, branchIds: string[], date = 
   const outstanding = await db
     .select({
       b: invoices.branchId,
-      t: sql<string>`sum(invoices.total_paise - coalesce((select sum(a.amount_paise) from receipt_allocations a where a.invoice_id = invoices.id), 0))`,
+      t: sql<string>`sum(invoices.total_paise - ${paidOnInvoiceSql()})`,
     })
     .from(invoices)
     .where(and(eq(invoices.orgId, ctx.orgId), inArray(invoices.branchId, ids), eq(invoices.status, 'issued')))
@@ -252,7 +252,7 @@ export async function gstPapers(ctx: TenantContext, branchIds: string[], month: 
 export async function patientReceipts(ctx: TenantContext, patientId: string) {
   if (!canAnywhere(ctx, 'patient.view') || !isUuid(patientId)) return [];
   return getDb()
-    .select({ id: receipts.id, number: receipts.number, receivedOn: receipts.receivedOn, mode: receipts.mode, amountPaise: receipts.amountPaise, branchName: branches.name })
+    .select({ id: receipts.id, number: receipts.number, receivedOn: receipts.receivedOn, mode: receipts.mode, amountPaise: receipts.amountPaise, branchName: branches.name, cancelledAt: receipts.cancelledAt, cancelReason: receipts.cancelReason })
     .from(receipts)
     .innerJoin(branches, eq(branches.id, receipts.branchId))
     .where(and(eq(receipts.orgId, ctx.orgId), eq(receipts.patientId, patientId), inArray(receipts.branchId, ctx.branchIds)))

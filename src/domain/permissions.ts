@@ -30,7 +30,9 @@ export type Capability =
   /** Invite, re-invite, deactivate and reactivate staff. Owner only, org-wide (Pilot 0 slice 2). */
   | 'staff.manage'
   /** Edit branch details: GST registration, GSTIN, day-close tolerance, float. Owner only (slice 2). */
-  | 'branch.manage';
+  | 'branch.manage'
+  /** Cancel a payment recorded by mistake. Owner only (slice 3, T19). */
+  | 'receipt.cancel';
 
 const ALL: Capability[] = [
   'patient.register',
@@ -46,10 +48,11 @@ const ALL: Capability[] = [
   'catalogue.manage',
   'staff.manage',
   'branch.manage',
+  'receipt.cancel',
 ];
 
 /** Capabilities only the owner holds in Pilot 0. */
-const OWNER_ONLY: readonly Capability[] = ['day.reopen', 'staff.manage', 'branch.manage'];
+const OWNER_ONLY: readonly Capability[] = ['day.reopen', 'staff.manage', 'branch.manage', 'receipt.cancel'];
 
 export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
   owner: ALL,

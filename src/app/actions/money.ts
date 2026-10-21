@@ -5,7 +5,7 @@ import { requireContext } from '@/lib/auth';
 import { fromRupeeString, type Paise } from '@/domain/money';
 import { closeDay, recordCashOut, reopenDay, type CloseDayInput } from '@/services/daybook';
 import { issueBill, voidInvoice, type IssueBillInput, type IssueBillResult } from '@/services/invoices';
-import { recordReceipt, type RecordReceiptInput, type RecordReceiptResult } from '@/services/receipts';
+import { cancelReceipt, recordReceipt, type RecordReceiptInput, type RecordReceiptResult } from '@/services/receipts';
 import { UserFacingError } from '@/services/context';
 import { run, type ActionResult } from './run';
 
@@ -31,6 +31,16 @@ export async function voidInvoiceAction(invoiceId: string, reason: string): Prom
   const ctx = await requireContext();
   const res = await run('invoice.void', async () => {
     await voidInvoice(ctx, invoiceId, reason);
+    return undefined;
+  });
+  if (res.ok) refresh();
+  return res;
+}
+
+export async function cancelReceiptAction(receiptId: string, reason: string): Promise<ActionResult> {
+  const ctx = await requireContext();
+  const res = await run('receipt.cancel', async () => {
+    await cancelReceipt(ctx, receiptId, reason);
     return undefined;
   });
   if (res.ok) refresh();

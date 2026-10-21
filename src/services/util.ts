@@ -1,3 +1,4 @@
+import { sql, type SQL } from 'drizzle-orm';
 import type { Paise } from '@/domain/money';
 
 /**
@@ -31,6 +32,16 @@ export function testSeriesEnabled(): boolean {
 
 export function isUuid(v: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+}
+
+/**
+ * What has been paid against the invoice in the OUTER query: allocations of
+ * receipts that are not cancelled (T19). Every "paid" or "outstanding" figure
+ * must use this, so a cancelled payment drops out everywhere at once.
+ * The outer table must be `invoices` (see the note below).
+ */
+export function paidOnInvoiceSql(): SQL<string> {
+  return sql<string>`coalesce((select sum(a.amount_paise) from receipt_allocations a join receipts r on r.id = a.receipt_id where a.invoice_id = invoices.id and r.cancelled_at is null), 0)`;
 }
 
 /*
