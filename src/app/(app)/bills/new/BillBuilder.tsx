@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useMemo, useRef, useState, useTransition } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { issueBillAction } from '@/app/actions/money';
 import { formatINR, fromRupeeString, add, ZERO, type Paise } from '@/domain/money';
 import { computeInvoice, type LineInput } from '@/domain/tax';
 import type { CatalogueEntry, DoctorOption } from '@/services/catalogue';
 import { TaxPill } from '@/components/ui';
+import { useActionForm } from '@/lib/nav/use-action-form';
 
 interface Line {
   key: string;
@@ -48,8 +48,7 @@ function parseDiscount(s: string): Paise | null {
  * the preview and the issued bill cannot disagree.
  */
 export default function BillBuilder({ patient, branch, catalogue, doctors, unbilled }: Props) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const { busy: pending, send, release, navigate } = useActionForm('bill.issue');
   const idem = useRef<string>(crypto.randomUUID());
   const [doctorId, setDoctorId] = useState(doctors.length === 1 ? doctors[0]!.id : '');
   const [filter, setFilter] = useState('');
@@ -104,8 +103,8 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
     setError(null);
     if (!doctorId) return setError('Pick the doctor who did the work.');
     if (mode === 'issue' && !confirming) return setConfirming(true);
-    start(async () => {
-      const res = await issueBillAction({
+    void (async () => {
+      const res = await send(() => issueBillAction({
         patientId: patient.id,
         doctorId,
         idempotencyKey: idem.current,
@@ -118,14 +117,19 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
           discountReason: l.discountReason.trim() || undefined,
           toothNumber: l.tooth.trim() || undefined,
         })),
-      });
+      }));
+      if (!res) return;
       if (!res.ok) {
         setConfirming(false);
+        release();
         return setError(res.error);
       }
-      if (res.data.kind === 'issued') setDone({ number: res.data.number, invoiceId: res.data.invoiceId });
-      else router.push(`/patients/${patient.id}`);
-    });
+      if (res.data.kind === 'issued') {
+        setDone({ number: res.data.number, invoiceId: res.data.invoiceId });
+        return release();
+      }
+      return navigate(`/patients/${patient.id}`);
+    })();
   }
 
   if (done) {

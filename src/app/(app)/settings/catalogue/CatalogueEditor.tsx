@@ -1,11 +1,11 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { saveCatalogueItemAction, setCatalogueItemActiveAction } from '@/app/actions/settings';
 import { formatINR, type Paise } from '@/domain/money';
 import { CategoryLabel, TaxPill } from '@/components/ui';
 import type { TaxCategory } from '@/domain/tax';
+import { useActionForm } from '@/lib/nav/use-action-form';
 
 interface Item {
   id: string;
@@ -30,8 +30,7 @@ type Draft = { code: string; name: string; category: string; price: string; taxC
 const EMPTY: Draft = { code: '', name: '', category: '', price: '', taxCategory: 'exempt_healthcare', hsnSacCode: '9993', gstRateBp: 0 };
 
 export default function CatalogueEditor({ items, taxCategories, rates }: Props) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const { busy: pending, send, release, navigate } = useActionForm('catalogue.save');
   const [editing, setEditing] = useState<string | 'new' | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -56,24 +55,30 @@ export default function CatalogueEditor({ items, taxCategories, rates }: Props) 
   function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    start(async () => {
-      const res = await saveCatalogueItemAction(editing === 'new' ? null : editing, { ...draft, gstRateBp: exempt ? 0 : draft.gstRateBp });
+    void (async () => {
+      const res = await send(() => saveCatalogueItemAction(editing === 'new' ? null : editing, { ...draft, gstRateBp: exempt ? 0 : draft.gstRateBp }));
+      if (!res) return;
+      if (!res.ok || !res.data.ok) release();
       if (!res.ok) return setError(res.error);
       if (!res.data.ok) return setErrors(res.data.fieldErrors);
       setSaved(`${draft.name.trim()} saved.`);
       setEditing(null);
-      router.refresh();
-    });
+      await navigate();
+    })();
   }
 
   function toggle(item: Item) {
     setError(null);
     setSaved(null);
-    start(async () => {
-      const res = await setCatalogueItemActiveAction(item.id, !item.active);
-      if (!res.ok) return setError(res.error);
-      router.refresh();
-    });
+    void (async () => {
+      const res = await send(() => setCatalogueItemActiveAction(item.id, !item.active));
+      if (!res) return;
+      if (!res.ok) {
+        release();
+        return setError(res.error);
+      }
+      await navigate();
+    })();
   }
 
   const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement>) => setDraft((x) => ({ ...x, [k]: e.target.value }));

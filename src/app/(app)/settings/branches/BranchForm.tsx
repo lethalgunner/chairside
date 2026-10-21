@@ -1,8 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { saveBranchAction } from '@/app/actions/settings';
+import { useActionForm } from '@/lib/nav/use-action-form';
 
 interface Branch {
   id: string;
@@ -20,8 +20,7 @@ interface Branch {
 
 /** One branch's details. Field ids carry the branch code so two forms on the page never clash. */
 export default function BranchForm({ branch, states }: { branch: Branch; states: string[] }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const { busy: pending, send, release, navigate } = useActionForm('branch.update');
   const [d, setD] = useState(branch);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -38,15 +37,17 @@ export default function BranchForm({ branch, states }: { branch: Branch; states:
   function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    start(async () => {
+    void (async () => {
       const { id: _id, code: _code, ...input } = d;
-      const res = await saveBranchAction(branch.id, input);
+      const res = await send(() => saveBranchAction(branch.id, input));
+      if (!res) return;
+      if (!res.ok || !res.data.ok) release();
       if (!res.ok) return setError(res.error);
       if (!res.data.ok) return setErrors(res.data.fieldErrors);
       setErrors({});
       setSaved(true);
-      router.refresh();
-    });
+      await navigate();
+    })();
   }
 
   return (

@@ -1,16 +1,15 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { voidInvoiceAction } from '@/app/actions/money';
+import { useActionForm } from '@/lib/nav/use-action-form';
 
 /** Cancel an unpaid bill. Its number stays used; a reversing entry clears the patient's balance. */
 export default function VoidForm({ invoiceId, number }: { invoiceId: string; number: string }) {
-  const router = useRouter();
+  const { busy: pending, send, release, navigate } = useActionForm('invoice.void');
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [pending, start] = useTransition();
   if (!open) {
     return (
       <p>
@@ -33,12 +32,16 @@ export default function VoidForm({ invoiceId, number }: { invoiceId: string; num
             className="danger-btn"
             disabled={pending || reason.trim().length < 5}
             onClick={() =>
-              start(async () => {
-                const res = await voidInvoiceAction(invoiceId, reason);
-                if (!res.ok) return setError(res.error);
+              void (async () => {
+                const res = await send(() => voidInvoiceAction(invoiceId, reason));
+                if (!res) return;
+                if (!res.ok) {
+                  release();
+                  return setError(res.error);
+                }
+                await navigate();
                 setOpen(false);
-                router.refresh();
-              })
+              })()
             }
           >
             {pending ? 'Cancelling…' : `Cancel ${number}`}

@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTransition } from 'react';
+import { usePathname } from 'next/navigation';
+import { useActionForm } from '@/lib/nav/use-action-form';
 import { signOutAction, switchBranchAction } from '@/app/actions/auth';
 
 interface Props {
@@ -14,8 +14,7 @@ interface Props {
 
 export default function Sidebar({ userName, branches, activeBranchId, can }: Props) {
   const path = usePathname();
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const { busy: pending, send, navigate } = useActionForm('branch.switch');
   const link = (href: string, label: string) => {
     const active = href === '/' ? path === '/' : path.startsWith(href);
     return (
@@ -45,10 +44,10 @@ export default function Sidebar({ userName, branches, activeBranchId, can }: Pro
             disabled={pending}
             onChange={(e) => {
               const v = e.target.value;
-              start(async () => {
-                await switchBranchAction(v);
-                router.refresh();
-              });
+              void (async () => {
+                if ((await send(() => switchBranchAction(v))) === null) return;
+                await navigate();
+              })();
             }}
           >
             <option value="all">All branches (view only)</option>

@@ -1,9 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useState } from 'react';
 import { closeDayAction, recordCashOutAction } from '@/app/actions/money';
 import { formatINR, subtract, type Paise } from '@/domain/money';
+import { useActionForm } from '@/lib/nav/use-action-form';
 
 interface Props {
   denominations: number[];
@@ -17,8 +17,9 @@ interface Props {
 const COINS = new Set([1, 2, 5, 10, 20]);
 
 export default function DayCloseForm({ denominations, expectedCashPaise, tolerancePaise, billCount, collectedPaise, canCashOut }: Props) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const closing = useActionForm('day.close');
+  const cashOut = useActionForm('cash.out');
+  const pending = closing.busy || cashOut.busy;
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [reason, setReason] = useState('');
   const [legacyCount, setLegacyCount] = useState('');
@@ -46,14 +47,16 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
     if (!confirming) return setConfirming(true);
     const denoms: Record<string, number> = {};
     for (const d of denominations) denoms[String(d)] = Number(counts[String(d)] || 0) || 0;
-    start(async () => {
-      const res = await closeDayAction({ denominations: denoms, varianceReason: reason || undefined, legacyBillCount: legacyCount || undefined, legacyCollected: legacyAmount || undefined });
+    void (async () => {
+      const res = await closing.send(() => closeDayAction({ denominations: denoms, varianceReason: reason || undefined, legacyBillCount: legacyCount || undefined, legacyCollected: legacyAmount || undefined }));
+      if (!res) return;
       if (!res.ok) {
+        closing.release();
         setConfirming(false);
         return setError(res.error);
       }
-      router.refresh();
-    });
+      await closing.navigate();
+    })();
   }
 
   return (
@@ -72,14 +75,18 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
                 className="secondary-btn"
                 disabled={pending || !cashAmt || !cashWhat}
                 onClick={() =>
-                  start(async () => {
-                    const res = await recordCashOutAction(cashAmt, cashWhat);
-                    if (!res.ok) return setCashMsg(res.error);
+                  void (async () => {
+                    const res = await cashOut.send(() => recordCashOutAction(cashAmt, cashWhat));
+                    if (!res) return;
+                    if (!res.ok) {
+                      cashOut.release();
+                      return setCashMsg(res.error);
+                    }
                     setCashAmt('');
                     setCashWhat('');
                     setCashMsg('Recorded.');
-                    router.refresh();
-                  })
+                    await cashOut.navigate();
+                  })()
                 }
               >
                 Add

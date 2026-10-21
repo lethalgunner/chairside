@@ -1,10 +1,10 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { reissueInviteAction, setStaffActiveAction } from '@/app/actions/settings';
 import type { InviteStatus } from '@/domain/staff';
 import InviteLink from './InviteLink';
+import { useActionForm } from '@/lib/nav/use-action-form';
 
 export interface TeamRow {
   id: string;
@@ -25,18 +25,21 @@ function LoginPill({ row }: { row: TeamRow }) {
 }
 
 export default function TeamTable({ rows }: { rows: TeamRow[] }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const { busy: pending, send, release, navigate } = useActionForm('staff.update');
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<{ token: string; name: string } | null>(null);
 
   const act = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) =>
-    start(async () => {
+    void (async () => {
       setError(null);
-      const res = await fn();
-      if (!res.ok) return setError(res.error);
-      router.refresh();
-    });
+      const res = await send(fn);
+      if (!res) return;
+      if (!res.ok) {
+        release();
+        return setError(res.error);
+      }
+      await navigate();
+    })();
 
   return (
     <>
@@ -70,13 +73,17 @@ export default function TeamTable({ rows }: { rows: TeamRow[] }) {
                       disabled={pending}
                       aria-label={`New link for ${r.fullName}`}
                       onClick={() =>
-                        start(async () => {
+                        void (async () => {
                           setError(null);
-                          const res = await reissueInviteAction(r.id);
-                          if (!res.ok) return setError(res.error);
+                          const res = await send(() => reissueInviteAction(r.id));
+                          if (!res) return;
+                          if (!res.ok) {
+                            release();
+                            return setError(res.error);
+                          }
                           setLink({ token: res.data.token, name: res.data.fullName });
-                          router.refresh();
-                        })
+                          await navigate();
+                        })()
                       }
                     >
                       New link

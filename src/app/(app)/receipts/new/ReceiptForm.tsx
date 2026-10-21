@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useRef, useState, useTransition } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { recordReceiptAction } from '@/app/actions/money';
 import { allocateReceipt, type OutstandingInvoice } from '@/domain/ledger';
 import { add, formatINR, fromRupeeString, subtract, type Paise } from '@/domain/money';
 import { MODE_LABEL } from '@/components/ui';
+import { useActionForm } from '@/lib/nav/use-action-form';
 
 const MODES = ['cash', 'upi', 'card', 'bank_transfer', 'cheque', 'financing'] as const;
 
@@ -18,7 +19,7 @@ interface Props {
 
 /** The allocation is spelled out as a sentence before saving, so the desk sees the reasoning instead of trusting it. */
 export default function ReceiptForm({ patient, branchName, open, balancePaise }: Props) {
-  const [pending, start] = useTransition();
+  const { busy: pending, send, release } = useActionForm('receipt.record');
   const idem = useRef<string>(crypto.randomUUID());
   const [amount, setAmount] = useState('');
   const [mode, setMode] = useState<(typeof MODES)[number]>('cash');
@@ -45,11 +46,13 @@ export default function ReceiptForm({ patient, branchName, open, balancePaise }:
     setError(null);
     if (!parsed) return setError('Enter the amount received in rupees, like 2000 or 2000.50.');
     if (needsAdvanceOk && !keepAdvance) return setError('Confirm that the extra amount should be kept as an advance.');
-    start(async () => {
-      const res = await recordReceiptAction({ patientId: patient.id, amountPaise: parsed, mode, reference: reference.trim() || undefined, idempotencyKey: idem.current });
+    void (async () => {
+      const res = await send(() => recordReceiptAction({ patientId: patient.id, amountPaise: parsed, mode, reference: reference.trim() || undefined, idempotencyKey: idem.current }));
+      if (!res) return;
+      release();
       if (!res.ok) return setError(res.error);
       setDone(res.data.number);
-    });
+    })();
   }
 
   if (done) {

@@ -1,10 +1,16 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
 import { signInAction } from '@/app/actions/auth';
 
 export default function LoginForm() {
-  const [state, action, pending] = useActionState(signInAction, null);
+  const [state, action, submitting] = useActionState(signInAction, null);
+  // Signed in: load the dashboard in full. A soft navigation here races the
+  // refresh Next starts when the action sets the session cookie (T18).
+  useEffect(() => {
+    if (state?.ok) window.location.assign('/');
+  }, [state]);
+  const pending = submitting || !!state?.ok;
   return (
     <form action={action} className="stack" noValidate>
       <div className="field">

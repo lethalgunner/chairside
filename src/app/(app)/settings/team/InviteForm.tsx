@@ -1,9 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { inviteStaffAction } from '@/app/actions/settings';
 import InviteLink from './InviteLink';
+import { useActionForm } from '@/lib/nav/use-action-form';
 
 interface Props {
   roles: { value: string; label: string }[];
@@ -13,8 +13,7 @@ interface Props {
 
 /** Invite a new person, or give an existing record (a doctor from the price list load) a login. */
 export default function InviteForm({ roles, branches, unlinked }: Props) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const { busy: pending, send, release, navigate } = useActionForm('staff.invite');
   const [who, setWho] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -28,8 +27,10 @@ export default function InviteForm({ roles, branches, unlinked }: Props) {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    start(async () => {
-      const res = await inviteStaffAction({ fullName, email, role, branchId: isOwner ? null : branchId || null, linkUserId: who || null });
+    void (async () => {
+      const res = await send(() => inviteStaffAction({ fullName, email, role, branchId: isOwner ? null : branchId || null, linkUserId: who || null }));
+      if (!res) return;
+      if (!res.ok || !res.data.ok) release();
       if (!res.ok) return setError(res.error);
       if (!res.data.ok) return setErrors(res.data.fieldErrors);
       setErrors({});
@@ -37,8 +38,8 @@ export default function InviteForm({ roles, branches, unlinked }: Props) {
       setWho('');
       setFullName('');
       setEmail('');
-      router.refresh();
-    });
+      await navigate();
+    })();
   }
 
   const describedBy = (k: string) => (errors[k] ? `${k}-err` : undefined);

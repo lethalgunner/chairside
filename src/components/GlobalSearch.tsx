@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { afterAction } from '@/lib/nav/after-action';
 
 /** Find a returning patient from any screen. Press "/" to jump here. */
 export default function GlobalSearch() {
@@ -28,7 +29,7 @@ export default function GlobalSearch() {
       className="global-search"
       onSubmit={(e) => {
         e.preventDefault();
-        router.push(`/patients?q=${encodeURIComponent(q.trim())}`);
+        void afterAction(router, { form: 'search', to: `/patients?q=${encodeURIComponent(q.trim())}` });
       }}
     >
       <label htmlFor="global-search" className="sr-only">

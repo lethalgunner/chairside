@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { registerPatientAction, type RegisterFormState } from '@/app/actions/patients';
 import { formatIndianMobile } from '@/domain/phone';
+import { useActionForm } from '@/lib/nav/use-action-form';
 
 const SEXES = [
   { v: 'F', label: 'Female' },
@@ -18,8 +18,7 @@ const SEXES = [
  * All fields are controlled, so a failed submit never wipes what was typed.
  */
 export default function NewPatientForm({ referralSources, initialPhone, initialName }: { referralSources: string[]; initialPhone: string; initialName: string }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const { busy: pending, send, release, navigate } = useActionForm('patient.register');
   const [phone, setPhone] = useState(initialPhone);
   const [fullName, setFullName] = useState(initialName);
   const [sex, setSex] = useState('');
@@ -32,11 +31,14 @@ export default function NewPatientForm({ referralSources, initialPhone, initialN
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    start(async () => {
-      const res = await registerPatientAction({ fullName, phone, sex, age, referralSource: referral, referralDetail, acknowledgedDuplicate: ack });
+    void (async () => {
+      const res = await send(() => registerPatientAction({ fullName, phone, sex, age, referralSource: referral, referralDetail, acknowledgedDuplicate: ack }));
+      if (!res) return;
       setState(res);
-      if (res.createdId) router.push(`/patients/${res.createdId}?new=1`);
-    });
+      // Navigate outside any transition; the button stays on "Saving…" until the patient page is up (T18).
+      if (res.createdId) return navigate(`/patients/${res.createdId}?new=1`);
+      release();
+    })();
   }
 
   const describedBy = (k: string) => (err[k] ? `${k}-err` : undefined);

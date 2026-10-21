@@ -1,14 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { reopenDayAction } from '@/app/actions/money';
+import { useActionForm } from '@/lib/nav/use-action-form';
 
 export default function ReopenForm({ branchId, date }: { branchId: string; date: string }) {
-  const router = useRouter();
+  const { busy: pending, send, release, navigate } = useActionForm('day.reopen');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [pending, start] = useTransition();
   return (
     <div className="inline-form">
       <label className="sr-only" htmlFor="reopen-reason">Reason for reopening</label>
@@ -18,11 +17,15 @@ export default function ReopenForm({ branchId, date }: { branchId: string; date:
         className="secondary-btn"
         disabled={pending || reason.trim().length < 5}
         onClick={() =>
-          start(async () => {
-            const res = await reopenDayAction(branchId, date, reason);
-            if (!res.ok) return setError(res.error);
-            router.refresh();
-          })
+          void (async () => {
+            const res = await send(() => reopenDayAction(branchId, date, reason));
+            if (!res) return;
+            if (!res.ok) {
+              release();
+              return setError(res.error);
+            }
+            await navigate();
+          })()
         }
       >
         Reopen day

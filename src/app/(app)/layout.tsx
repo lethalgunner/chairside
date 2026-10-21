@@ -4,6 +4,7 @@ import { canAnywhere } from '@/services/context';
 import { hasAnySettings, settingsAccess } from '@/services/settings';
 import Sidebar from '@/components/Sidebar';
 import GlobalSearch from '@/components/GlobalSearch';
+import { RENDER_KEY_ID } from '@/lib/nav/after-action';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const active = ctx.activeBranchId === 'all' ? null : branches.find((b) => b.id === ctx.activeBranchId) ?? null;
   return (
     <div className="shell">
+      {/* Changes on every server render, so a client can tell that a refresh landed (T18). */}
+      <span hidden id={RENDER_KEY_ID} data-k={globalThis.crypto.randomUUID()} />
       <a className="skip-link" href="#main">
         Skip to content
       </a>
