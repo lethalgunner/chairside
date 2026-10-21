@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { closeDayAction, recordCashOutAction } from '@/app/actions/money';
-import { formatINR, fromRupeeString, subtract, type Paise } from '@/domain/money';
+import { formatINR, parseRupeesInput, subtract, type Paise } from '@/domain/money';
 import { compareWithLegacy } from '@/domain/parallel';
 import LegacyCompare from '@/components/LegacyCompare';
 import { useActionForm } from '@/lib/nav/use-action-form';
@@ -40,15 +40,9 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
   const variance = subtract(counted, expectedCashPaise);
   const needsReason = Math.abs(variance) > tolerancePaise;
   const legacyN = legacyCount === '' ? null : Number(legacyCount);
-  const legacyP = useMemo(() => {
-    if (!legacyAmount.trim()) return null;
-    try {
-      const v = fromRupeeString(legacyAmount);
-      return v >= 0 ? v : null;
-    } catch {
-      return null;
-    }
-  }, [legacyAmount]);
+  const legacyParsed = legacyAmount.trim() ? parseRupeesInput(legacyAmount, 'the old system’s collection') : null;
+  const legacyP = legacyParsed?.ok ? legacyParsed.paise : null;
+  const cashParsed = cashAmt.trim() ? parseRupeesInput(cashAmt, 'the amount paid out') : null;
   const comparison = compareWithLegacy({ legacyBillCount: legacyN, legacyCollectedPaise: legacyP, billCount, collectedPaise });
 
   function close() {
@@ -78,13 +72,13 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
           <div className="body">
             <div className="inline-form">
               <label className="sr-only" htmlFor="cash-amt">Amount paid out in rupees</label>
-              <input id="cash-amt" inputMode="decimal" placeholder="₹" className="small-in" value={cashAmt} onChange={(e) => setCashAmt(e.target.value)} />
+              <input id="cash-amt" inputMode="decimal" placeholder="₹" className="small-in" value={cashAmt} onChange={(e) => setCashAmt(e.target.value)} aria-invalid={!!cashParsed && !cashParsed.ok} aria-describedby={cashParsed && !cashParsed.ok ? 'cash-amt-err' : undefined} />
               <label className="sr-only" htmlFor="cash-what">What it was for</label>
               <input id="cash-what" placeholder="What for (e.g. courier, tea)" value={cashWhat} onChange={(e) => setCashWhat(e.target.value)} />
               <button
                 type="button"
                 className="secondary-btn"
-                disabled={pending || !cashAmt || !cashWhat}
+                disabled={pending || !cashParsed?.ok || !cashWhat}
                 onClick={() =>
                   void (async () => {
                     const res = await cashOut.send(() => recordCashOutAction(cashAmt, cashWhat));
@@ -103,6 +97,7 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
                 Add
               </button>
             </div>
+            {cashParsed && !cashParsed.ok ? <p className="small err-text" id="cash-amt-err">{cashParsed.error}</p> : null}
             {cashMsg ? <p className="small muted" role="status">{cashMsg}</p> : null}
           </div>
         </div>
@@ -139,7 +134,8 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
               </div>
               <div className="field">
                 <label htmlFor="legacy-amt">Collected in the old system (₹)</label>
-                <input id="legacy-amt" inputMode="decimal" value={legacyAmount} onChange={(e) => setLegacyAmount(e.target.value)} />
+                <input id="legacy-amt" inputMode="decimal" value={legacyAmount} onChange={(e) => setLegacyAmount(e.target.value)} aria-invalid={!!legacyParsed && !legacyParsed.ok} aria-describedby={legacyParsed && !legacyParsed.ok ? 'legacy-amt-err' : undefined} />
+                {legacyParsed && !legacyParsed.ok ? <div className="hint err-text" id="legacy-amt-err">{legacyParsed.error}</div> : null}
               </div>
             </div>
             {comparison ? <LegacyCompare c={comparison} /> : null}

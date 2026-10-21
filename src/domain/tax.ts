@@ -40,6 +40,7 @@ import {
   allocate,
   roundToRupee,
   isNegative,
+  formatINR,
 } from './money';
 
 export type TaxCategory =
@@ -203,10 +204,8 @@ export function computeInvoice(
       throw new TaxError(`Line ${i + 1} (${line.description}) has a negative discount.`);
     }
     if (discount > gross) {
-      throw new TaxError(
-        `Line ${i + 1} (${line.description}) has a discount of ${discount} paise ` +
-          `exceeding its value of ${gross} paise.`,
-      );
+      // Shown to staff as-is (QA Q17): rupees and the item name, never paise.
+      throw new TaxError(`Discount on ${line.description} is more than its price (${formatINR(gross, { paise: gross % 100 !== 0 })}).`);
     }
 
     const netValue = subtract(gross, discount);

@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 import { issueBillAction } from '@/app/actions/money';
-import { formatINR, fromRupeeString, add, ZERO, type Paise } from '@/domain/money';
+import { formatINR, parseRupeesInput, add, multiply, ZERO, type Paise } from '@/domain/money';
+import { parseQuantity as parseQty } from '@/domain/input';
 import { computeInvoice, type LineInput } from '@/domain/tax';
 import type { CatalogueEntry, DoctorOption } from '@/services/catalogue';
 import { TaxPill } from '@/components/ui';
@@ -15,7 +16,8 @@ interface Line {
   procedureId?: string;
   name: string;
   unitPricePaise: Paise;
-  quantity: number;
+  /** Raw text while typing (Q11); checked on blur and before issuing. */
+  qty: string;
   discount: string;
   discountReason: string;
   tooth: string;
@@ -34,13 +36,10 @@ interface Props {
 
 function parseDiscount(s: string): Paise | null {
   if (!s.trim()) return ZERO;
-  try {
-    const v = fromRupeeString(s);
-    return v < 0 ? null : v;
-  } catch {
-    return null;
-  }
+  const r = parseRupeesInput(s);
+  return r.ok ? r.paise : null;
 }
+
 
 /**
  * Keyboard-first bill entry: type to filter the price list, Enter to add.
@@ -64,7 +63,7 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
   }, [filter, catalogue]);
 
   function addItem(c: CatalogueEntry) {
-    setLines((ls) => [...ls, { key: crypto.randomUUID(), catalogueItemId: c.id, name: c.name, unitPricePaise: c.pricePaise, quantity: 1, discount: '', discountReason: '', tooth: '', taxCategory: c.taxCategory, hsnSacCode: c.hsnSacCode, gstRateBp: c.gstRateBp }]);
+    setLines((ls) => [...ls, { key: crypto.randomUUID(), catalogueItemId: c.id, name: c.name, unitPricePaise: c.pricePaise, qty: '1', discount: '', discountReason: '', tooth: '', taxCategory: c.taxCategory, hsnSacCode: c.hsnSacCode, gstRateBp: c.gstRateBp }]);
     setFilter('');
     setConfirming(false);
   }
@@ -73,7 +72,7 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
     const item = catalogue.find((c) => c.name === u.name);
     setLines((ls) => [
       ...ls,
-      { key: u.procedureId, procedureId: u.procedureId, name: u.name, unitPricePaise: u.valuePaise, quantity: 1, discount: '', discountReason: '', tooth: '', taxCategory: item?.taxCategory ?? 'exempt_healthcare', hsnSacCode: item?.hsnSacCode ?? '9993', gstRateBp: item?.gstRateBp ?? 0 },
+      { key: u.procedureId, procedureId: u.procedureId, name: u.name, unitPricePaise: u.valuePaise, qty: '1', discount: '', discountReason: '', tooth: '', taxCategory: item?.taxCategory ?? 'exempt_healthcare', hsnSacCode: item?.hsnSacCode ?? '9993', gstRateBp: item?.gstRateBp ?? 0 },
     ]);
     setConfirming(false);
   }
@@ -87,10 +86,14 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
     if (lines.length === 0) return { computed: null, problem: null };
     const inputs: LineInput[] = [];
     for (const l of lines) {
+      const q = parseQty(l.qty);
+      if (q === null) return { computed: null, problem: `Quantity for “${l.name}” must be a whole number from 1 to 99.` };
       const d = parseDiscount(l.discount);
-      if (d === null) return { computed: null, problem: `Discount on “${l.name}” must be a rupee amount.` };
+      if (d === null) return { computed: null, problem: `Discount on “${l.name}”: enter rupees, like 500 or 1,500.` };
+      const gross = multiply(l.unitPricePaise, q);
+      if (d > gross) return { computed: null, problem: `Discount on ${l.name} is more than its price (${formatINR(gross, { paise: gross % 100 !== 0 })}).` };
       if (d > 0 && l.discountReason.trim().length < 3) return { computed: null, problem: `Give a reason for the discount on “${l.name}”.` };
-      inputs.push({ description: l.name, quantity: l.quantity, unitPricePaise: l.unitPricePaise, discountPaise: d, taxCategory: l.taxCategory, hsnSacCode: l.hsnSacCode, gstRateBp: l.gstRateBp });
+      inputs.push({ description: l.name, quantity: q, unitPricePaise: l.unitPricePaise, discountPaise: d, taxCategory: l.taxCategory, hsnSacCode: l.hsnSacCode, gstRateBp: l.gstRateBp });
     }
     try {
       return { computed: computeInvoice(inputs, { gstRegistered: branch.gstRegistered, gstin: branch.gstin, placeOfSupplyState: branch.state }, branch.state), problem: null };
@@ -112,7 +115,7 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
         lines: lines.map((l) => ({
           catalogueItemId: l.catalogueItemId,
           procedureId: l.procedureId,
-          quantity: l.quantity,
+          quantity: parseQty(l.qty) ?? 1,
           discountPaise: parseDiscount(l.discount) ?? 0,
           discountReason: l.discountReason.trim() || undefined,
           toothNumber: l.tooth.trim() || undefined,
@@ -247,7 +250,11 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
                           <input aria-label={`Tooth for ${l.name}`} className="tiny" value={l.tooth} disabled={!!l.procedureId} onChange={(e) => update(l.key, { tooth: e.target.value.replace(/[^\d,\s]/g, '').slice(0, 10) })} placeholder="e.g. 26" />
                         </td>
                         <td className="num">
-                          <input aria-label={`Quantity for ${l.name}`} className="tiny num" inputMode="numeric" value={l.quantity} disabled={!!l.procedureId} onChange={(e) => update(l.key, { quantity: Math.max(1, Math.min(99, Number(e.target.value.replace(/\D/g, '')) || 1)) })} />
+                          <div className="qty">
+                            <button type="button" className="icon-btn" aria-label={`One less ${l.name}`} disabled={!!l.procedureId || (parseQty(l.qty) ?? 1) <= 1} onClick={() => update(l.key, { qty: String(Math.max(1, (parseQty(l.qty) ?? 1) - 1)) })}>−</button>
+                            <input aria-label={`Quantity for ${l.name}`} className="tiny num" inputMode="numeric" value={l.qty} disabled={!!l.procedureId} aria-invalid={parseQty(l.qty) === null} onChange={(e) => update(l.key, { qty: e.target.value.replace(/\D/g, '').slice(0, 2) })} onBlur={() => { if (l.qty.trim() === '') update(l.key, { qty: '1' }); }} />
+                            <button type="button" className="icon-btn" aria-label={`One more ${l.name}`} disabled={!!l.procedureId || (parseQty(l.qty) ?? 0) >= 99} onClick={() => update(l.key, { qty: String(Math.min(99, (parseQty(l.qty) ?? 0) + 1)) })}>+</button>
+                          </div>
                         </td>
                         <td className="num">{formatINR(l.unitPricePaise)}</td>
                         <td>

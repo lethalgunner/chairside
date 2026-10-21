@@ -16,3 +16,17 @@ export function normaliseIndianMobile(input: string): string | null {
 export function formatIndianMobile(tenDigits: string): string {
   return tenDigits.length === 10 ? `${tenDigits.slice(0, 5)} ${tenDigits.slice(5)}` : tenDigits;
 }
+
+/**
+ * The digits to look for when someone searches by phone (Slice 3, T22, Q14).
+ * A full number in any pasted shape ("+91 94575 11208", "09457511208")
+ * becomes its 10-digit form, so it matches what registration stored; a
+ * partial number ("11208") is searched as typed. Null when there are too
+ * few digits to search on.
+ */
+export function phoneSearchDigits(query: string): string | null {
+  const full = normaliseIndianMobile(query);
+  if (full) return full;
+  const digits = query.replace(/\D/g, '');
+  return digits.length >= 3 ? digits : null;
+}

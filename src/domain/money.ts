@@ -82,6 +82,30 @@ export function fromRupeeString(s: string): Paise {
   return paise(sign === '-' ? -total : total);
 }
 
+export type RupeeInput = { ok: true; paise: Paise } | { ok: false; error: string };
+
+/**
+ * Parse an amount as clinic staff type it (Slice 3, T22, QA Q16): "500",
+ * "1,500", "1500.50", "₹500", "Rs 500", "Rs. 500", "INR 500" and "500/-".
+ * Never negative. Anything else gets a message to show next to the field,
+ * instead of a button that silently stays disabled. Every rupee field in the
+ * app uses this one parser.
+ */
+export function parseRupeesInput(raw: string, what = 'the amount'): RupeeInput {
+  const s = raw
+    .trim()
+    .replace(/^(₹|rs\.?|inr)\s*/i, '')
+    .replace(/\s*\/-\s*$/, '')
+    .trim();
+  const error = `Enter ${what} in rupees, like 500, 1,500 or 1500.50.`;
+  if (!s || s.startsWith('-')) return { ok: false, error };
+  try {
+    return { ok: true, paise: fromRupeeString(s) };
+  } catch {
+    return { ok: false, error };
+  }
+}
+
 export function basisPoints(n: number): BasisPoints {
   if (!Number.isInteger(n) || n < 0) {
     throw new MoneyError(`Basis points must be a non-negative integer, got ${n}.`);

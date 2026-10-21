@@ -7,7 +7,7 @@
  * goods to 5/18/40 %, but 12 and 28 stay allowed so nothing already loaded
  * becomes unsavable. Issued bills keep the rate snapshotted on their lines.
  */
-import { fromRupeeString, type Paise } from './money';
+import { parseRupeesInput, type Paise } from './money';
 import type { Checked, FieldErrors } from './staff';
 import type { TaxCategory } from './tax';
 
@@ -52,14 +52,11 @@ export function checkCatalogueItem(input: CatalogueItemInput): Checked<Catalogue
   if (category && category.length > 40) fieldErrors.category = 'Keep the category under 40 characters.';
 
   let price: Paise | null = null;
-  try {
-    price = fromRupeeString(input.price);
-    if (price < 0) {
-      price = null;
-      fieldErrors.price = 'The price can’t be negative.';
-    }
-  } catch {
-    fieldErrors.price = 'Enter the price in rupees, like 1500 or 1500.50.';
+  if (input.price.trim().startsWith('-')) fieldErrors.price = 'The price can’t be negative.';
+  else {
+    const parsed = parseRupeesInput(input.price, 'the price');
+    if (parsed.ok) price = parsed.paise;
+    else fieldErrors.price = parsed.error;
   }
 
   const taxCategory = TAX_CATEGORIES.find((c) => c === input.taxCategory);

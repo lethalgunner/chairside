@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 import { recordReceiptAction } from '@/app/actions/money';
 import { allocateReceipt, type OutstandingInvoice } from '@/domain/ledger';
-import { add, formatINR, fromRupeeString, subtract, type Paise } from '@/domain/money';
+import { add, formatINR, parseRupeesInput, subtract, type Paise } from '@/domain/money';
 import { MODE_LABEL } from '@/components/ui';
 import { useActionForm } from '@/lib/nav/use-action-form';
 
@@ -29,14 +29,13 @@ export default function ReceiptForm({ patient, branchName, open, balancePaise }:
   const [done, setDone] = useState<string | null>(null);
 
   const due = add(...open.map((o) => subtract(o.totalPaise, o.allocatedPaise)));
-  const parsed = useMemo(() => {
-    if (!amount.trim()) return null;
-    try {
-      const v = fromRupeeString(amount);
-      return v > 0 ? v : null;
-    } catch {
-      return null;
-    }
+  // One shared parser (Q16): "500/-", "Rs. 500", "₹1,500" all work; anything else says why.
+  const { parsed, amountError } = useMemo(() => {
+    if (!amount.trim()) return { parsed: null, amountError: null };
+    const r = parseRupeesInput(amount, 'the amount received');
+    if (!r.ok) return { parsed: null, amountError: r.error };
+    if (r.paise <= 0) return { parsed: null, amountError: 'Enter more than ₹0.' };
+    return { parsed: r.paise, amountError: null };
   }, [amount]);
   const plan = parsed ? allocateReceipt(parsed, open) : null;
   const needsAdvanceOk = !!plan && plan.unallocatedPaise > 0;
@@ -81,7 +80,8 @@ export default function ReceiptForm({ patient, branchName, open, balancePaise }:
         <div className="field-grid">
           <div className="field">
             <label htmlFor="amount">Amount received (₹)</label>
-            <input id="amount" inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setKeepAdvance(false); }} autoFocus placeholder={due > 0 ? String(due / 100) : ''} />
+            <input id="amount" inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setKeepAdvance(false); }} autoFocus aria-invalid={!!amountError} aria-describedby={amountError ? 'amount-err' : undefined} className={amountError ? 'err' : undefined} placeholder={due > 0 ? String(due / 100) : ''} />
+            {amountError ? <div className="hint err-text" id="amount-err">{amountError}</div> : null}
             {due > 0 ? (
               <button type="button" className="linkish small" onClick={() => setAmount((due / 100).toFixed(2).replace(/\.00$/, ''))}>
                 Fill full amount due

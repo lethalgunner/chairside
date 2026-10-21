@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getDb, type Tx } from '@/db/client';
 import { branches, patientRegistrations, patients } from '@/db/schema';
 import { ageNow, businessDate } from '@/domain/dates';
-import { normaliseIndianMobile } from '@/domain/phone';
+import { normaliseIndianMobile, phoneSearchDigits } from '@/domain/phone';
 import { assertCan, canAnywhere, ForbiddenError, requireActiveBranch, type TenantContext } from './context';
 import { writeAudit } from './audit';
 import { isUuid } from './util';
@@ -171,12 +171,12 @@ export async function searchPatients(ctx: TenantContext, query: string, limit = 
   if (!canAnywhere(ctx, 'patient.view')) throw new ForbiddenError();
   const q = query.trim();
   if (!q) return summaries(ctx.orgId, undefined, limit);
-  const digits = q.replace(/\D/g, '');
+  const digits = phoneSearchDigits(q);
   const conds = [
     ilike(patients.fullName, `%${q.replace(/[%_]/g, '')}%`),
     sql`exists (select 1 from patient_registrations r where r.patient_id = ${patients.id} and r.file_number ilike ${`%${q.replace(/[%_]/g, '')}%`})`,
   ];
-  if (digits.length >= 3) conds.push(sql`${patients.phone} like ${`%${digits}%`}`);
+  if (digits) conds.push(sql`${patients.phone} like ${`%${digits}%`}`);
   return summaries(ctx.orgId, or(...conds), limit);
 }
 

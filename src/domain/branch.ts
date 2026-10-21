@@ -6,7 +6,7 @@
  * Dadra and Nagar Haveli and Daman and Diu, 38 for Ladakh). The GSTIN check
  * here is format plus state code only; the check digit is not verified.
  */
-import { fromRupeeString, type Paise } from './money';
+import { parseRupeesInput, type Paise } from './money';
 import type { Checked, FieldErrors } from './staff';
 
 /** GST state codes: the first two digits of every GSTIN registered in that state or UT. */
@@ -89,17 +89,14 @@ export interface BranchDetails {
 }
 
 function rupeesField(raw: string, key: string, label: string, errors: FieldErrors): Paise | null {
-  try {
-    const v = fromRupeeString(raw);
-    if (v < 0) {
-      errors[key] = `${label} can’t be negative.`;
-      return null;
-    }
-    return v;
-  } catch {
-    errors[key] = `Enter ${label.toLowerCase()} in rupees, like 100 or 2000.`;
+  if (raw.trim().startsWith('-')) {
+    errors[key] = `${label} can’t be negative.`;
     return null;
   }
+  const r = parseRupeesInput(raw, label.toLowerCase());
+  if (r.ok) return r.paise;
+  errors[key] = r.error;
+  return null;
 }
 
 const tidy = (s: string) => s.trim().replace(/\s+/g, ' ');

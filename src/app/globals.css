@@ -1161,3 +1161,13 @@ tr.diff-row td {
     font-weight: 400;
   }
 }
+
+/* Quantity stepper in the bill builder (Slice 3, T22) */
+.qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.qty .icon-btn {
+  min-width: 28px;
+}

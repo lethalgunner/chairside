@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireContext } from '@/lib/auth';
-import { fromRupeeString, type Paise } from '@/domain/money';
+import { parseRupeesInput, type Paise } from '@/domain/money';
 import { closeDay, recordCashOut, reopenDay, type CloseDayInput } from '@/services/daybook';
 import { issueBill, voidInvoice, type IssueBillInput, type IssueBillResult } from '@/services/invoices';
 import { cancelReceipt, recordReceipt, type RecordReceiptInput, type RecordReceiptResult } from '@/services/receipts';
@@ -48,11 +48,9 @@ export async function cancelReceiptAction(receiptId: string, reason: string): Pr
 }
 
 function rupees(input: string, what: string): Paise {
-  try {
-    return fromRupeeString(input);
-  } catch {
-    throw new UserFacingError(`Enter ${what} in rupees, like 1500 or 1500.50.`);
-  }
+  const r = parseRupeesInput(input, what);
+  if (!r.ok) throw new UserFacingError(r.error);
+  return r.paise;
 }
 
 export async function recordCashOutAction(amount: string, description: string): Promise<ActionResult> {
