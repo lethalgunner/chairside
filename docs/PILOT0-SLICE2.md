@@ -42,3 +42,10 @@ MFA, PIN switch, RLS, email sending, price history per branch/doctor (`price_lis
 
 ## Reviewer checklist for KS (fill in at the end)
 Five things to check by eye, with file:line.
+
+1. **Who can do what.** `src/domain/permissions.ts:52` puts `staff.manage` and the new `branch.manage` in `OWNER_ONLY`, so a branch manager gets neither; `:105` `canOrgWide()` means the team screen needs an org-wide (owner) grant, never a branch one. Price list stays `catalogue.manage` (owner and branch manager), as briefed; note its edits are org-wide, so a Pune manager can change Kanpur's prices too.
+2. **Invites cannot take over an account.** `src/services/staff.ts:92` refuses an email held by another org; `:158` issues no link when the person already has a password (the screen adds the role only). The link is assembled in the owner's browser (`src/app/(app)/settings/team/InviteLink.tsx:12`); the token is never logged or audited.
+3. **Deactivation guards.** `src/services/staff.ts:204` locks the active owners' rows, `:214` refuses self-deactivation and removing the last active owner, `:219` deletes every session of the person deactivated (unused links are cancelled too).
+4. **GST rules (unverified until a CA confirms).** `src/domain/catalogue.ts:14` allowed rates {0, 5, 12, 18, 28, 40} %; `:71` exempt healthcare forced to 0 %. `src/domain/branch.ts:13` state codes (UP 09, MH 27, all 36) and `:58` GSTIN format + state match; the check digit is not verified.
+5. **Nothing sensitive in the new log line.** `src/app/actions/run.ts:15-16`: only the fixed action name, milliseconds and ok/error; any name that isn't a plain identifier is logged as `unnamed`.
+

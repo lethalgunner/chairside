@@ -20,6 +20,10 @@ test('team: owner invites a front desk user, the link sets a password, deactivat
   await expect(page.getByText('It works once, for 72 hours.')).toBeVisible();
   const link = await page.getByLabel('Invite link').inputValue();
   expect(link).toMatch(/\/setup\?token=[A-Za-z0-9_-]{40,}$/);
+  // Reload rather than wait on the client refresh after the action: that refresh
+  // is QA Q5 (it intermittently never commits) and is not what this test is about.
+  await page.reload();
+  await expect(page.getByLabel('Invite link')).toHaveCount(0); // shown once only
   const row = page.getByRole('row', { name: /Kavya \(desk\)/ });
   await expect(row).toContainText('kavya@demo.local');
   await expect(row).toContainText('Front desk · Demo Pune');

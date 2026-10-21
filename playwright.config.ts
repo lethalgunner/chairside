@@ -30,6 +30,8 @@ export default defineConfig({
     command: `npx next start -p ${PORT}`,
     url: `http://localhost:${PORT}/login`,
     reuseExistingServer: false,
+    // E2E_SERVER_LOG=1 shows the app's own output, including the [action] timing lines (T17).
+    stdout: process.env.E2E_SERVER_LOG ? 'pipe' : 'ignore',
     timeout: 60_000,
     env: { DATABASE_URL: DB, INSECURE_COOKIES: '1', NODE_ENV: 'production' },
   },

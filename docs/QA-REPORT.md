@@ -29,3 +29,25 @@ Not done (out of Pilot 0): PIN switch, print templates, Hindi/Marathi, thermal r
 - Daily: Chairside day totals vs the old system's report (billed, collected by mode), via the day-close tally.
 - Friction log template: time · who · screen · what happened · S1–S4.
 - Watch: Q5; time to bill a returning patient; whether staff reach for the old system mid-task.
+
+## Pilot 0 · Slice 2 (owner settings) — 21 Oct 2026
+**Branch:** `p0/owner-settings` from `pilot0` @ 87a8142 · **Tickets:** T14 team, T15 price list, T16 branches, T17 action timing · **Result:** pass, with Q5 still open (now better understood, below)
+
+### Automated (run locally on Postgres 16 and Chromium, all executed)
+| Suite | Tests | Pass | New in slice 2 |
+|---|---|---|---|
+| `npm test` (domain + run() logging) | 119 | 119 | +41: staff rules and staff.manage (14), price list rules (6), GSTIN/state codes/branch details and branch.manage (15), action timing log (6) |
+| `npm run test:db` | 50 | 50 | +24: team (13: invite → redeem, existing login never reset, other-org email/branch refused, doctor record linked, owner only, new link cancels old, deactivate signs out, self and last-owner guards), price list (7: issued bill unchanged after price+rate edit, inactive item neither offered nor billable, code fixed/unique, exempt forced to 0 %, audit, access), branches (4: registration changes only later bills, wrong-state GSTIN refused, deregistering clears GSTIN, owner only) |
+| `npm run test:e2e` (production build, `E2E_PORT=3200`) | 35 | 35 on a clean run | +9: `/settings*` in the anonymous sweep (4), front desk refused all settings screens (1), team invite → set password → deactivate signs out, price list item appears in and disappears from the bill builder, Kanpur marked GST-registered (wrong-state GSTIN refused first), axe on the four settings screens |
+| `npm run typecheck` / `next build` | — | clean | |
+
+E2E stability on this machine (2 CPUs, a second checkout running its own suite at the same time): 2 of 8 full runs fully green; every failure was a Q5 symptom in a step that waits for the UI after a server action, in old and new specs alike. The unchanged base (`ef24a5f`) failed 1 of 3 runs the same way, so this is not a slice 2 regression.
+
+### Defects
+| ID | Sev | Summary | Status |
+|---|---|---|---|
+| Q5 | S2 *(was S3 verify)* | After a server action succeeds, the follow-up client navigation or refresh sometimes never commits: the button stays on "Saving…", or the list does not update. Seen on register patient (router.push), cash paid out, branch switch and the new settings screens. T17's `[action]` lines show the action itself finishing in 1–60 ms every time; a trace shows the RSC request for the next page fired twice and neither applied. Removing `revalidatePath` or switching registration to a server-side `redirect()` did not fix it (6-run loops, 3 and 2 failures). | **Open — needs CTO**: client-side, not database or action time. Next step: reproduce outside Playwright load, then try `useActionState` + server `redirect()` across the board, or test on the current Next 15 patch |
+| S2-1 | S4 | `e2e` port was hard-coded (3100), so two checkouts could not run side by side | Fixed: `E2E_PORT` |
+
+### How to read the action log (T17)
+Each server action logs one line, e.g. `[action] patient.register 15ms ok`, as a warning above 3000 ms. No arguments, results or error text are logged. Locally: `E2E_SERVER_LOG=1 npm run test:e2e`. In Vercel: function logs, filter `[action]`.
