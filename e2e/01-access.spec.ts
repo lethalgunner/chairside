@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { login } from './helpers';
 
-const ROUTES = ['/', '/patients', '/patients/new', '/invoices', '/receivables', '/unbilled', '/day-close', '/gst', '/bills/new?patient=x', '/receipts/new?patient=x', '/settings', '/settings/team', '/settings/catalogue'];
+const ROUTES = ['/', '/patients', '/patients/new', '/invoices', '/receivables', '/unbilled', '/day-close', '/gst', '/bills/new?patient=x', '/receipts/new?patient=x', '/settings', '/settings/team', '/settings/catalogue', '/settings/branches'];
 
 test.describe('no anonymous access', () => {
   for (const r of ROUTES) {
@@ -59,6 +59,8 @@ test.describe('roles and branch context', () => {
     await expect(page.getByRole('button', { name: 'Create invite link' })).toHaveCount(0);
     await page.goto('/settings/catalogue');
     await expect(page.getByText('Only the owner or a branch manager can change the price list.')).toBeVisible();
+    await page.goto('/settings/branches');
+    await expect(page.getByText('Only the owner can change branch details.')).toBeVisible();
   });
 
   test('owner on All branches must pick a branch before creating anything', async ({ page }) => {

@@ -5,12 +5,14 @@ import { canAnywhere, type TenantContext } from './context';
 export interface SettingsAccess {
   team: boolean;
   catalogue: boolean;
+  branches: boolean;
 }
 
 export function settingsAccess(ctx: TenantContext): SettingsAccess {
   return {
     team: canOrgWide(ctx.grants, 'staff.manage'),
     catalogue: canAnywhere(ctx, 'catalogue.manage'),
+    branches: canAnywhere(ctx, 'branch.manage'),
   };
 }
 

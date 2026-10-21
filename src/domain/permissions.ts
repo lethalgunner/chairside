@@ -28,7 +28,9 @@ export type Capability =
   | 'report.gst'
   | 'catalogue.manage'
   /** Invite, re-invite, deactivate and reactivate staff. Owner only, org-wide (Pilot 0 slice 2). */
-  | 'staff.manage';
+  | 'staff.manage'
+  /** Edit branch details: GST registration, GSTIN, day-close tolerance, float. Owner only (slice 2). */
+  | 'branch.manage';
 
 const ALL: Capability[] = [
   'patient.register',
@@ -43,10 +45,11 @@ const ALL: Capability[] = [
   'report.gst',
   'catalogue.manage',
   'staff.manage',
+  'branch.manage',
 ];
 
 /** Capabilities only the owner holds in Pilot 0. */
-const OWNER_ONLY: readonly Capability[] = ['day.reopen', 'staff.manage'];
+const OWNER_ONLY: readonly Capability[] = ['day.reopen', 'staff.manage', 'branch.manage'];
 
 export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
   owner: ALL,

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requireContext } from '@/lib/auth';
+import { updateBranchDetails, type SaveBranchResult } from '@/services/branches';
 import { createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type SaveItemResult } from '@/services/catalogue';
 import { inviteStaff, reissueInvite, setStaffActive, type InviteStaffResult } from '@/services/staff';
 import { UserFacingError } from '@/services/context';
@@ -83,5 +84,24 @@ export async function setCatalogueItemActiveAction(id: string, active: boolean):
     return undefined;
   });
   if (res.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+const branchInput = z.object({
+  name: z.string().max(200),
+  addressLine: z.string().max(400),
+  city: z.string().max(120),
+  state: z.string().max(80),
+  phone: z.string().max(40),
+  gstRegistered: z.boolean(),
+  gstin: z.string().max(40),
+  dayCloseTolerance: z.string().max(30),
+  defaultFloat: z.string().max(30),
+});
+
+export async function saveBranchAction(branchId: string, input: z.input<typeof branchInput>): Promise<ActionResult<SaveBranchResult>> {
+  const ctx = await requireContext();
+  const res = await run('branch.update', () => updateBranchDetails(ctx, parse(idInput, branchId), parse(branchInput, input)));
+  if (res.ok && res.data.ok) revalidatePath('/', 'layout');
   return res;
 }

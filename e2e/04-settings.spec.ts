@@ -97,3 +97,37 @@ test('price list: owner adds an item, the bill builder offers it, deactivating h
   await page.getByLabel('Add treatment or item').fill('night');
   await expect(picks).toContainText('Nothing matches');
 });
+
+test('branches: owner marks Demo Kanpur GST registered with a valid GSTIN', async ({ page }) => {
+  await login(page, 'owner');
+  await page.goto('/settings/branches');
+  const form = page.getByRole('form', { name: 'Demo Kanpur details' });
+  await expect(form).toContainText('DKN');
+  await expect(form.getByLabel('Branch name')).toHaveValue('Demo Kanpur');
+
+  await form.getByLabel(/GST registered/).check();
+  await form.getByLabel(/^GSTIN/).fill('27AAAAA0000A1Z5');
+  await form.getByRole('button', { name: 'Save Demo Kanpur' }).click();
+  await expect(form.getByText('A GSTIN for Uttar Pradesh starts with 09.')).toBeVisible();
+
+  await form.getByLabel(/^GSTIN/).fill('09abcde1234f1z5');
+  await form.getByRole('button', { name: 'Save Demo Kanpur' }).click();
+  await expect(form.getByRole('status')).toContainText('Demo Kanpur saved.');
+  await page.reload();
+  await expect(form.getByLabel(/^GSTIN/)).toHaveValue('09ABCDE1234F1Z5');
+
+  await page.locator('#branch-select').selectOption({ label: 'Demo Kanpur' });
+  await expect(page.locator('.branch-banner')).toContainText('GST registered');
+});
+
+test('settings screens pass axe for the owner', async ({ page }) => {
+  const AxeBuilder = (await import('@axe-core/playwright')).default;
+  await login(page, 'owner');
+  for (const path of ['/settings', '/settings/team', '/settings/catalogue', '/settings/branches']) {
+    await page.goto(path);
+    await page.waitForLoadState('networkidle');
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    const bad = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+    expect(bad.map((v) => `${path}: ${v.id} (${v.nodes.length})`)).toEqual([]);
+  }
+});
