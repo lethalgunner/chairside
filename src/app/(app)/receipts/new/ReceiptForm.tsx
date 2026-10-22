@@ -16,18 +16,20 @@ interface Props {
   branchName: string;
   open: (OutstandingInvoice & { number: string })[];
   balancePaise: Paise;
+  /** Pre-filled amount, e.g. the balance left after a split payment (Q15). */
+  initialAmount?: string;
 }
 
 /** The allocation is spelled out as a sentence before saving, so the desk sees the reasoning instead of trusting it. */
-export default function ReceiptForm({ patient, branchName, open, balancePaise }: Props) {
+export default function ReceiptForm({ patient, branchName, open, balancePaise, initialAmount = '' }: Props) {
   const { busy: pending, notSent, send, release } = useActionForm('receipt.record');
   const idem = useRef<string>(crypto.randomUUID());
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(initialAmount);
   const [mode, setMode] = useState<(typeof MODES)[number]>('cash');
   const [reference, setReference] = useState('');
   const [keepAdvance, setKeepAdvance] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<{ number: string; stillDue: Paise } | null>(null);
 
   const due = add(...open.map((o) => subtract(o.totalPaise, o.allocatedPaise)));
   // One shared parser (Q16): "500/-", "Rs. 500", "₹1,500" all work; anything else says why.
@@ -46,24 +48,34 @@ export default function ReceiptForm({ patient, branchName, open, balancePaise }:
     setError(null);
     if (!parsed) return setError('Enter the amount received in rupees, like 2000 or 2000.50.');
     if (needsAdvanceOk && !keepAdvance) return setError('Confirm that the extra amount should be kept as an advance.');
+    // Fixed before sending: once saved, the page refreshes `open` with this payment already applied.
+    const settled = plan ? subtract(parsed, plan.unallocatedPaise) : (0 as Paise);
+    const stillDue = due > settled ? subtract(due, settled) : (0 as Paise);
     void (async () => {
       const res = await send(() => recordReceiptAction({ patientId: patient.id, amountPaise: parsed, mode, reference: reference.trim() || undefined, idempotencyKey: idem.current }));
       if (!res) return;
       release();
       if (!res.ok) return setError(res.error);
-      setDone(res.data.number);
+      setDone({ number: res.data.number, stillDue });
     })();
   }
 
   if (done) {
+    // What is still owed on this branch's open bills after this payment (Q15: cash + UPI splits are everyday).
+    const { stillDue } = done;
     return (
       <div className="card">
         <div className="body">
           <div className="callout good" role="status">
-            Payment <strong className="mono">{done}</strong> of {formatINR(parsed!)} recorded at {branchName}.
+            Payment <strong className="mono">{done.number}</strong> of {formatINR(parsed!)} recorded at {branchName}.
           </div>
           <div className="actions">
-            <Link className="primary-link" href={`/patients/${patient.id}`}>Back to {patient.name}</Link>
+            {stillDue > 0 ? (
+              <Link className="primary-link" href={`/receipts/new?patient=${patient.id}&amount=${rupeesText(stillDue)}&again=${encodeURIComponent(done.number)}`}>
+                Record another payment ({formatINR(stillDue)} still due)
+              </Link>
+            ) : null}
+            <Link className={stillDue > 0 ? 'secondary' : 'primary-link'} href={`/patients/${patient.id}`}>Back to {patient.name}</Link>
             <Link className="secondary" href="/patients">Next patient</Link>
           </div>
         </div>
@@ -81,11 +93,11 @@ export default function ReceiptForm({ patient, branchName, open, balancePaise }:
         <div className="field-grid">
           <div className="field">
             <label htmlFor="amount">Amount received (₹)</label>
-            <input id="amount" inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setKeepAdvance(false); }} autoFocus aria-invalid={!!amountError} aria-describedby={amountError ? 'amount-err' : undefined} className={amountError ? 'err' : undefined} placeholder={due > 0 ? String(due / 100) : ''} />
+            <input id="amount" inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setKeepAdvance(false); }} autoFocus aria-invalid={!!amountError} aria-describedby={amountError ? 'amount-err' : undefined} className={amountError ? 'err' : undefined} />
             {amountError ? <div className="hint err-text" id="amount-err">{amountError}</div> : null}
             {due > 0 ? (
-              <button type="button" className="linkish small" onClick={() => setAmount((due / 100).toFixed(2).replace(/\.00$/, ''))}>
-                Fill full amount due
+              <button type="button" className="linkish small" onClick={() => setAmount(rupeesText(due))}>
+                Fill {formatINR(due)}
               </button>
             ) : null}
           </div>
@@ -143,4 +155,9 @@ export default function ReceiptForm({ patient, branchName, open, balancePaise }:
       </div>
     </form>
   );
+}
+
+/** Paise as the plain rupee text the amount box accepts: 61600 → "616", 61650 → "616.50". */
+function rupeesText(p: Paise): string {
+  return (p / 100).toFixed(2).replace(/\.00$/, '');
 }

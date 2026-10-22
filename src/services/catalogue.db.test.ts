@@ -77,7 +77,9 @@ describe('price list settings (T15)', () => {
   });
 
   it('a deactivated item leaves the bill builder and cannot be billed, and can come back', async () => {
-    await setCatalogueItemActive(f.ctx('manager'), id, false);
+    // Owner only since T24 (the list is org-wide).
+    await expect(setCatalogueItemActive(f.ctx('manager'), id, false)).rejects.toThrow(ForbiddenError);
+    await setCatalogueItemActive(f.ctx('owner'), id, false);
     expect((await listCatalogue(f.ctx('desk'), f.pune.id)).map((c) => c.id)).not.toContain(id);
     await expect(billFor(id)).rejects.toThrow(UserFacingError);
     expect((await listCatalogueForSettings(f.ctx('owner'))).find((c) => c.id === id)?.active).toBe(false);

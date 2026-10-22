@@ -47,4 +47,8 @@ Call: make every post-action navigation **self-healing**, in one small client he
 Same environment rules as Slice 2 (DBs `chairside_dev_test` / `chairside_dev_e2e`, `E2E_PORT=3200`, no npm install, no network services, no push). Run the whole suite before each commit. Update `docs/QA-REPORT.md` (Slice 3 section) and fill the reviewer checklist below.
 
 ## Reviewer checklist for KS
-(dev fills in: five things with file:line)
+1. **Cancelled payments drop out of every total.** `src/services/util.ts:44` (allocated per bill skips cancelled receipts) and the `cancelled_at` filters in `daybook.ts`, `reports.ts`, `invoices.ts`, `receipts.ts`. Hand-calculated proof: `src/services/receipt-cancel.db.test.ts`.
+2. **Who may cancel what.** Payment cancel is owner-only (`src/domain/permissions.ts:63`, `OWNER_ONLY`); the front desk's same-day own-unpaid-bill rule is `src/domain/corrections.ts:13` (`billCancellation`). Both refuse on a closed day.
+3. **Self-healing navigation.** `src/lib/nav/after-action.ts:64`: soft navigation first, a full page load after 2.5 s if the page did not change. Proof: `e2e/05-resilience.spec.ts:9`.
+4. **Old system vs Chairside.** `src/domain/parallel.ts` (`compareWithLegacy`), shown at day close and on the dashboard; nothing new is stored.
+5. **Amounts as staff type them.** `src/domain/money.ts:94` (`parseRupeesInput`) is the one parser for "500/-", "Rs. 500", "₹1,500". Check the list of accepted and refused shapes in its tests.

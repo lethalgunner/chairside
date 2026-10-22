@@ -9,9 +9,11 @@ import { patientAccount } from '@/services/reports';
 import { PageHead } from '@/components/ui';
 import ReceiptForm from './ReceiptForm';
 
-export default async function NewReceiptPage({ searchParams }: { searchParams: Promise<{ patient?: string }> }) {
+export default async function NewReceiptPage({ searchParams }: { searchParams: Promise<{ patient?: string; amount?: string; again?: string }> }) {
   const ctx = await requireContext();
-  const { patient: patientId = '' } = await searchParams;
+  const { patient: patientId = '', amount = '', again = '' } = await searchParams;
+  // Only a plain rupee figure is accepted from the link; anything else starts empty.
+  const initialAmount = /^\d{1,9}(\.\d{1,2})?$/.test(amount) ? amount : '';
   const patient = await getPatient(ctx, patientId);
   if (!patient) notFound();
   if (ctx.activeBranchId === 'all' || !canDo(ctx, 'receipt.record', ctx.activeBranchId)) {
@@ -28,7 +30,7 @@ export default async function NewReceiptPage({ searchParams }: { searchParams: P
   return (
     <>
       <PageHead eyebrow={branch.name} title={`Payment from ${patient.fullName}`} sub={patient.fileNumbers.join(', ')} />
-      <ReceiptForm patient={{ id: patient.id, name: patient.fullName }} branchName={branch.name} open={open} balancePaise={account.balancePaise} />
+      <ReceiptForm key={`${patient.id}:${again}`} initialAmount={initialAmount} patient={{ id: patient.id, name: patient.fullName }} branchName={branch.name} open={open} balancePaise={account.balancePaise} />
     </>
   );
 }

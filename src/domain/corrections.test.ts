@@ -39,3 +39,9 @@ describe('who may cancel a bill (T20, Q9)', () => {
     for (const r of ROLES) expect(ROLE_CAPABILITIES[r].includes('invoice.void_own_today'), r).toBe(r === 'front_desk' || r === 'owner' || r === 'branch_manager');
   });
 });
+
+describe('price list is owner-only for Pilot 0 (T24, CPO Dev-1)', () => {
+  it('catalogue.manage belongs to the owner alone', () => {
+    for (const r of ROLES) expect(ROLE_CAPABILITIES[r].includes('catalogue.manage'), r).toBe(r === 'owner');
+  });
+});

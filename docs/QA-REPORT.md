@@ -51,3 +51,22 @@ E2E stability on this machine (2 CPUs, a second checkout running its own suite a
 
 ### How to read the action log (T17)
 Each server action logs one line, e.g. `[action] patient.register 15ms ok`, as a warning above 3000 ms. No arguments, results or error text are logged. Locally: `E2E_SERVER_LOG=1 npm run test:e2e`. In Vercel: function logs, filter `[action]`.
+
+## Pilot 0 · Slice 3 (parallel-run ready) — 22 Oct 2026
+**Branch:** `p0/parallel-ready` (on Slice 2) · **Result:** pass. Tickets T18–T24 cover every "before 26 Oct" row in `QA-TRIAGE-2026-10-21.md`.
+
+### Automated (run locally on Postgres 16 and Chromium, all executed on the T24 commit)
+| Suite | Tests | Pass |
+|---|---|---|
+| `npm test` (domain + action wrapper) | 168 | 168 |
+| `npm run test:db` (services) | 63 | 63 |
+| `npm run test:e2e` (production build) | 42 | 42 |
+| `npm run typecheck` / `next build` | — | clean |
+
+### Defects found while building T24
+| ID | Sev | Summary | Status |
+|---|---|---|---|
+| S3-1 | S2 | "Record another payment" first showed ₹690 instead of ₹5,690: the page refreshes its open bills after saving, so the payment was subtracted twice | Fixed: the amount still due is fixed when the payment is sent; the golden path asserts ₹5,690 and the pre-filled box |
+
+### Deploy note
+Migration `0003_receipt_cancel` (adds three nullable columns to `receipts` and one ledger entry type) runs automatically on the next production deploy. It adds no table, so no RLS line is needed.

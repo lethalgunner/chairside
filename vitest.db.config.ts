@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
   test: {
     include: ['src/**/*.db.test.ts'],
+    exclude: ['**/node_modules/**', '.claude/**'],
     globalSetup: ['./src/test/db-global-setup.ts'],
     fileParallelism: false,
     env: { DATABASE_URL: process.env.DATABASE_URL_TEST ?? '' },

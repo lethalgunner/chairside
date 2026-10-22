@@ -58,7 +58,7 @@ test.describe('roles and branch context', () => {
     await expect(page.getByText('Only the owner can manage the team.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create invite link' })).toHaveCount(0);
     await page.goto('/settings/catalogue');
-    await expect(page.getByText('Only the owner or a branch manager can change the price list.')).toBeVisible();
+    await expect(page.getByText('Only the owner can change the price list.')).toBeVisible();
     await page.goto('/settings/branches');
     await expect(page.getByText('Only the owner can change branch details.')).toBeVisible();
   });

@@ -65,7 +65,7 @@ export const issueBillInput = z
 export type IssueBillInput = z.input<typeof issueBillInput>;
 
 export type IssueBillResult =
-  | { kind: 'issued'; invoiceId: string; number: string; duplicate: boolean }
+  | { kind: 'issued'; invoiceId: string; number: string; totalPaise: Paise; duplicate: boolean }
   | { kind: 'unbilled'; encounterId: string };
 
 /**
@@ -266,7 +266,7 @@ export async function issueBill(ctx: TenantContext, raw: IssueBillInput): Promis
         branchId,
         after: { number, totalPaise: computed.totalPaise },
       });
-      return { kind: 'issued' as const, invoiceId: inv!.id, number, duplicate: false };
+      return { kind: 'issued' as const, invoiceId: inv!.id, number, totalPaise: computed.totalPaise, duplicate: false };
     });
   } catch (err) {
     if (isUniqueViolation(err, 'invoices_idempotency_unique')) {
@@ -279,11 +279,11 @@ export async function issueBill(ctx: TenantContext, raw: IssueBillInput): Promis
 
 async function findByIdempotencyKey(orgId: string, key: string) {
   const [row] = await getDb()
-    .select({ invoiceId: invoices.id, number: invoices.number })
+    .select({ invoiceId: invoices.id, number: invoices.number, totalPaise: invoices.totalPaise })
     .from(invoices)
     .where(and(eq(invoices.orgId, orgId), eq(invoices.idempotencyKey, key)))
     .limit(1);
-  return row ?? null;
+  return row ? { ...row, totalPaise: row.totalPaise as Paise } : null;
 }
 
 interface ResolvedLine {

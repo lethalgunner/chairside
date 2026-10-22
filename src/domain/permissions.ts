@@ -59,7 +59,8 @@ const ALL: Capability[] = [
 ];
 
 /** Capabilities only the owner holds in Pilot 0. */
-const OWNER_ONLY: readonly Capability[] = ['day.reopen', 'staff.manage', 'branch.manage', 'receipt.cancel'];
+// catalogue.manage is owner-only until per-branch prices exist: the price list is org-wide (CPO Dev-1, Slice 3 T24).
+const OWNER_ONLY: readonly Capability[] = ['day.reopen', 'staff.manage', 'branch.manage', 'receipt.cancel', 'catalogue.manage'];
 
 export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
   owner: ALL,

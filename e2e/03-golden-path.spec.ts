@@ -67,9 +67,9 @@ test('register → bill → part payment → ledger → day close → locked', a
   await page.getByRole('button', { name: /Record ₹5,000\.00 UPI/ }).click();
   await expect(page.getByRole('status')).toContainText('of ₹5,000.00 recorded');
 
-  // Pay 2,000 cash.
-  await page.getByRole('link', { name: /Back to Asha/ }).click();
-  await page.getByRole('link', { name: 'Record payment' }).click();
+  // Pay 2,000 cash, straight from the "still due" link with the balance filled in (Q15).
+  await page.getByRole('link', { name: 'Record another payment (₹5,690.00 still due)' }).click();
+  await expect(page.getByLabel('Amount received (₹)')).toHaveValue('5690');
   await page.getByLabel('Amount received (₹)').fill('2000');
   await page.getByRole('button', { name: /Record ₹2,000\.00 Cash/ }).click();
   await expect(page.getByRole('status')).toContainText('recorded');

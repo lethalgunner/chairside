@@ -41,7 +41,7 @@ export default async function NewBillPage({ searchParams }: { searchParams: Prom
       ) : (
         <BillBuilder
           patient={{ id: patient.id, name: patient.fullName }}
-          branch={{ name: branch.name, gstRegistered: branch.gstRegistered, gstin: branch.gstin, state: branch.state }}
+          branch={{ id: branch.id, name: branch.name, gstRegistered: branch.gstRegistered, gstin: branch.gstin, state: branch.state }}
           catalogue={catalogue}
           doctors={doctors}
           unbilled={pending.map((u) => ({ procedureId: u.procedureId, name: u.itemName, doctorName: u.doctorName, valuePaise: u.valuePaise }))}

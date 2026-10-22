@@ -13,7 +13,7 @@ export default async function CataloguePage() {
     return (
       <>
         <PageHead eyebrow="Settings" title="Price list" />
-        <Empty>Only the owner or a branch manager can change the price list.</Empty>
+        <Empty>Only the owner can change the price list.</Empty>
       </>
     );
   }

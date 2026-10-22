@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { issueBillAction } from '@/app/actions/money';
 import { formatINR, parseRupeesInput, add, multiply, ZERO, type Paise } from '@/domain/money';
 import { parseQuantity as parseQty } from '@/domain/input';
@@ -29,7 +29,7 @@ interface Line {
 
 interface Props {
   patient: { id: string; name: string };
-  branch: { name: string; gstRegistered: boolean; gstin: string | null; state: string | null };
+  branch: { id: string; name: string; gstRegistered: boolean; gstin: string | null; state: string | null };
   catalogue: CatalogueEntry[];
   doctors: DoctorOption[];
   unbilled: { procedureId: string; name: string; doctorName: string; valuePaise: Paise }[];
@@ -54,7 +54,33 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
   const [filter, setFilter] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ number: string; invoiceId: string } | null>(null);
+  const [done, setDone] = useState<{ number: string; invoiceId: string; totalPaise: Paise } | null>(null);
+  const filterRef = useRef<HTMLInputElement>(null);
+  const doctorKey = `cs:doctor:${branch.id}`;
+
+  // Remember the last doctor picked at this branch on this device (Q21). Storage can be blocked: never fatal.
+  useEffect(() => {
+    if (doctors.length < 2) return;
+    try {
+      const last = window.localStorage.getItem(doctorKey);
+      if (last && doctors.some((d) => d.id === last)) {
+        setDoctorId(last);
+        filterRef.current?.focus();
+      }
+    } catch {
+      /* private mode or blocked storage */
+    }
+  }, [doctorKey, doctors]);
+
+  function pickDoctor(id: string) {
+    setDoctorId(id);
+    try {
+      if (id) window.localStorage.setItem(doctorKey, id);
+    } catch {
+      /* ignore */
+    }
+    if (id) filterRef.current?.focus();
+  }
   const [confirming, setConfirming] = useState(false);
 
   const matches = useMemo(() => {
@@ -129,7 +155,7 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
         return setError(res.error);
       }
       if (res.data.kind === 'issued') {
-        setDone({ number: res.data.number, invoiceId: res.data.invoiceId });
+        setDone({ number: res.data.number, invoiceId: res.data.invoiceId, totalPaise: res.data.totalPaise });
         return release();
       }
       return navigate(`/patients/${patient.id}`);
@@ -141,7 +167,7 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
       <div className="card">
         <div className="body">
           <div className="callout good" role="status">
-            Bill <strong className="mono">{done.number}</strong> issued to {patient.name} at {branch.name}.
+            Bill <strong className="mono">{done.number}</strong> issued to {patient.name} at {branch.name} for <strong>{formatINR(done.totalPaise)}</strong>.
           </div>
           <div className="actions">
             <Link className="primary-link" href={`/receipts/new?patient=${patient.id}`}>Record payment</Link>
@@ -162,7 +188,8 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
         <div className="body">
           <div className="field">
             <label htmlFor="doctor">Doctor</label>
-            <select id="doctor" value={doctorId} onChange={(e) => setDoctorId(e.target.value)}>
+            {/* Focus starts here until a doctor is chosen, so keyboard users never skip it (Q21). */}
+            <select id="doctor" value={doctorId} onChange={(e) => pickDoctor(e.target.value)} autoFocus={!doctorId}>
               <option value="">Choose…</option>
               {doctors.map((d) => (
                 <option key={d.id} value={d.id}>{d.fullName}</option>
@@ -198,7 +225,8 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
               }}
               placeholder="Type to search, Enter adds the first match"
               autoComplete="off"
-              autoFocus
+              ref={filterRef}
+              autoFocus={!!doctorId}
             />
             <ul className="pick-list" aria-label="Matching items">
               {matches.map((c) => (
