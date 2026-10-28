@@ -1178,3 +1178,21 @@ tr.diff-row td {
 .qty .icon-btn {
   min-width: 28px;
 }
+
+/* ---------- Phone nav (T30, QA Q18) ----------
+   At 600 px and below the main nav wraps onto as many rows as it needs, so
+   every item is on screen. Between 601 and 860 px it stays the single
+   scrolling row above. The dashboard tables already stack via .stack-table. */
+/* A table wrapper is the containing block for its .sr-only headers. Without
+   this, an absolutely positioned "Action" header escaped the wrapper's
+   overflow-x and pushed the whole page sideways on a phone (/unbilled). */
+.tablewrap {
+  position: relative;
+}
+@media (max-width: 600px) {
+  nav.main {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    row-gap: 2px;
+  }
+}
