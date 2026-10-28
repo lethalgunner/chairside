@@ -214,4 +214,12 @@ describe('classifying against the current price list', () => {
     expect(samePlan({ newCodes: ['B', 'A'], updateCodes: [] }, { newCodes: ['A', 'B'], updateCodes: [] })).toBe(true);
     expect(samePlan({ newCodes: ['A'], updateCodes: [] }, { newCodes: [], updateCodes: ['A'] })).toBe(false);
   });
+
+  it('reads the treatment names the price list itself shows (QA 28 Oct)', () => {
+    expect(readTreatment('Healthcare service')).toBe('exempt_healthcare');
+    expect(readTreatment('Prosthetic / implant')).toBe('goods_prosthetic');
+    expect(readTreatment('Retail product')).toBe('goods_retail');
+    expect(readTreatment('Cosmetic')).toBe('cosmetic_service');
+    expect(readTreatment('Other')).toBe('other_taxable');
+  });
 });

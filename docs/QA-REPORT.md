@@ -89,3 +89,36 @@ Axe: no serious or critical issues on 13 screens at both widths. Desk sees plain
 
 ### Automated (after fixes, all executed)
 169 unit · 65 database · 44 browser · typecheck and build clean.
+
+## Sprint 1 · Pilot-ready (T25–T30) — 28 Oct 2026
+**Built by:** four dev agents in parallel worktrees; integrated by the CTO (one migration `0004_sprint1`, ADR-013). **QA:** exploratory sweep on the merged build (production build, demo seed, 1366 and 390 px, owner and front desk), axe on every new screen, plus each ticket's own tests.
+
+### Automated (final tree, all executed)
+| Suite | Tests | Pass |
+|---|---|---|
+| `npx vitest run` | 261 | 261 |
+| `npm run test:db` | 94 | 94 |
+| `npm run test:e2e` | 70 | 70 |
+| typecheck / `next build` | — | clean |
+
+### Defects
+| ID | Sev | Summary | Status |
+|---|---|---|---|
+| S1-Q1 | S2 | Paste from Excel rejected the GST treatment names the price list itself shows ("Healthcare service", "Prosthetic / implant", "Retail product"), so a list copied out of Chairside failed on every row | Fixed: those names accepted; unit test |
+| S1-Q2 | S3 | Integration: three actions added in parallel used the old redirecting session check, so an expired session would bounce instead of saying "signed out" | Fixed at merge (ADR-013 rule, CLAUDE.md) |
+| S1-Q3 | S4 | "Pick a branch in the sidebar" copy on 8 screens; phones have no sidebar | Fixed: "in the branch menu" |
+| S1-Q4 | S4 | Scorecard e2e depended on which earlier specs had left activity | Fixed: window pinned to today |
+
+### Checked and clean
+- Paste: CRLF lines, "Rs. 1,500", "₹ 18,000", "320/-", "5%", trailing tabs, a non-breaking space, blank lines; missing price and a 7% rate refused per row; Save disabled until clean; all-or-nothing.
+- Scorecard: default last 5 days; bad, reversed and >31-day ranges explained; front desk refused; stacks at 390 px.
+- Past days: future, garbage and >400-day dates fall back to today; yesterday shows the banner and no create, close, cash-out or reopen controls on dashboard and day close.
+- Bills "Today": subtotal matches hand figures (₹10,690 billed; UPI ₹5,000 + Cash ₹2,000 = ₹7,000).
+- Cancel: the confirm button stays disabled until a reason and "Was this work done?" are given; "No" keeps the work off Unbilled. Front desk sees no "Not done: remove".
+- Signed-out: crafted `next` values sign in to `/`; the expired message shows.
+- Axe: no serious or critical issues on any new screen at either width; no sideways scroll at 390 px.
+
+### Open (decisions, not defects)
+- Scorecard counts only days with activity (a shut day doesn't count against the clinic). CPO to confirm.
+- After a real 12-hour timeout the browser has already dropped the cookie, so a plain page load shows no "signed out" message; a form submit always does.
+- GST 40% is accepted by paste as by the item form; rates still need a CA.

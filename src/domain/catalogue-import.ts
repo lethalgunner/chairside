@@ -49,6 +49,14 @@ const TREATMENT_WORDS: Record<string, TaxCategory> = {
   product: 'goods_retail',
   cosmetic: 'cosmetic_service',
   other: 'other_taxable',
+  // The names the price list itself shows under each item (CategoryLabel in
+  // src/components/ui.tsx), so a list copied out of Chairside pastes back in (QA 28 Oct).
+  'healthcare service': 'exempt_healthcare',
+  'prosthetic / implant': 'goods_prosthetic',
+  'prosthetic/implant': 'goods_prosthetic',
+  'retail product': 'goods_retail',
+  'cosmetic service': 'cosmetic_service',
+  'other taxable': 'other_taxable',
 };
 
 function squash(s: string): string {
