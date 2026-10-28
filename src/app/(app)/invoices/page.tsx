@@ -1,24 +1,68 @@
 import Link from 'next/link';
 import { requireContext } from '@/lib/auth';
-import { displayDate } from '@/domain/dates';
-import { formatINR } from '@/domain/money';
+import { businessDate, displayDate, resolveViewDate, shortDay } from '@/domain/dates';
+import { formatINR, type Paise } from '@/domain/money';
 import { scopeBranchIds } from '@/services/context';
 import { listInvoices } from '@/services/invoices';
-import { Card, Empty, PageHead, StatusPill } from '@/components/ui';
+import { dayTotals } from '@/services/reports';
+import { Card, Empty, MODE_LABEL, PageHead, StatusPill } from '@/components/ui';
+import DayNav from '@/components/DayNav';
 
-export default async function InvoicesPage() {
+/**
+ * Bills, newest first. "Today" (or any `?date=`, Q19/T27) narrows the list to
+ * one business day and adds that day's subtotal, so the desk can match it
+ * against the old system line by line. "All" is the full list.
+ */
+export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ date?: string | string[] }> }) {
   const ctx = await requireContext();
-  const rows = await listInvoices(ctx, { branchIds: scopeBranchIds(ctx), limit: 200 });
+  const today = businessDate();
+  const raw = (await searchParams).date;
+  const day = raw === undefined ? null : resolveViewDate(raw, today);
+  const branchIds = scopeBranchIds(ctx);
+  const [rows, totals] = await Promise.all([
+    listInvoices(ctx, { branchIds, limit: day ? 1000 : 200, issuedOn: day?.date }),
+    day ? dayTotals(ctx, branchIds, day.date) : Promise.resolve(null),
+  ]);
   const multi = ctx.activeBranchId === 'all';
+  const dayLabel = day ? (day.isToday ? 'today' : `on ${shortDay(day.date)}`) : '';
+  const modes = totals ? Object.entries(totals.byMode).filter(([, v]) => v !== 0) : [];
   return (
     <>
       <PageHead title="Bills" sub="Newest first. Test series: these are not legal invoices during the pilot." />
-      <Card title={`${rows.length} bill${rows.length === 1 ? '' : 's'}`} flush>
+      <nav className="filter-tabs" aria-label="Which bills">
+        <Link href={`/invoices?date=${today}`} className={day?.isToday ? 'on' : undefined} aria-current={day?.isToday ? 'page' : undefined}>
+          Today
+        </Link>
+        <Link href="/invoices" className={day ? undefined : 'on'} aria-current={day ? undefined : 'page'}>
+          All
+        </Link>
+      </nav>
+      {day ? <DayNav date={day.date} today={today} isToday={day.isToday} href={(d) => `/invoices?date=${d ?? today}`} /> : null}
+      {day && totals ? (
+        <p className="day-subtotal">
+          <strong>{totals.billCount} bill{totals.billCount === 1 ? '' : 's'}</strong> · {formatINR(totals.billedPaise)} billed{' '}
+          <span className="muted">(cancelled bills not counted)</span>
+          <br />
+          Collected {dayLabel}:{' '}
+          {modes.length === 0 ? (
+            'nothing yet'
+          ) : (
+            <>
+              {modes.map(([m, v]) => `${MODE_LABEL[m] ?? m} ${formatINR(v as Paise)}`).join(' · ')} · <strong>Total {formatINR(totals.collectedPaise)}</strong>
+            </>
+          )}
+        </p>
+      ) : null}
+      <Card title={`${rows.length} bill${rows.length === 1 ? '' : 's'}${day ? ` ${dayLabel}` : ''}`} flush>
         {rows.length === 0 ? (
-          <Empty action={{ href: '/patients', label: 'Find a patient to bill' }}>No bills yet.</Empty>
+          day ? (
+            <Empty>No bills {dayLabel}.</Empty>
+          ) : (
+            <Empty action={{ href: '/patients', label: 'Find a patient to bill' }}>No bills yet.</Empty>
+          )
         ) : (
           <div className="tablewrap">
-            <table>
+            <table className="stack-table">
               <thead>
                 <tr>
                   <th scope="col">Bill</th>
@@ -34,14 +78,14 @@ export default async function InvoicesPage() {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    <td><Link className="link mono" href={`/invoices/${r.id}`}>{r.number}</Link></td>
-                    <td>{displayDate(r.issuedOn)}</td>
-                    {multi ? <td>{r.branchName}</td> : null}
-                    <td><Link className="link" href={`/patients/${r.patientId}`}>{r.patientName}</Link></td>
-                    <td><StatusPill status={r.status} /></td>
-                    <td className="num">{formatINR(r.totalPaise)}</td>
-                    <td className="num muted">{formatINR(r.paidPaise)}</td>
-                    <td className={`num${r.duePaise > 0 ? ' strong due-text' : ' muted'}`}>{r.duePaise > 0 ? formatINR(r.duePaise) : '—'}</td>
+                    <td data-label="Bill"><Link className="link mono" href={`/invoices/${r.id}`}>{r.number}</Link></td>
+                    <td data-label="Date">{displayDate(r.issuedOn)}</td>
+                    {multi ? <td data-label="Branch">{r.branchName}</td> : null}
+                    <td data-label="Patient"><Link className="link" href={`/patients/${r.patientId}`}>{r.patientName}</Link></td>
+                    <td data-label="Status"><StatusPill status={r.status} /></td>
+                    <td data-label="Total" className="num">{formatINR(r.totalPaise)}</td>
+                    <td data-label="Paid" className="num muted">{formatINR(r.paidPaise)}</td>
+                    <td data-label="Due" className={`num${r.duePaise > 0 ? ' strong due-text' : ' muted'}`}>{r.duePaise > 0 ? formatINR(r.duePaise) : '—'}</td>
                   </tr>
                 ))}
               </tbody>

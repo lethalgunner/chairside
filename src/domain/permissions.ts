@@ -38,7 +38,13 @@ export type Capability =
    * T20). Pilot 0 latitude for the front desk: test-series bills only;
    * revisit at G1. See billCancellation() in domain/corrections.ts.
    */
-  | 'invoice.void_own_today';
+  | 'invoice.void_own_today'
+  /**
+   * Mark recorded work as not done, so it leaves "Done, not billed" (Q20,
+   * T28). Owner and branch manager only: the leakage figure is the owner's
+   * measure of what the desk forgot to bill, so the desk can't clear it.
+   */
+  | 'procedure.dismiss';
 
 const ALL: Capability[] = [
   'patient.register',
@@ -56,6 +62,7 @@ const ALL: Capability[] = [
   'branch.manage',
   'receipt.cancel',
   'invoice.void_own_today',
+  'procedure.dismiss',
 ];
 
 /** Capabilities only the owner holds in Pilot 0. */

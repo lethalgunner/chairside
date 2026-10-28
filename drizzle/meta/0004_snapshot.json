@@ -1,5 +1,5 @@
 {
-  "id": "e46d84c5-4f43-4535-9d68-09518b840119",
+  "id": "fe34f940-260c-4977-8b77-90b407563ce1",
   "prevId": "8f947779-bfa5-4707-ae09-5c4038be89da",
   "version": "7",
   "dialect": "postgresql",
@@ -3107,6 +3107,24 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "dismissed_at": {
+          "name": "dismissed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dismissed_by": {
+          "name": "dismissed_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dismiss_reason": {
+          "name": "dismiss_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -3219,6 +3237,19 @@
           "tableTo": "catalogue_items",
           "columnsFrom": [
             "catalogue_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "procedures_performed_dismissed_by_users_id_fk": {
+          "name": "procedures_performed_dismissed_by_users_id_fk",
+          "tableFrom": "procedures_performed",
+          "tableTo": "users",
+          "columnsFrom": [
+            "dismissed_by"
           ],
           "columnsTo": [
             "id"

@@ -99,12 +99,14 @@ const pasteInput = z.string().max(1_000_000);
 const planInput = z.object({ newCodes: z.array(z.string().max(40)).max(1000), updateCodes: z.array(z.string().max(40)).max(1000) });
 
 export async function previewCatalogueImportAction(text: string): Promise<ActionResult<ImportPreview>> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('catalogue.import.check');
   return run('catalogue.import.check', () => previewCatalogueImport(ctx, parse(pasteInput, text)));
 }
 
 export async function saveCatalogueImportAction(text: string, confirmed: z.input<typeof planInput>): Promise<ActionResult<ImportSaveResult>> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('catalogue.import.save');
   const res = await run('catalogue.import.save', () => saveCatalogueImport(ctx, parse(pasteInput, text), parse(planInput, confirmed)));
   if (res.ok && res.data.ok) revalidatePath('/', 'layout');
   return res;

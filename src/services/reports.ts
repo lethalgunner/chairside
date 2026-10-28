@@ -63,7 +63,7 @@ export async function dashboard(ctx: TenantContext, branchIds: string[], date = 
       t: sql<string>`sum(${proceduresPerformed.unitPricePaise} * ${proceduresPerformed.quantity})`,
     })
     .from(proceduresPerformed)
-    .where(and(eq(proceduresPerformed.orgId, ctx.orgId), inArray(proceduresPerformed.branchId, ids), isNull(proceduresPerformed.invoiceLineId)))
+    .where(unbilledWhere(ctx, ids))
     .groupBy(proceduresPerformed.branchId);
   const outstanding = await db
     .select({
@@ -96,8 +96,19 @@ export async function dashboard(ctx: TenantContext, branchIds: string[], date = 
   });
 }
 
+/** Done, not billed: unbilled and not marked "not done" (Q20, T28). Every unbilled figure uses this. */
+function unbilledWhere(ctx: TenantContext, branchIds: string[]) {
+  return and(
+    eq(proceduresPerformed.orgId, ctx.orgId),
+    inArray(proceduresPerformed.branchId, branchIds),
+    isNull(proceduresPerformed.invoiceLineId),
+    isNull(proceduresPerformed.dismissedAt),
+  );
+}
+
 export interface UnbilledRow {
   procedureId: string;
+  branchId: string;
   patientId: string;
   patientName: string;
   branchName: string;
@@ -115,6 +126,7 @@ export async function unbilledProcedures(ctx: TenantContext, branchIds: string[]
       procedureId: proceduresPerformed.id,
       patientId: proceduresPerformed.patientId,
       patientName: patients.fullName,
+      branchId: proceduresPerformed.branchId,
       branchName: branches.name,
       itemName: catalogueItems.name,
       doctorName: users.fullName,
@@ -127,7 +139,7 @@ export async function unbilledProcedures(ctx: TenantContext, branchIds: string[]
     .innerJoin(branches, eq(branches.id, proceduresPerformed.branchId))
     .innerJoin(catalogueItems, eq(catalogueItems.id, proceduresPerformed.catalogueItemId))
     .innerJoin(users, eq(users.id, proceduresPerformed.doctorId))
-    .where(and(eq(proceduresPerformed.orgId, ctx.orgId), inArray(proceduresPerformed.branchId, ids), isNull(proceduresPerformed.invoiceLineId)))
+    .where(unbilledWhere(ctx, ids))
     .orderBy(asc(proceduresPerformed.performedAt));
   return rows.map((r) => ({ ...r, valuePaise: (r.price * r.qty) as Paise }));
 }
@@ -322,4 +334,57 @@ export async function parallelRun(ctx: TenantContext, branchIds: string[], today
     };
   });
   return rows.sort((a, b) => b.date.localeCompare(a.date) || a.branchName.localeCompare(b.branchName));
+}
+
+export interface DayTotals {
+  billCount: number;
+  billedPaise: Paise;
+  byMode: Partial<Record<PaymentMode, Paise>>;
+  collectedPaise: Paise;
+}
+
+/**
+ * One day's totals across the given branches (the Bills list subtotal, T27):
+ * issued bills (cancelled ones are not counted) and payments received that day
+ * by mode, cancelled payments excluded. Same figures and permissions as the
+ * dashboard; null when the user may not see branch figures.
+ */
+export async function dayTotals(ctx: TenantContext, branchIds: string[], date: string): Promise<DayTotals | null> {
+  const rows = await dashboard(ctx, branchIds, date);
+  if (rows.length === 0) return null;
+  const byMode: Partial<Record<PaymentMode, Paise>> = {};
+  for (const r of rows) {
+    for (const [m, v] of Object.entries(r.byMode) as [PaymentMode, Paise][]) byMode[m] = add(byMode[m] ?? ZERO, v);
+  }
+  return {
+    billCount: rows.reduce((s, r) => s + r.billCount, 0),
+    billedPaise: add(...rows.map((r) => r.billedPaise)),
+    byMode,
+    collectedPaise: add(...rows.map((r) => r.collectedPaise)),
+  };
+}
+
+export interface UnclosedDay {
+  branchId: string;
+  branchName: string;
+  date: string;
+}
+
+/**
+ * Morning check (Q19, T27): for each branch where the user can both report
+ * and close the day (owner, branch manager), the most recent earlier business
+ * day in the last week that had any activity (a day book, a bill or a payment)
+ * and is not closed. A day with no activity (a Sunday) is skipped, so Monday
+ * still flags an unclosed Saturday.
+ */
+export async function unclosedEarlierDays(ctx: TenantContext, branchIds: string[], today = businessDate()): Promise<UnclosedDay[]> {
+  const ids = branchIds.filter((b) => canDo(ctx, 'report.branch', b) && canDo(ctx, 'day.close', b));
+  if (ids.length === 0) return [];
+  const rows = await parallelRun(ctx, ids, addDays(today, -1), 7); // newest first
+  const out: UnclosedDay[] = [];
+  for (const id of ids) {
+    const last = rows.find((r) => r.branchId === id);
+    if (last && last.dayStatus !== 'closed') out.push({ branchId: id, branchName: last.branchName, date: last.date });
+  }
+  return out.sort((a, b) => a.branchName.localeCompare(b.branchName));
 }

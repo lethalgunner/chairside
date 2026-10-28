@@ -1,13 +1,20 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 import { getContext } from '@/lib/auth';
 import { parseRupeesInput, type Paise } from '@/domain/money';
 import { closeDay, recordCashOut, reopenDay, type CloseDayInput } from '@/services/daybook';
 import { issueBill, voidInvoice, type IssueBillInput, type IssueBillResult } from '@/services/invoices';
 import { cancelReceipt, recordReceipt, type RecordReceiptInput, type RecordReceiptResult } from '@/services/receipts';
+import { dismissProcedure } from '@/services/procedures';
 import { UserFacingError } from '@/services/context';
 import { run, signedOut, type ActionResult } from './run';
+
+/** A string argument from the client, or '' (which every service refuses) for anything else. */
+function text(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
 
 function refresh() {
   revalidatePath('/', 'layout');
@@ -29,11 +36,26 @@ export async function recordReceiptAction(input: RecordReceiptInput): Promise<Ac
   return res;
 }
 
-export async function voidInvoiceAction(invoiceId: string, reason: string): Promise<ActionResult> {
+/** `workDone` answers "Was this work done?" on the cancel dialog (Q20, T28); it must be stated. */
+export async function voidInvoiceAction(invoiceId: string, reason: string, workDone: boolean): Promise<ActionResult> {
   const ctx = await getContext();
   if (!ctx) return signedOut('invoice.void');
   const res = await run('invoice.void', async () => {
-    await voidInvoice(ctx, invoiceId, reason);
+    const answer = z.boolean().safeParse(workDone);
+    if (!answer.success) throw new UserFacingError('Say whether the work on this bill was done.');
+    await voidInvoice(ctx, text(invoiceId), text(reason), answer.data);
+    return undefined;
+  });
+  if (res.ok) refresh();
+  return res;
+}
+
+/** "Not done: remove" on the Unbilled list (Q20, T28). */
+export async function dismissProcedureAction(procedureId: string, reason: string): Promise<ActionResult> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('procedure.dismiss');
+  const res = await run('procedure.dismiss', async () => {
+    await dismissProcedure(ctx, text(procedureId), text(reason));
     return undefined;
   });
   if (res.ok) refresh();

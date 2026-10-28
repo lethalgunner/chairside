@@ -333,6 +333,7 @@ async function resolveLines(
     if (l.procedureId) {
       const r = procMap.get(l.procedureId);
       if (!r) throw new UserFacingError('One of those procedures is already billed or belongs elsewhere.');
+      if (r.p.dismissedAt) throw new UserFacingError(`${r.item.name} was marked as not done, so it can’t be billed. Add it from the price list if it was done after all.`);
       return {
         catalogueItemId: r.item.id,
         procedureId: r.p.id,
@@ -387,7 +388,13 @@ async function applyAdvances(tx: Tx, orgId: string, branchId: string, patientId:
   }
 }
 
-export async function voidInvoice(ctx: TenantContext, invoiceId: string, reasonRaw: string): Promise<void> {
+/**
+ * Cancel a bill. `workDone` answers "Was this work done?" (Q20, T28): true
+ * releases its procedures to Done-not-billed (the work happened and still
+ * needs billing); false marks them not done with the cancel reason, so a
+ * wrong-patient bill leaves nothing behind on the leakage figure.
+ */
+export async function voidInvoice(ctx: TenantContext, invoiceId: string, reasonRaw: string, workDone: boolean): Promise<void> {
   if (!isUuid(invoiceId)) throw new ForbiddenError();
   const reason = reasonRaw.trim();
   if (reason.length < 5) throw new UserFacingError('Say why this bill is being cancelled.');
@@ -438,19 +445,36 @@ export async function voidInvoice(ctx: TenantContext, invoiceId: string, reasonR
       narration: `Cancelled ${inv.number}`,
       createdBy: ctx.userId,
     });
-    // The work was still done: release its procedures back to "unbilled".
+    // Release the bill's procedures: back to "Done, not billed" if the work
+    // was done, otherwise marked not done with the cancel reason (T28).
     const lineIds = (await tx.select({ id: invoiceLines.id }).from(invoiceLines).where(eq(invoiceLines.invoiceId, inv.id))).map((l) => l.id);
-    if (lineIds.length) {
-      await tx.update(proceduresPerformed).set({ invoiceLineId: null }).where(inArray(proceduresPerformed.invoiceLineId, lineIds));
-    }
+    const released = lineIds.length
+      ? await tx
+          .update(proceduresPerformed)
+          .set(workDone ? { invoiceLineId: null } : { invoiceLineId: null, dismissedAt: new Date(), dismissedBy: ctx.userId, dismissReason: reason })
+          .where(and(eq(proceduresPerformed.orgId, ctx.orgId), inArray(proceduresPerformed.invoiceLineId, lineIds)))
+          .returning({ id: proceduresPerformed.id })
+      : [];
     await writeAudit(tx, ctx, {
       action: 'invoice.void',
       entityType: 'invoice',
       entityId: inv.id,
       branchId: inv.branchId,
       before: { status: inv.status },
-      after: { status: 'void', reason },
+      after: { status: 'void', reason, workDone },
     });
+    if (!workDone) {
+      for (const p of released) {
+        await writeAudit(tx, ctx, {
+          action: 'procedure.dismiss',
+          entityType: 'procedure',
+          entityId: p.id,
+          branchId: inv.branchId,
+          before: { dismissed: false },
+          after: { dismissed: true, reason, viaInvoiceId: inv.id },
+        });
+      }
+    }
   });
 }
 
@@ -556,13 +580,14 @@ export interface InvoiceRow {
 
 export async function listInvoices(
   ctx: TenantContext,
-  opts: { branchIds: string[]; patientId?: string; openOnly?: boolean; limit?: number },
+  opts: { branchIds: string[]; patientId?: string; openOnly?: boolean; limit?: number; /** Only bills issued on this business date (Bills "Today", T27). */ issuedOn?: string },
 ): Promise<InvoiceRow[]> {
   const ids = opts.branchIds.filter((b) => ctx.branchIds.includes(b));
   if (ids.length === 0) return [];
   const paid = paidOnInvoiceSql();
   const conds = [eq(invoices.orgId, ctx.orgId), inArray(invoices.branchId, ids)];
   if (opts.patientId) conds.push(eq(invoices.patientId, opts.patientId));
+  if (opts.issuedOn) conds.push(eq(invoices.issuedOn, opts.issuedOn));
   if (opts.openOnly) conds.push(eq(invoices.status, 'issued'), sql`${invoices.totalPaise} > ${paid}`);
   const rows = await getDb()
     .select({

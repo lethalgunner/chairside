@@ -484,6 +484,16 @@ export const proceduresPerformed = pgTable(
     performedAt: timestamp('performed_at', { withTimezone: true }).notNull().defaultNow(),
     /** Set once billed. The unbilled-procedure exception report reads this. */
     invoiceLineId: uuid('invoice_line_id'),
+
+    /**
+     * Marked "not done" (Q20, T28): left out of Done-not-billed and can never
+     * be billed. Set by an owner or branch manager (`procedure.dismiss`), or
+     * by cancelling its bill with "No, it wasn't done". The row is never
+     * deleted; the reason is required and audited.
+     */
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
+    dismissedBy: uuid('dismissed_by').references(() => users.id),
+    dismissReason: text('dismiss_reason'),
   },
   (t) => ({
     encounterIdx: index('procedures_encounter_idx').on(t.encounterId),

@@ -9,9 +9,13 @@ CREATE TABLE "usage_events" (
 	CONSTRAINT "usage_events_kind_check" CHECK ("usage_events"."kind" in ('dashboard_view', 'patient_register'))
 );
 --> statement-breakpoint
+ALTER TABLE "procedures_performed" ADD COLUMN "dismissed_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "procedures_performed" ADD COLUMN "dismissed_by" uuid;--> statement-breakpoint
+ALTER TABLE "procedures_performed" ADD COLUMN "dismiss_reason" text;--> statement-breakpoint
 ALTER TABLE "usage_events" ADD CONSTRAINT "usage_events_org_id_organisations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organisations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "usage_events" ADD CONSTRAINT "usage_events_branch_id_branches_id_fk" FOREIGN KEY ("branch_id") REFERENCES "public"."branches"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "usage_events" ADD CONSTRAINT "usage_events_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "usage_events_org_kind_time_idx" ON "usage_events" USING btree ("org_id","kind","occurred_at");--> statement-breakpoint
--- Close Supabase's Data API over the new table (CLAUDE.md, see 0002_close_data_api.sql).
+ALTER TABLE "procedures_performed" ADD CONSTRAINT "procedures_performed_dismissed_by_users_id_fk" FOREIGN KEY ("dismissed_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- New table: close it to Supabase's public Data API like every other table (CLAUDE.md, 0002).
 ALTER TABLE "usage_events" ENABLE ROW LEVEL SECURITY;

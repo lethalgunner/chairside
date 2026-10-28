@@ -96,9 +96,9 @@ describe('cancel a payment (T19, Q7)', () => {
     const bill = await issueBill(desk, { patientId, doctorId: f.doctorId, idempotencyKey: key(), mode: 'issue', lines: [{ catalogueItemId: f.items.rct, quantity: 1 }] });
     if (bill.kind !== 'issued') throw new Error('not issued');
     const pay = await recordReceipt(desk, { patientId, amountPaise: 450_000, mode: 'card', idempotencyKey: key() });
-    await expect(voidInvoice(owner, bill.invoiceId, 'Wrong patient billed')).rejects.toThrow(/Cancel them first/);
+    await expect(voidInvoice(owner, bill.invoiceId, 'Wrong patient billed', true)).rejects.toThrow(/Cancel them first/);
     await cancelReceipt(owner, pay.receiptId, 'Wrong patient billed');
-    await voidInvoice(owner, bill.invoiceId, 'Wrong patient billed');
+    await voidInvoice(owner, bill.invoiceId, 'Wrong patient billed', true);
     expect((await patientAccount(desk, patientId)).balancePaise).toBe(0);
   });
 
