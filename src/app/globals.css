@@ -1178,3 +1178,56 @@ tr.diff-row td {
 .qty .icon-btn {
   min-width: 28px;
 }
+
+/* Past days, read-only (Q19, T27): day control on the dashboard, day close
+   and Bills; the Bills "Today / All" filter and its day subtotal. */
+.day-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+.day-nav .day-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.day-nav .day-pick label {
+  color: var(--ink-3);
+}
+.day-nav .day-pick input {
+  max-width: 100%;
+}
+.day-nav .link.strong {
+  font-weight: 600;
+}
+.callout.past-day {
+  margin-top: 0;
+}
+.filter-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.filter-tabs a {
+  padding: 5px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 13px;
+}
+.filter-tabs a.on {
+  background: var(--jade);
+  border-color: var(--jade);
+  color: var(--surface);
+}
+.day-subtotal {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.7;
+}

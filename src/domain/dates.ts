@@ -55,3 +55,39 @@ export function addDays(isoDate: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+/** True for a real calendar date written YYYY-MM-DD ('2026-02-30' is false). */
+export function isIsoDate(v: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}
+
+/** How far back a past day can be viewed (Q19, T27). */
+export const MAX_DAYS_BACK = 400;
+
+export interface ViewDate {
+  /** The business date to show. */
+  date: string;
+  isToday: boolean;
+}
+
+/**
+ * The day a read-only page should show, from a `?date=` value (Q19, T27).
+ * Only an ISO date that is not after today (IST business date) and not more
+ * than MAX_DAYS_BACK days back is honoured; anything else, including a
+ * repeated parameter, shows today. Never throws: a bad link is not an error page.
+ */
+export function resolveViewDate(raw: string | string[] | undefined | null, today: string = businessDate()): ViewDate {
+  const v = typeof raw === 'string' ? raw.trim() : '';
+  if (!isIsoDate(v) || v >= today || v < addDays(today, -MAX_DAYS_BACK)) return { date: today, isToday: true };
+  return { date: v, isToday: false };
+}
+
+/** '2026-10-24' → 'Sat 24 Oct'. */
+export function shortDay(isoDate: string): string {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
+}

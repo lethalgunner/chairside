@@ -323,3 +323,56 @@ export async function parallelRun(ctx: TenantContext, branchIds: string[], today
   });
   return rows.sort((a, b) => b.date.localeCompare(a.date) || a.branchName.localeCompare(b.branchName));
 }
+
+export interface DayTotals {
+  billCount: number;
+  billedPaise: Paise;
+  byMode: Partial<Record<PaymentMode, Paise>>;
+  collectedPaise: Paise;
+}
+
+/**
+ * One day's totals across the given branches (the Bills list subtotal, T27):
+ * issued bills (cancelled ones are not counted) and payments received that day
+ * by mode, cancelled payments excluded. Same figures and permissions as the
+ * dashboard; null when the user may not see branch figures.
+ */
+export async function dayTotals(ctx: TenantContext, branchIds: string[], date: string): Promise<DayTotals | null> {
+  const rows = await dashboard(ctx, branchIds, date);
+  if (rows.length === 0) return null;
+  const byMode: Partial<Record<PaymentMode, Paise>> = {};
+  for (const r of rows) {
+    for (const [m, v] of Object.entries(r.byMode) as [PaymentMode, Paise][]) byMode[m] = add(byMode[m] ?? ZERO, v);
+  }
+  return {
+    billCount: rows.reduce((s, r) => s + r.billCount, 0),
+    billedPaise: add(...rows.map((r) => r.billedPaise)),
+    byMode,
+    collectedPaise: add(...rows.map((r) => r.collectedPaise)),
+  };
+}
+
+export interface UnclosedDay {
+  branchId: string;
+  branchName: string;
+  date: string;
+}
+
+/**
+ * Morning check (Q19, T27): for each branch where the user can both report
+ * and close the day (owner, branch manager), the most recent earlier business
+ * day in the last week that had any activity (a day book, a bill or a payment)
+ * and is not closed. A day with no activity (a Sunday) is skipped, so Monday
+ * still flags an unclosed Saturday.
+ */
+export async function unclosedEarlierDays(ctx: TenantContext, branchIds: string[], today = businessDate()): Promise<UnclosedDay[]> {
+  const ids = branchIds.filter((b) => canDo(ctx, 'report.branch', b) && canDo(ctx, 'day.close', b));
+  if (ids.length === 0) return [];
+  const rows = await parallelRun(ctx, ids, addDays(today, -1), 7); // newest first
+  const out: UnclosedDay[] = [];
+  for (const id of ids) {
+    const last = rows.find((r) => r.branchId === id);
+    if (last && last.dayStatus !== 'closed') out.push({ branchId: id, branchName: last.branchName, date: last.date });
+  }
+  return out.sort((a, b) => a.branchName.localeCompare(b.branchName));
+}

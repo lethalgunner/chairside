@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { requireContext } from '@/lib/auth';
-import { businessDate, displayDate } from '@/domain/dates';
+import { businessDate, displayDate, resolveViewDate, shortDay } from '@/domain/dates';
 import { DENOMINATIONS } from '@/domain/ledger';
 import { formatINR, type Paise } from '@/domain/money';
 import { canDo } from '@/services/context';
@@ -10,8 +10,9 @@ import DayCloseForm from './DayCloseForm';
 import LegacyCompare from '@/components/LegacyCompare';
 import { compareWithLegacy } from '@/domain/parallel';
 import ReopenForm from './ReopenForm';
+import DayNav from '@/components/DayNav';
 
-export default async function DayClosePage() {
+export default async function DayClosePage({ searchParams }: { searchParams: Promise<{ date?: string | string[] }> }) {
   const ctx = await requireContext();
   if (ctx.activeBranchId === 'all') {
     return (
@@ -31,15 +32,26 @@ export default async function DayClosePage() {
     );
   }
   const today = businessDate();
-  const s = await getDaySummary(ctx, branchId, today);
-  const canReopen = canDo(ctx, 'day.reopen', branchId);
+  // A past day only shows what happened (Q19, T27): no close, cash out or reopen.
+  // Every write below stays tied to today on the server whatever the URL says.
+  const { date, isToday } = resolveViewDate((await searchParams).date, today);
+  const s = await getDaySummary(ctx, branchId, date);
+  const canReopen = isToday && canDo(ctx, 'day.reopen', branchId);
+  const comparison = s.closed
+    ? compareWithLegacy({ legacyBillCount: s.closed.legacyBillCount, legacyCollectedPaise: s.closed.legacyCollectedPaise, billCount: s.billCount, collectedPaise: s.totalCollectedPaise })
+    : null;
 
   return (
     <>
-      <PageHead eyebrow={`${s.branchName} · ${displayDate(today)}`} title="Day close" right={<StatusPill status={s.status} />} />
-      {s.status === 'reopened' ? <div className="callout warn">Reopened by the owner: {s.reopenReason}. Close it again when done.</div> : null}
+      <PageHead eyebrow={`${s.branchName} · ${displayDate(date)}`} title="Day close" right={<StatusPill status={s.status} />} />
+      <DayNav date={date} today={today} isToday={isToday} href={(d) => (d ? `/day-close?date=${d}` : '/day-close')} />
+      {s.status === 'reopened' ? (
+        <div className="callout warn">
+          Reopened by the owner: {s.reopenReason}. {isToday ? 'Close it again when done.' : 'It was not closed again.'}
+        </div>
+      ) : null}
       <div className="row">
-        <Card title="Collected today">
+        <Card title={isToday ? 'Collected today' : `Collected on ${shortDay(date)}`}>
           <dl className="kv">
             {Object.entries(s.byMode)
               .filter(([, v]) => v !== 0)
@@ -84,11 +96,14 @@ export default async function DayClosePage() {
             <dd className={s.closed.variancePaise === 0 ? 'variance-ok' : 'variance-bad'}>{formatINR(s.closed.variancePaise)}</dd>
             {s.closed.varianceReason ? (<><dt>Reason</dt><dd>{s.closed.varianceReason}</dd></>) : null}
           </dl>
-          {(() => {
-            const c = compareWithLegacy({ legacyBillCount: s.closed.legacyBillCount, legacyCollectedPaise: s.closed.legacyCollectedPaise, billCount: s.billCount, collectedPaise: s.totalCollectedPaise });
-            return c ? <LegacyCompare c={c} /> : <p className="muted small">No old-system figures were entered at close.</p>;
-          })()}
-          {canReopen ? <ReopenForm branchId={branchId} date={today} /> : <p className="muted small">Only the owner can reopen a closed day.</p>}
+          {comparison ? <LegacyCompare c={comparison} /> : <p className="muted small">No old-system figures were entered at close.</p>}
+          {!isToday ? null : canReopen ? <ReopenForm branchId={branchId} date={today} /> : <p className="muted small">Only the owner can reopen a closed day.</p>}
+        </Card>
+      ) : !isToday ? (
+        <Card title="Not closed">
+          <p>
+            <strong>This day was not closed.</strong> The figures above are everything recorded on {shortDay(date)}: {s.billCount} bill{s.billCount === 1 ? '' : 's'} worth {formatINR(s.billedPaise)}, {formatINR(s.totalCollectedPaise)} collected.
+          </p>
         </Card>
       ) : (
         <DayCloseForm
