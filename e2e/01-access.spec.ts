@@ -97,3 +97,15 @@ test.describe('invite links', () => {
     await expect(page.getByRole('heading', { name: 'Link not valid' })).toBeVisible();
   });
 });
+
+test('every page sends the baseline security headers and hides the framework', async ({ request }) => {
+  for (const path of ['/login', '/setup?token=x', '/api/health']) {
+    const res = await request.get(path);
+    const h = res.headers();
+    expect(h['x-frame-options'], path).toBe('DENY');
+    expect(h['content-security-policy'], path).toContain("frame-ancestors 'none'");
+    expect(h['x-content-type-options'], path).toBe('nosniff');
+    expect(h['referrer-policy'], path).toBe('same-origin');
+    expect(h['x-powered-by'], path).toBeUndefined();
+  }
+});
