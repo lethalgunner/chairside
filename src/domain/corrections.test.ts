@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { billCancellation } from './corrections';
+import { billCancellation, procedureDismissal } from './corrections';
 import { can, ROLE_CAPABILITIES, ROLES } from './permissions';
 
 describe('receipt.cancel (T19)', () => {
@@ -43,5 +43,31 @@ describe('who may cancel a bill (T20, Q9)', () => {
 describe('price list is owner-only for Pilot 0 (T24, CPO Dev-1)', () => {
   it('catalogue.manage belongs to the owner alone', () => {
     for (const r of ROLES) expect(ROLE_CAPABILITIES[r].includes('catalogue.manage'), r).toBe(r === 'owner');
+  });
+});
+
+describe('procedure.dismiss (Q20, T28)', () => {
+  it('is owner and branch manager only, never the front desk', () => {
+    for (const r of ROLES) expect(ROLE_CAPABILITIES[r].includes('procedure.dismiss'), r).toBe(r === 'owner' || r === 'branch_manager');
+    expect(can([{ role: 'branch_manager', branchId: 'pune' }], 'procedure.dismiss', 'pune')).toBe(true);
+    expect(can([{ role: 'branch_manager', branchId: 'pune' }], 'procedure.dismiss', 'kanpur')).toBe(false);
+    expect(can([{ role: 'front_desk', branchId: 'pune' }], 'procedure.dismiss', 'pune')).toBe(false);
+  });
+});
+
+describe('marking recorded work as not done (Q20, T28)', () => {
+  const base = { invoiceLineId: null, dismissedAt: null, reason: 'Patient left before treatment' };
+
+  it('allows unbilled work with a reason, trimmed', () => {
+    expect(procedureDismissal({ ...base, reason: '  Wrong patient  ' })).toEqual({ allowed: true, reason: 'Wrong patient' });
+  });
+
+  it('needs a reason of at least 5 characters', () => {
+    expect(procedureDismissal({ ...base, reason: ' no  ' })).toMatchObject({ allowed: false, reason: expect.stringMatching(/at least 5/) });
+  });
+
+  it('refuses work that is on a bill, or already marked', () => {
+    expect(procedureDismissal({ ...base, invoiceLineId: 'line-1' })).toMatchObject({ allowed: false, reason: expect.stringMatching(/Cancel the bill/) });
+    expect(procedureDismissal({ ...base, dismissedAt: new Date() })).toMatchObject({ allowed: false, reason: expect.stringMatching(/already/) });
   });
 });

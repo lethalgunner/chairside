@@ -63,7 +63,7 @@ export async function dashboard(ctx: TenantContext, branchIds: string[], date = 
       t: sql<string>`sum(${proceduresPerformed.unitPricePaise} * ${proceduresPerformed.quantity})`,
     })
     .from(proceduresPerformed)
-    .where(and(eq(proceduresPerformed.orgId, ctx.orgId), inArray(proceduresPerformed.branchId, ids), isNull(proceduresPerformed.invoiceLineId)))
+    .where(unbilledWhere(ctx, ids))
     .groupBy(proceduresPerformed.branchId);
   const outstanding = await db
     .select({
@@ -96,8 +96,19 @@ export async function dashboard(ctx: TenantContext, branchIds: string[], date = 
   });
 }
 
+/** Done, not billed: unbilled and not marked "not done" (Q20, T28). Every unbilled figure uses this. */
+function unbilledWhere(ctx: TenantContext, branchIds: string[]) {
+  return and(
+    eq(proceduresPerformed.orgId, ctx.orgId),
+    inArray(proceduresPerformed.branchId, branchIds),
+    isNull(proceduresPerformed.invoiceLineId),
+    isNull(proceduresPerformed.dismissedAt),
+  );
+}
+
 export interface UnbilledRow {
   procedureId: string;
+  branchId: string;
   patientId: string;
   patientName: string;
   branchName: string;
@@ -115,6 +126,7 @@ export async function unbilledProcedures(ctx: TenantContext, branchIds: string[]
       procedureId: proceduresPerformed.id,
       patientId: proceduresPerformed.patientId,
       patientName: patients.fullName,
+      branchId: proceduresPerformed.branchId,
       branchName: branches.name,
       itemName: catalogueItems.name,
       doctorName: users.fullName,
@@ -127,7 +139,7 @@ export async function unbilledProcedures(ctx: TenantContext, branchIds: string[]
     .innerJoin(branches, eq(branches.id, proceduresPerformed.branchId))
     .innerJoin(catalogueItems, eq(catalogueItems.id, proceduresPerformed.catalogueItemId))
     .innerJoin(users, eq(users.id, proceduresPerformed.doctorId))
-    .where(and(eq(proceduresPerformed.orgId, ctx.orgId), inArray(proceduresPerformed.branchId, ids), isNull(proceduresPerformed.invoiceLineId)))
+    .where(unbilledWhere(ctx, ids))
     .orderBy(asc(proceduresPerformed.performedAt));
   return rows.map((r) => ({ ...r, valuePaise: (r.price * r.qty) as Paise }));
 }

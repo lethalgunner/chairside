@@ -37,35 +37,35 @@ describe('front desk cancels its own unpaid bill, same day (T20, Q9)', () => {
     const id = await bill(f.ctx('desk'));
     const inv = (await getInvoice(f.ctx('desk'), id))!;
     expect(billCancellationFor(f.ctx('desk'), inv)).toEqual({ allowed: true });
-    await voidInvoice(f.ctx('desk'), id, 'Billed the wrong patient');
+    await voidInvoice(f.ctx('desk'), id, 'Billed the wrong patient', true);
     expect((await getInvoice(f.ctx('desk'), id))!.status).toBe('void');
   });
 
   it('refuses another desk’s bill', async () => {
     const id = await bill(f.ctx('desk'));
-    await expect(voidInvoice(desk2, id, 'Not my bill at all')).rejects.toThrow(/issued yourself/);
+    await expect(voidInvoice(desk2, id, 'Not my bill at all', true)).rejects.toThrow(/issued yourself/);
     expect(billCancellationFor(desk2, (await getInvoice(desk2, id))!)).toMatchObject({ allowed: false, reason: expect.stringMatching(/^Only the owner can cancel this bill/) });
   });
 
   it('refuses a bill from an earlier day', async () => {
     const id = await bill(f.ctx('desk'));
     await getDb().update(invoices).set({ issuedOn: '2026-01-02' }).where(eq(invoices.id, id));
-    await expect(voidInvoice(f.ctx('desk'), id, 'Yesterday’s mistake')).rejects.toThrow(/day they were issued/);
+    await expect(voidInvoice(f.ctx('desk'), id, 'Yesterday’s mistake', true)).rejects.toThrow(/day they were issued/);
   });
 
   it('refuses a paid bill', async () => {
     const id = await bill(f.ctx('desk'));
     const inv = (await getInvoice(f.ctx('desk'), id))!;
     await recordReceipt(f.ctx('desk'), { patientId: inv.patientId, amountPaise: 1_000, mode: 'cash', idempotencyKey: key() });
-    await expect(voidInvoice(f.ctx('desk'), id, 'Paid but wrong')).rejects.toThrow(/has payments/);
+    await expect(voidInvoice(f.ctx('desk'), id, 'Paid but wrong', true)).rejects.toThrow(/has payments/);
   });
 
   it('needs a reason, and stays closed to roles without either capability', async () => {
     const id = await bill(f.ctx('desk'));
-    await expect(voidInvoice(f.ctx('desk'), id, 'no')).rejects.toThrow(UserFacingError);
-    await expect(voidInvoice(f.ctx('accountant'), id, 'Accountant tries')).rejects.toThrow(ForbiddenError);
-    await expect(voidInvoice(f.ctx('kanpurDesk'), id, 'Other branch desk')).rejects.toThrow(ForbiddenError);
+    await expect(voidInvoice(f.ctx('desk'), id, 'no', true)).rejects.toThrow(UserFacingError);
+    await expect(voidInvoice(f.ctx('accountant'), id, 'Accountant tries', true)).rejects.toThrow(ForbiddenError);
+    await expect(voidInvoice(f.ctx('kanpurDesk'), id, 'Other branch desk', true)).rejects.toThrow(ForbiddenError);
     // The owner may cancel anyone's unpaid bill.
-    await voidInvoice(f.ctx('owner'), id, 'Owner cancels it');
+    await voidInvoice(f.ctx('owner'), id, 'Owner cancels it', true);
   });
 });

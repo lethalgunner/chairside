@@ -229,8 +229,8 @@ describe('advances, void and unbilled', () => {
     const res = await issueBill(desk, { patientId, doctorId: f.doctorId, idempotencyKey: key(), mode: 'issue', lines: [{ catalogueItemId: f.items.rct, quantity: 1 }] });
     if (res.kind !== 'issued') throw new Error();
     // T20: the desk may now cancel its own unpaid same-day bill; roles without either capability still can't.
-    await expect(voidInvoice(f.ctx('accountant'), res.invoiceId, 'Wrong patient')).rejects.toThrow(ForbiddenError);
-    await voidInvoice(manager, res.invoiceId, 'Wrong patient selected');
+    await expect(voidInvoice(f.ctx('accountant'), res.invoiceId, 'Wrong patient', true)).rejects.toThrow(ForbiddenError);
+    await voidInvoice(manager, res.invoiceId, 'Wrong patient selected', true);
     const inv = await getInvoice(manager, res.invoiceId);
     expect(inv!.status).toBe('void');
     expect(inv!.number).toBe(res.number);
@@ -247,7 +247,7 @@ describe('advances, void and unbilled', () => {
     const res = await issueBill(desk, { patientId, doctorId: f.doctorId, idempotencyKey: key(), mode: 'issue', lines: [{ catalogueItemId: f.items.brush, quantity: 1 }] });
     if (res.kind !== 'issued') throw new Error();
     await recordReceipt(desk, { patientId, amountPaise: 5_000, mode: 'cash', idempotencyKey: key() });
-    await expect(voidInvoice(f.ctx('owner'), res.invoiceId, 'Testing refusal')).rejects.toThrow(/payments/);
+    await expect(voidInvoice(f.ctx('owner'), res.invoiceId, 'Testing refusal', true)).rejects.toThrow(/payments/);
   });
 });
 

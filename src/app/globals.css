@@ -1231,3 +1231,41 @@ tr.diff-row td {
   color: var(--ink-2);
   line-height: 1.7;
 }
+
+/* "Was this work done?" on cancel, and "Not done: remove" on Unbilled (Q20, T28). */
+fieldset.work-done {
+  border: 0;
+  padding: 0;
+  margin: 12px 0 6px;
+}
+fieldset.work-done legend {
+  font-weight: 600;
+  color: var(--ink);
+  padding: 0;
+}
+td.unbilled-actions {
+  white-space: normal;
+}
+.dismiss-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin-top: 6px;
+  min-width: 220px;
+  text-align: left;
+}
+.dismiss-form label {
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.dismiss-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 600px) {
+  .dismiss-form {
+    min-width: 0;
+  }
+}

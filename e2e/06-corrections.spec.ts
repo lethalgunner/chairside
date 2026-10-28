@@ -61,6 +61,7 @@ test('front desk cancels its own unpaid bill the same day, and is told who can c
   await page.getByRole('link', { name: 'View bill' }).click();
   await page.getByRole('button', { name: 'Cancel this bill…' }).click();
   await page.getByLabel(/Why is DKNT\/.* being cancelled\?/).fill('Billed the wrong patient');
+  await page.getByRole('radio', { name: 'Yes — it will show under Done, not billed' }).check();
   await page.getByRole('button', { name: /^Cancel DKNT\// }).click();
   await expect(page.getByText('Cancelled: Billed the wrong patient.')).toBeVisible();
 

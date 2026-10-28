@@ -36,3 +36,19 @@ export function billCancellation(p: {
   }
   return { allowed: false, reason: 'Only the owner can cancel this bill.' };
 }
+
+/** Shortest reason accepted for marking recorded work as not done (Q20, T28). */
+export const MIN_DISMISS_REASON = 5;
+
+/**
+ * Whether a recorded procedure can be marked "not done" (Q20, T28). It must
+ * still be unbilled (a billed one is corrected by cancelling its bill) and
+ * not already marked; the reason is required.
+ */
+export function procedureDismissal(p: { invoiceLineId: string | null; dismissedAt: Date | null; reason: string }): { allowed: true; reason: string } | { allowed: false; reason: string } {
+  if (p.dismissedAt) return { allowed: false, reason: 'This was already marked as not done.' };
+  if (p.invoiceLineId) return { allowed: false, reason: 'This is on a bill. Cancel the bill instead, and answer “No” to “Was this work done?”.' };
+  const reason = p.reason.trim();
+  if (reason.length < MIN_DISMISS_REASON) return { allowed: false, reason: 'Say why it wasn’t done (at least 5 characters).' };
+  return { allowed: true, reason };
+}

@@ -134,7 +134,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           <p><Link className="link" href={`/patients/${inv.patientId}`}>Patient account →</Link></p>
         </Card>
       </div>
-      {cancel.allowed ? <VoidForm invoiceId={inv.id} number={inv.number} /> : null}
+      {cancel.allowed ? <VoidForm invoiceId={inv.id} number={inv.number} hasProcedures={inv.lines.some((l) => l.procedureId !== null)} /> : null}
       {!cancel.allowed && inv.status === 'issued' && !cancel.needsPaymentsCancelled ? <p className="muted small">{cancel.reason}</p> : null}
       {!cancel.allowed && cancel.needsPaymentsCancelled ? (
         // Never hide Cancel without saying why (QA Q7).
