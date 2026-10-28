@@ -46,7 +46,7 @@ test('team: owner invites a front desk user, the link sets a password, deactivat
   await page.getByRole('button', { name: 'Deactivate Kavya (desk)' }).click();
   await expect(row).toContainText('Deactivated');
   await p2.reload();
-  await expect(p2).toHaveURL(/\/login$/);
+  await expect(p2).toHaveURL(/\/login(\?|$)/);
   await theirs.close();
 
   // The owner cannot switch themself off.

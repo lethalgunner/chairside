@@ -1,7 +1,11 @@
 import 'server-only';
 import { ForbiddenError, UserFacingError } from '@/services/context';
+import { SIGNED_OUT_MESSAGE } from '@/lib/nav/safe-next';
 
-export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
+/** The answer when the session ran out (T29): useActionForm sees `signedOut` and sends the person to sign in, then back. */
+export type SignedOut = { ok: false; error: string; signedOut: true };
+
+export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string } | SignedOut;
 
 /** Actions slower than this are logged as warnings (QA Q5: registration stuck on "Saving…"). */
 export const SLOW_ACTION_MS = 3000;
@@ -12,7 +16,7 @@ export const SLOW_ACTION_MS = 3000;
  * patient data. A name that is not a plain identifier is replaced, so a
  * caller can't leak data through it by mistake.
  */
-export function actionLogLine(name: string, ms: number, outcome: 'ok' | 'error'): string {
+export function actionLogLine(name: string, ms: number, outcome: 'ok' | 'error' | 'signed_out'): string {
   const safe = /^[a-z][A-Za-z0-9_.-]{0,63}$/.test(name) ? name : 'unnamed';
   return `[action] ${safe} ${Math.max(0, Math.round(ms))}ms ${outcome}`;
 }
@@ -49,4 +53,13 @@ export async function run<T>(name: string, fn: () => Promise<T>): Promise<Action
 function isNextControlFlow(err: unknown): boolean {
   const digest = (err as { digest?: unknown })?.digest;
   return typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest === 'NEXT_NOT_FOUND' || digest.startsWith('NEXT_HTTP_ERROR'));
+}
+
+/**
+ * Return this from an action whose getContext() came back empty, before doing
+ * anything else. Nothing has been read or written, so nothing was saved.
+ */
+export function signedOut(name: string): SignedOut {
+  console.info(actionLogLine(name, 0, 'signed_out'));
+  return { ok: false, error: SIGNED_OUT_MESSAGE, signedOut: true };
 }

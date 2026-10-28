@@ -1,15 +1,17 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireContext } from '@/lib/auth';
+import { getContext } from '@/lib/auth';
 import { registerPatient, type PatientSummary } from '@/services/patients';
-import { run } from './run';
+import { run, signedOut } from './run';
 
 export interface RegisterFormState {
   fieldErrors?: Record<string, string>;
   duplicates?: PatientSummary[];
   error?: string;
   createdId?: string;
+  /** The session ran out (T29); useActionForm sends the desk to sign in and back. */
+  signedOut?: true;
 }
 
 export async function registerPatientAction(input: {
@@ -21,7 +23,8 @@ export async function registerPatientAction(input: {
   referralDetail?: string;
   acknowledgedDuplicate: boolean;
 }): Promise<RegisterFormState> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('patient.register');
   const res = await run('patient.register', () =>
     registerPatient(ctx, {
       fullName: input.fullName,

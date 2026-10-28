@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const { actionLogLine, run, SLOW_ACTION_MS } = await import('./run');
+const { actionLogLine, run, signedOut, SLOW_ACTION_MS } = await import('./run');
+const { isSignedOutResult } = await import('@/lib/nav/safe-next');
 const { ForbiddenError, UserFacingError } = await import('@/services/context');
 
 describe('action timing log (T17, QA Q5)', () => {
@@ -66,5 +67,12 @@ describe('action timing log (T17, QA Q5)', () => {
     const redirect = Object.assign(new Error('NEXT_REDIRECT'), { digest: 'NEXT_REDIRECT;replace;/login;307;' });
     await expect(run('bill.issue', async () => { throw redirect; })).rejects.toBe(redirect);
     expect(String(info.mock.calls[0]![0])).toMatch(/ ok$/);
+  });
+
+  it('answers a signed-out action with the marker the forms recognise, logging only the name (T29)', () => {
+    const res = signedOut('bill.issue');
+    expect(res).toEqual({ ok: false, error: 'You were signed out. Nothing was saved.', signedOut: true });
+    expect(isSignedOutResult(res)).toBe(true);
+    expect(info).toHaveBeenCalledWith('[action] bill.issue 0ms signed_out');
   });
 });

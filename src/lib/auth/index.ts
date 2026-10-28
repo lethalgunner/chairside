@@ -4,9 +4,10 @@
  * (ADR-011) behind these same functions.
  */
 import 'server-only';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { TenantContext } from '@/services/context';
+import { loginHref, PATH_HEADER } from '@/lib/nav/safe-next';
 import { redeemInvite } from './invite';
 import { contextFromSession, revokeSession, signInWithPassword } from './session';
 
@@ -41,10 +42,22 @@ export async function getContext(): Promise<TenantContext | null> {
   return resolved.ctx;
 }
 
-/** Call at the top of every page and server action. Signed-out callers go to /login. */
+/**
+ * Call at the top of every page. Signed-out callers go to /login with `next`
+ * set to this page, so signing in brings them back (T29, QA Q13). The login
+ * page says "You were signed out" only when a session cookie was sent but is
+ * no longer valid (or a server action found none): someone who never signed in
+ * just sees the sign-in form. Server actions that return an ActionResult use
+ * getContext() and answer signedOut() instead, so the form can navigate itself.
+ */
 export async function requireContext(): Promise<TenantContext> {
   const ctx = await getContext();
-  if (!ctx) redirect('/login');
+  if (!ctx) {
+    const jar = await cookies();
+    const h = await headers();
+    const expired = !!jar.get(SESSION_COOKIE) || h.has('next-action');
+    redirect(loginHref(h.get(PATH_HEADER), expired));
+  }
   return ctx;
 }
 
