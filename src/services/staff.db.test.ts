@@ -54,6 +54,19 @@ describe('team: invite (T14)', () => {
     expect((await signInWithPassword(f.emails.desk, f.password)).ok).toBe(true);
   });
 
+  it('never renames someone when their email is typed with a different name (QA 28 Oct)', async () => {
+    const [before] = await getDb().select().from(users).where(eq(users.email, f.emails.desk));
+    const r = await inviteStaff(owner, { fullName: 'Typed Wrong Name', email: f.emails.desk.toUpperCase(), role: 'front_desk', branchId: f.kanpur.id, linkUserId: null });
+    expect(r).toMatchObject({ ok: true, existing: true, roleAdded: true, fullName: before!.fullName, email: f.emails.desk, token: null });
+    const [after] = await getDb().select().from(users).where(eq(users.email, f.emails.desk));
+    expect(after!.fullName).toBe(before!.fullName);
+  });
+
+  it('says nothing changed when the person already has that role', async () => {
+    const r = await inviteStaff(owner, { fullName: 'Anything', email: f.emails.desk, role: 'front_desk', branchId: f.kanpur.id, linkUserId: null });
+    expect(r).toMatchObject({ ok: true, existing: true, roleAdded: false });
+  });
+
   it('refuses an email that belongs to another organisation', async () => {
     await expect(inviteStaff(owner, { fullName: 'Spy', email: other.emails.desk, role: 'front_desk', branchId: f.pune.id, linkUserId: null })).rejects.toThrow(UserFacingError);
   });

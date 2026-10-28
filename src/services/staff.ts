@@ -81,8 +81,8 @@ export async function upsertStaffGrant(
   orgId: string,
   actorId: string | null,
   grant: StaffGrant,
-  opts: { passwordHash?: string } = {},
-): Promise<{ userId: string; created: boolean; hasPassword: boolean }> {
+  opts: { passwordHash?: string; renameExisting?: boolean } = {},
+): Promise<{ userId: string; created: boolean; hasPassword: boolean; roleAdded: boolean }> {
   if (grant.branchId) {
     const [b] = await db.select({ id: branches.id }).from(branches).where(and(eq(branches.id, grant.branchId), eq(branches.orgId, orgId))).limit(1);
     if (!b) throw new UserFacingError('That branch is not part of this clinic.');
@@ -103,13 +103,17 @@ export async function upsertStaffGrant(
 
   let created = false;
   const before = user ? { active: user.active, hadEmail: !!user.email } : null;
+  // A name typed next to an email that is already someone's login must never
+  // rename that person (QA 28 Oct: inviting desk@ as "Dup Person" renamed Priya).
+  // Only linking a known record, or the command line on purpose, may set the name.
+  const mayRename = !!grant.linkUserId || !!opts.renameExisting;
   if (user) {
     [user] = await db
       .update(users)
       .set({
         email: grant.email,
         active: true,
-        ...(grant.fullName ? { fullName: grant.fullName } : {}),
+        ...(grant.fullName && mayRename ? { fullName: grant.fullName } : {}),
         ...(opts.passwordHash ? { passwordHash: opts.passwordHash } : {}),
       })
       .where(eq(users.id, user.id))
@@ -136,11 +140,11 @@ export async function upsertStaffGrant(
     before,
     after: { role: grant.role, branchId: grant.branchId, active: true, roleAdded: !existing, passwordSet: !!opts.passwordHash },
   });
-  return { userId, created, hasPassword: !!user!.passwordHash };
+  return { userId, created, hasPassword: !!user!.passwordHash, roleAdded: !existing };
 }
 
 export type InviteStaffResult =
-  | { ok: true; userId: string; fullName: string; token: string | null; expiresAt: Date | null }
+  | { ok: true; userId: string; fullName: string; email: string; existing: boolean; roleAdded: boolean; token: string | null; expiresAt: Date | null }
   | { ok: false; fieldErrors: FieldErrors };
 
 /**
@@ -155,10 +159,11 @@ export async function inviteStaff(ctx: TenantContext, input: StaffGrantInput): P
     return await getDb().transaction(async (tx) => {
       const r = await upsertStaffGrant(tx, ctx.orgId, ctx.userId, checked.value);
       const [u] = await tx.select({ fullName: users.fullName }).from(users).where(eq(users.id, r.userId));
-      if (r.hasPassword) return { ok: true as const, userId: r.userId, fullName: u!.fullName, token: null, expiresAt: null };
+      const who = { userId: r.userId, fullName: u!.fullName, email: checked.value.email, existing: !r.created, roleAdded: r.roleAdded };
+      if (r.hasPassword) return { ok: true as const, ...who, token: null, expiresAt: null };
       const { token, expiresAt } = await createInvite(tx, { orgId: ctx.orgId, userId: r.userId });
       await writeAudit(tx, ctx, { action: 'staff.invite', entityType: 'user', entityId: r.userId, after: { expiresAt } });
-      return { ok: true as const, userId: r.userId, fullName: u!.fullName, token, expiresAt };
+      return { ok: true as const, ...who, token, expiresAt };
     });
   } catch (err) {
     if (isUniqueViolation(err)) throw new UserFacingError('Someone just added that email. Refresh the page and check the list.');

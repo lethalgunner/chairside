@@ -86,7 +86,7 @@ async function main() {
 
   const userId = await db.transaction(async (tx) => {
     let id = '';
-    for (const g of grants) id = (await upsertStaffGrant(tx, org.id, null, g, { passwordHash })).userId;
+    for (const g of grants) id = (await upsertStaffGrant(tx, org.id, null, g, { passwordHash, renameExisting: true })).userId;
     return id;
   });
 

@@ -22,7 +22,7 @@ export default function InviteForm({ roles, branches, unlinked }: Props) {
   const [branchId, setBranchId] = useState(branches.length === 1 ? branches[0]!.id : '');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const [issued, setIssued] = useState<{ token: string | null; name: string } | null>(null);
+  const [issued, setIssued] = useState<{ token: string | null; name: string; email: string; existing: boolean; roleAdded: boolean } | null>(null);
   const isOwner = role === 'owner';
 
   function submit(e: React.FormEvent) {
@@ -35,7 +35,7 @@ export default function InviteForm({ roles, branches, unlinked }: Props) {
       if (!res.ok) return setError(res.error);
       if (!res.data.ok) return setErrors(res.data.fieldErrors);
       setErrors({});
-      setIssued({ token: res.data.token, name: res.data.fullName });
+      setIssued({ token: res.data.token, name: res.data.fullName, email: res.data.email, existing: res.data.existing, roleAdded: res.data.roleAdded });
       setWho('');
       setFullName('');
       setEmail('');
@@ -52,7 +52,13 @@ export default function InviteForm({ roles, branches, unlinked }: Props) {
         issued.token ? (
           <InviteLink token={issued.token} name={issued.name} onDone={() => setIssued(null)} />
         ) : (
-          <div className="callout good" role="status">{issued.name} already has a login. The new role is added; they can sign in as before.</div>
+          <div className={`callout ${issued.roleAdded ? 'good' : 'warn'}`} role="status">
+            {issued.roleAdded ? (
+              <>{issued.email} is already <strong>{issued.name}</strong>’s login, so {issued.name} now also has this role and signs in as before. If you meant someone else, use their own email.</>
+            ) : (
+              <><strong>{issued.name}</strong> ({issued.email}) already has this role. Nothing changed.</>
+            )}
+          </div>
         )
       ) : null}
       <div className="field-grid">
