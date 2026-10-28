@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireContext } from '@/lib/auth';
 import { updateBranchDetails, type SaveBranchResult } from '@/services/branches';
 import { createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type SaveItemResult } from '@/services/catalogue';
+import { previewCatalogueImport, saveCatalogueImport, type ImportPreview, type ImportSaveResult } from '@/services/catalogue-import';
 import { inviteStaff, reissueInvite, setStaffActive, type InviteStaffResult } from '@/services/staff';
 import { UserFacingError } from '@/services/context';
 import { run, type ActionResult } from './run';
@@ -84,6 +85,23 @@ export async function setCatalogueItemActiveAction(id: string, active: boolean):
     return undefined;
   });
   if (res.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+// Paste from Excel (T25). The 200 KB and 500-row limits are checked by the
+// parser with a clear message; this cap only stops absurd bodies early.
+const pasteInput = z.string().max(1_000_000);
+const planInput = z.object({ newCodes: z.array(z.string().max(40)).max(1000), updateCodes: z.array(z.string().max(40)).max(1000) });
+
+export async function previewCatalogueImportAction(text: string): Promise<ActionResult<ImportPreview>> {
+  const ctx = await requireContext();
+  return run('catalogue.import.check', () => previewCatalogueImport(ctx, parse(pasteInput, text)));
+}
+
+export async function saveCatalogueImportAction(text: string, confirmed: z.input<typeof planInput>): Promise<ActionResult<ImportSaveResult>> {
+  const ctx = await requireContext();
+  const res = await run('catalogue.import.save', () => saveCatalogueImport(ctx, parse(pasteInput, text), parse(planInput, confirmed)));
+  if (res.ok && res.data.ok) revalidatePath('/', 'layout');
   return res;
 }
 

@@ -1178,3 +1178,42 @@ tr.diff-row td {
 .qty .icon-btn {
   min-width: 28px;
 }
+
+/* ---------- Paste the price list from Excel (Sprint 1, T25) ---------- */
+.paste-import textarea {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  white-space: pre;
+  overflow-x: auto;
+}
+.paste-import textarea:focus {
+  border-color: var(--jade);
+  outline: none;
+}
+.paste-import textarea.err {
+  border-color: var(--rust);
+  background: var(--rust-soft);
+}
+.paste-import .import-summary {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.paste-import .import-preview td {
+  vertical-align: top;
+}
+.paste-import tr.import-error-row td {
+  background: var(--rust-soft);
+}
+.paste-import .import-errors {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--rust);
+  font-size: 12px;
+}
+.paste-import .import-errors strong {
+  color: var(--ink);
+}
