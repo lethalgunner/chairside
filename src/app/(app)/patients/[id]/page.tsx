@@ -59,7 +59,7 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
           </>
         }
       />
-      {!branch ? <div className="callout">Pick a branch in the sidebar to bill this patient or take a payment.</div> : null}
+      {!branch ? <div className="callout">Pick a branch in the branch menu to bill this patient or take a payment.</div> : null}
 
       <div className="tiles two">
         <div className={`tile${bal > 0 ? ' alert' : bal < 0 ? ' good' : ''}`}>

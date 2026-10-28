@@ -50,7 +50,7 @@ export function canAnywhere(ctx: TenantContext, capability: Capability): boolean
  */
 export function requireActiveBranch(ctx: TenantContext): string {
   if (ctx.activeBranchId === 'all') {
-    throw new UserFacingError('Pick a branch in the sidebar before creating anything.');
+    throw new UserFacingError('Pick a branch in the branch menu before creating anything.');
   }
   return ctx.activeBranchId;
 }

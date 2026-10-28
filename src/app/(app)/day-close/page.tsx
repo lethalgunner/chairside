@@ -18,7 +18,7 @@ export default async function DayClosePage({ searchParams }: { searchParams: Pro
     return (
       <>
         <PageHead title="Day close" />
-        <div className="callout warn">Each branch closes its own day. Pick a branch in the sidebar.</div>
+        <div className="callout warn">Each branch closes its own day. Pick a branch in the branch menu.</div>
       </>
     );
   }

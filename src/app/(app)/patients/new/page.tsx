@@ -12,7 +12,7 @@ export default async function NewPatientPage({ searchParams }: { searchParams: P
     return (
       <>
         <PageHead title="New patient" />
-        <div className="callout warn">Pick a branch in the sidebar first. A patient is registered at the branch they walk into.</div>
+        <div className="callout warn">Pick a branch in the branch menu first. A patient is registered at the branch they walk into.</div>
         <Link className="secondary" href="/patients">
           Back to patients
         </Link>

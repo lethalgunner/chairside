@@ -49,7 +49,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <div key={u.branchId} className="callout warn" role="status">
           <strong>{u.branchName}</strong>: {shortDay(u.date)} was not closed.{' '}
           <Link className="link" href={`/?date=${u.date}`}>View {shortDay(u.date)}</Link>
-          {inScope.has(u.branchId) ? null : <span className="muted"> (pick {u.branchName} or All branches in the sidebar to see it)</span>}
+          {inScope.has(u.branchId) ? null : <span className="muted"> (pick {u.branchName} or All branches in the branch menu to see it)</span>}
         </div>
       ))}
       {rows.length === 0 ? (

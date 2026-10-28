@@ -20,7 +20,7 @@ export default async function NewReceiptPage({ searchParams }: { searchParams: P
     return (
       <>
         <PageHead title="Record payment" />
-        <div className="callout warn">Pick the branch where the money was received in the sidebar.</div>
+        <div className="callout warn">Pick the branch where the money was received in the branch menu.</div>
         <Link className="secondary" href={`/patients/${patient.id}`}>Back to {patient.fullName}</Link>
       </>
     );

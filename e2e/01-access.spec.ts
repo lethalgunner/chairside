@@ -92,7 +92,7 @@ test.describe('roles and branch context', () => {
     await expect(page.locator('.branch-banner')).toContainText('all branches');
     await expect(page.getByRole('navigation').getByRole('link', { name: 'New patient' })).toHaveCount(0);
     await page.goto('/patients/new');
-    await expect(page.getByText('Pick a branch in the sidebar first.')).toBeVisible();
+    await expect(page.getByText('Pick a branch in the branch menu first.')).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Demo Kanpur' })).toHaveCount(0);
     await page.goto('/');
     await expect(page.getByRole('cell', { name: 'Demo Kanpur' })).toBeVisible();

@@ -42,7 +42,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         }
       />
       {inv.status === 'void' ? <div className="callout warn">Cancelled: {inv.voidReason}. The number stays in the series so there is no gap.</div> : null}
-      {inv.status === 'issued' && inv.duePaise > 0 && !sameBranch ? <div className="callout">Switch to {inv.branchName} in the sidebar to take a payment against this bill.</div> : null}
+      {inv.status === 'issued' && inv.duePaise > 0 && !sameBranch ? <div className="callout">Switch to {inv.branchName} in the branch menu to take a payment against this bill.</div> : null}
       <Card title="Lines" flush>
         <div className="tablewrap">
           <table>

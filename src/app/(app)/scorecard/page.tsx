@@ -49,7 +49,7 @@ export default async function ScorecardPage({ searchParams }: { searchParams: Pr
       ) : null}
 
       {card === null ? (
-        <Empty>{SCORECARD_REFUSED} Pick a branch you report on in the sidebar.</Empty>
+        <Empty>{SCORECARD_REFUSED} Pick a branch you report on in the branch menu.</Empty>
       ) : (
         card.scopes.map((s) => (
           <Card key={s.id} title={s.name} note={range} flush>

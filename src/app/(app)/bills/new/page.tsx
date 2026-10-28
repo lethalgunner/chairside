@@ -19,7 +19,7 @@ export default async function NewBillPage({ searchParams }: { searchParams: Prom
     return (
       <>
         <PageHead title="New bill" />
-        <div className="callout warn">Pick the branch you are billing from in the sidebar. A bill can’t move branches once it has a number.</div>
+        <div className="callout warn">Pick the branch you are billing from in the branch menu. A bill can’t move branches once it has a number.</div>
         <Link className="secondary" href={`/patients/${patient.id}`}>Back to {patient.fullName}</Link>
       </>
     );

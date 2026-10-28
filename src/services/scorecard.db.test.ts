@@ -69,7 +69,7 @@ beforeAll(async () => {
     if (r.kind !== 'issued') throw new Error('not issued');
     ids.push(r.invoiceId);
   }
-  await voidInvoice(f.ctx('owner', f.pune.id), ids[2]!, 'Billed twice by mistake');
+  await voidInvoice(f.ctx('owner', f.pune.id), ids[2]!, 'Billed twice by mistake', true);
   await db
     .update(dayBooks)
     .set({ status: 'closed', legacyBillCount: 3, legacyCollectedPaise: 0 })
