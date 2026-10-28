@@ -135,3 +135,14 @@ test('settings screens pass axe for the owner', async ({ page }) => {
     expect(bad.map((v) => `${path}: ${v.id} (${v.nodes.length})`)).toEqual([]);
   }
 });
+
+test('team and price list fit a 390 px phone without sideways scrolling (QA 28 Oct)', async ({ page }) => {
+  await login(page, 'owner');
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const path of ['/settings/team', '/settings/catalogue']) {
+    await page.goto(path);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, path).toBeLessThanOrEqual(1);
+  }
+  await expect(page.getByRole('button', { name: /^Edit / }).first()).toBeInViewport();
+});

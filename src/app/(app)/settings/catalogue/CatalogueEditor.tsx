@@ -154,7 +154,7 @@ export default function CatalogueEditor({ items, taxCategories, rates }: Props) 
       <section className="card" aria-label="Items">
         <header><h2>Items</h2><span className="note">{items.filter((i) => i.active).length} active</span></header>
         <div className="body flush tablewrap">
-          <table>
+          <table className="stack-table">
             <thead>
               <tr>
                 <th scope="col">Code</th>
@@ -169,12 +169,12 @@ export default function CatalogueEditor({ items, taxCategories, rates }: Props) 
             <tbody>
               {items.map((i) => (
                 <tr key={i.id} className={i.active ? undefined : 'muted'}>
-                  <td className="mono">{i.code}</td>
+                  <td className="mono" data-label="Code">{i.code}</td>
                   <td>{i.name}<div><CategoryLabel c={i.taxCategory} /></div></td>
-                  <td>{i.category ?? '—'}</td>
-                  <td className="num">{formatINR(i.pricePaise)}</td>
-                  <td><TaxPill rateBp={i.gstRateBp} code={i.hsnSacCode} /></td>
-                  <td>{i.active ? <span className="pill paid">Active</span> : <span className="pill credit">Inactive</span>}</td>
+                  <td data-label="Category">{i.category ?? '—'}</td>
+                  <td className="num" data-label="Price">{formatINR(i.pricePaise)}</td>
+                  <td data-label="GST"><TaxPill rateBp={i.gstRateBp} code={i.hsnSacCode} /></td>
+                  <td data-label="Status">{i.active ? <span className="pill paid">Active</span> : <span className="pill credit">Inactive</span>}</td>
                   <td className="row-actions">
                     <button type="button" className="linkish" disabled={pending} aria-label={`Edit ${i.name}`} onClick={() => open(i)}>Edit</button>
                     <button type="button" className={i.active ? 'linkish danger' : 'linkish'} disabled={pending} aria-label={`${i.active ? 'Deactivate' : 'Reactivate'} ${i.name}`} onClick={() => toggle(i)}>

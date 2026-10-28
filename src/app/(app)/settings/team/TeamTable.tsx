@@ -48,7 +48,7 @@ export default function TeamTable({ rows }: { rows: TeamRow[] }) {
       {error ? <div className="body"><div className="callout warn" role="alert">{error}</div></div> : null}
       <NotSent message={notSent} />
       <div className="tablewrap">
-        <table>
+        <table className="stack-table">
           <thead>
             <tr>
               <th scope="col">Name</th>
@@ -65,8 +65,8 @@ export default function TeamTable({ rows }: { rows: TeamRow[] }) {
                   {r.isSelf ? <span className="muted small"> (you)</span> : null}
                   {r.email ? <div className="muted small">{r.email}</div> : null}
                 </td>
-                <td className="small">{r.access.length ? r.access.join(', ') : '—'}</td>
-                <td>{r.active ? <LoginPill row={r} /> : <span className="pill credit">Deactivated</span>}</td>
+                <td className="small" data-label="Access">{r.access.length ? r.access.join(', ') : '—'}</td>
+                <td data-label="Login">{r.active ? <LoginPill row={r} /> : <span className="pill credit">Deactivated</span>}</td>
                 <td className="row-actions">
                   {r.active && (r.status === 'pending' || r.status === 'expired') ? (
                     <button

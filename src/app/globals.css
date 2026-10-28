@@ -1160,6 +1160,13 @@ tr.diff-row td {
     color: var(--ink-3);
     font-weight: 400;
   }
+  /* Name and action cells read on their own (Team, Price list on a phone, QA 28 Oct). */
+  table.stack-table td:not([data-label])::before {
+    content: none;
+  }
+  table.stack-table td.row-actions {
+    padding-top: 6px;
+  }
 }
 
 /* Quantity stepper in the bill builder (Slice 3, T22) */
