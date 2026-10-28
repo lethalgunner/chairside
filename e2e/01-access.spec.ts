@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { login } from './helpers';
 
-const ROUTES = ['/', '/patients', '/patients/new', '/invoices', '/receivables', '/unbilled', '/day-close', '/gst', '/bills/new?patient=x', '/receipts/new?patient=x', '/settings', '/settings/team', '/settings/catalogue', '/settings/branches'];
+const ROUTES = ['/', '/patients', '/patients/new', '/invoices', '/receivables', '/unbilled', '/day-close', '/gst', '/bills/new?patient=x', '/receipts/new?patient=x', '/settings', '/settings/team', '/settings/catalogue', '/settings/branches', '/scorecard', '/day-close?date=2026-10-01', '/invoices?date=2026-10-01'];
 
 test.describe('no anonymous access', () => {
   for (const r of ROUTES) {

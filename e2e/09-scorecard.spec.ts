@@ -21,12 +21,16 @@ function criterion(page: Page, scope: string, title: string) {
 
 test('a signed-out visitor is sent to /login', async ({ page }) => {
   await page.goto('/scorecard');
-  await expect(page).toHaveURL(/\/login$/);
+  await expect(page).toHaveURL(/\/login\?next=%2Fscorecard$/);
 });
 
 test('the owner sees every criterion with a measured value, a pass mark and a text label', async ({ page }) => {
   await login(page, 'owner'); // renders the dashboard: today's dashboard view is recorded
   await page.getByRole('navigation').getByRole('link', { name: 'Pilot scorecard' }).click();
+  await expect(page.getByRole('heading', { name: 'Pilot scorecard', exact: true })).toBeVisible();
+  // Pin the window to today (IST): other specs may leave activity on earlier days.
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  await page.goto(`/scorecard?from=${today}&to=${today}`);
   await expect(page.getByRole('heading', { name: 'Pilot scorecard', exact: true })).toBeVisible();
 
   for (const scope of ['All branches in view', 'Demo Pune', 'Demo Kanpur']) {

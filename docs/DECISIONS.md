@@ -340,3 +340,35 @@ Phase 1 gates for this window. Consequences:
 - Voiding an invoice changes its status and writes a reversing ledger entry;
   amounts on posted rows are never updated. Linking a procedure to the invoice
   line that billed it is the one other permitted update.
+
+## ADR-013 — Signed-out actions answer "signed out" instead of redirecting (Sprint 1, T29)
+
+**Status:** accepted (CTO), 28 Oct 2026.
+
+A form submitted after the 12-hour session expired used to bounce through the
+middleware to `/login` with no message and land on the dashboard, losing the
+form (QA Q13).
+
+- Server-action POSTs (requests carrying a `next-action` header) now pass the
+  middleware without a session cookie. Every action still checks the session
+  in the database before any read or write (`getContext()` → `signedOut()`),
+  and the access sweep in `e2e/01-access.spec.ts` proves real action ids with
+  no or a forged cookie return only the signed-out answer. Only sign-in and
+  invite acceptance are public.
+- The client (`useActionForm`) turns that answer into
+  `/login?next=<this page>&reason=expired`; the login page says "You were
+  signed out. Nothing was saved." and returns to `next` after sign-in.
+- `next` is accepted only through `safeNext()` (`src/lib/nav/safe-next.ts`):
+  a same-origin relative path with exactly one leading `/`; schemes, `//`,
+  backslashes, encoded variants and control characters fall back to `/`.
+- **Rule for new actions:** start with `const ctx = await getContext(); if
+  (!ctx) return signedOut('<name>');`. Never use `requireContext()` in an
+  action.
+
+Also recorded from Sprint 1:
+- `procedures_performed` gains `dismissed_at/by/reason`. Marking unbilled work
+  "not done" is the second permitted update on that table (after linking the
+  billing line); the row is never deleted (T28).
+- `usage_events` is telemetry for the pilot scorecard (kind, user, branch,
+  duration, time; never patient data, never amounts). It is not audited and
+  has no retention job yet; delete it with the rest of the pilot data (T26).
