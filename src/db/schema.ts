@@ -31,7 +31,9 @@ import {
   pgEnum,
   uniqueIndex,
   index,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -892,4 +894,35 @@ export const passwordSetupTokens = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({ tokenUnique: uniqueIndex('password_setup_token_unique').on(t.tokenHash) }),
+);
+
+// ---------------------------------------------------------------------------
+// Pilot 0 usage log (Sprint 1, T26)
+// ---------------------------------------------------------------------------
+
+/**
+ * A small usage log for the Pilot 0 scorecard: did the owner open the
+ * dashboard, how long did a registration take. Telemetry, not a business
+ * record, so it is not audited. It must never hold patient data, names,
+ * phones or amounts: kind, who, where, how long and when, nothing else.
+ */
+export const usageEvents = pgTable(
+  'usage_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    branchId: uuid('branch_id').references(() => branches.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    kind: text('kind').notNull(),
+    durationMs: integer('duration_ms'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    kindCheck: check('usage_events_kind_check', sql`${t.kind} in ('dashboard_view', 'patient_register')`),
+    orgKindTimeIdx: index('usage_events_org_kind_time_idx').on(t.orgId, t.kind, t.occurredAt),
+  }),
 );

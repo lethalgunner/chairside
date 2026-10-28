@@ -4,10 +4,12 @@ import { businessDate, displayDate } from '@/domain/dates';
 import { add, formatINR, type Paise } from '@/domain/money';
 import { canDo, scopeBranchIds } from '@/services/context';
 import { dashboard, parallelRun } from '@/services/reports';
+import { recordDashboardView } from '@/services/usage';
 import { Card, Empty, MODE_LABEL, PageHead, StatusPill, Tile } from '@/components/ui';
 
 export default async function Dashboard() {
   const ctx = await requireContext();
+  await recordDashboardView(ctx); // T26 pilot usage log: one per person per day, never throws
   const today = businessDate();
   const [rows, pilot] = await Promise.all([dashboard(ctx, scopeBranchIds(ctx), today), parallelRun(ctx, scopeBranchIds(ctx), today)]);
   const single = ctx.activeBranchId !== 'all' ? ctx.activeBranchId : null;

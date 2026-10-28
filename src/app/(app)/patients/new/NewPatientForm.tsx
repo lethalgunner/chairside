@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { registerPatientAction, type RegisterFormState } from '@/app/actions/patients';
 import { formatIndianMobile } from '@/domain/phone';
 import { useActionForm } from '@/lib/nav/use-action-form';
@@ -29,11 +29,17 @@ export default function NewPatientForm({ referralSources, initialPhone, initialN
   const [ack, setAck] = useState(false);
   const [state, setState] = useState<RegisterFormState>({});
   const err = state.fieldErrors ?? {};
+  // When the form was first shown, for the pilot's registration-time measure (T26). Only a duration leaves the browser.
+  const shownAt = useRef<number | null>(null);
+  useEffect(() => {
+    shownAt.current = performance.now();
+  }, []);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     void (async () => {
-      const res = await send(() => registerPatientAction({ fullName, phone, sex, age, referralSource: referral, referralDetail, acknowledgedDuplicate: ack }));
+      const formMs = shownAt.current === null ? undefined : Math.round(performance.now() - shownAt.current);
+      const res = await send(() => registerPatientAction({ fullName, phone, sex, age, referralSource: referral, referralDetail, acknowledgedDuplicate: ack, formMs }));
       if (!res) return;
       setState(res);
       // Navigate outside any transition; the button stays on "Saving…" until the patient page is up (T18).

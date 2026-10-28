@@ -1235,3 +1235,16 @@ tr.diff-row td {
     row-gap: 2px;
   }
 }
+
+/* ---------- Pilot scorecard (Sprint 1, T26) ---------- */
+.scorecard-range input[type='date'] {
+  flex: 0 1 170px;
+  min-width: 0;
+}
+.scorecard td .pill {
+  font-size: 10.5px;
+}
+.scorecard-defs li {
+  margin: 0 0 6px;
+  color: var(--ink-2);
+}

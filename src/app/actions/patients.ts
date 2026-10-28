@@ -22,6 +22,8 @@ export async function registerPatientAction(input: {
   referralSource: string;
   referralDetail?: string;
   acknowledgedDuplicate: boolean;
+  /** Milliseconds the form was open before this submit (T26 usage log). */
+  formMs?: number;
 }): Promise<RegisterFormState> {
   const ctx = await getContext();
   if (!ctx) return signedOut('patient.register');
@@ -34,6 +36,7 @@ export async function registerPatientAction(input: {
       referralSource: input.referralSource,
       referralDetail: input.referralDetail,
       acknowledgedDuplicate: input.acknowledgedDuplicate,
+      formMs: input.formMs,
     }),
   );
   if (!res.ok) return { error: res.error };
