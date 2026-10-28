@@ -78,6 +78,7 @@ export default function Sidebar({ userName, branches, activeBranchId, can }: Pro
         {can.patients || can.reports ? link('/receivables', 'Receivables') : null}
         {can.gst ? <div className="sec">Books</div> : null}
         {can.gst ? link('/gst', 'GST working papers') : null}
+        {can.reports ? link('/scorecard', 'Pilot scorecard') : null}
         {can.settings ? <div className="sec">Clinic</div> : null}
         {can.settings ? link('/settings', 'Settings') : null}
       </nav>

@@ -29,6 +29,13 @@
       "when": 1792599588562,
       "tag": "0003_receipt_cancel",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793204894646,
+      "tag": "0004_usage_events",
+      "breakpoints": true
     }
   ]
 }

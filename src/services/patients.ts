@@ -6,6 +6,7 @@ import { ageNow, businessDate } from '@/domain/dates';
 import { normaliseIndianMobile, phoneSearchDigits } from '@/domain/phone';
 import { assertCan, canAnywhere, ForbiddenError, requireActiveBranch, type TenantContext } from './context';
 import { writeAudit } from './audit';
+import { recordRegistrationTime } from './usage';
 import { isUuid } from './util';
 
 export interface PatientSummary {
@@ -89,7 +90,12 @@ export async function findPossibleDuplicates(
   );
 }
 
-export async function registerPatient(ctx: TenantContext, raw: RegisterPatientInput): Promise<RegisterResult> {
+/**
+ * `formMs`: how long the New patient form was open before this successful
+ * save, measured in the browser (T26). Optional, untrusted, clamped; it only
+ * feeds the usage log and never affects the registration itself.
+ */
+export async function registerPatient(ctx: TenantContext, raw: RegisterPatientInput & { formMs?: unknown }): Promise<RegisterResult> {
   const branchId = requireActiveBranch(ctx);
   assertCan(ctx, 'patient.register', branchId);
 
@@ -141,6 +147,8 @@ export async function registerPatient(ctx: TenantContext, raw: RegisterPatientIn
     });
     return p!.id;
   });
+  // Outside the transaction: a usage-log failure must never undo a registration.
+  await recordRegistrationTime(ctx, branchId, raw.formMs);
   return { ok: true, patientId };
 }
 
