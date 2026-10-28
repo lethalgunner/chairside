@@ -2,7 +2,7 @@
   "name": "chairside",
   "version": "0.1.0",
   "private": true,
-  "description": "Clinic operating system for Indian dental practices \u2014 books-first, dental-native.",
+  "description": "Clinic operating system for Indian dental practices — books-first, dental-native.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -22,6 +22,7 @@
     "drizzle-orm": "^0.45.4",
     "next": "^15.1.0",
     "postgres": "^3.4.5",
+    "qrcode-generator": "2.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "^0.0.1",

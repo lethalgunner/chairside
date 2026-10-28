@@ -174,6 +174,13 @@ export const branches = pgTable(
     // Cash left in the drawer at the start of each day.
     defaultFloatPaise: bigint('default_float_paise', { mode: 'number' }).notNull().default(0),
 
+    /**
+     * UPI scan-to-pay (Sprint 2, T31). The branch's UPI ID and the payee name
+     * patients see. Both null = no QR. Validated by `checkUpi`.
+     */
+    upiId: text('upi_id'),
+    upiPayee: text('upi_payee'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -932,7 +939,38 @@ export const usageEvents = pgTable(
     occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
-    kindCheck: check('usage_events_kind_check', sql`${t.kind} in ('dashboard_view', 'patient_register')`),
+    kindCheck: check('usage_events_kind_check', sql`${t.kind} in ('dashboard_view', 'patient_register', 'day_summary_open')`),
     orgKindTimeIdx: index('usage_events_org_kind_time_idx').on(t.orgId, t.kind, t.occurredAt),
+  }),
+);
+
+/**
+ * WhatsApp dues reminders (Sprint 2, T32). One row each time someone opens a
+ * reminder for a patient, so the desk sees "Reminded 2 days ago" and doesn't
+ * nag. Append-only: never updated or deleted. The message text is not
+ * stored; the amount is the balance shown when it was opened.
+ */
+export const paymentReminders = pgTable(
+  'payment_reminders',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id),
+    amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+    sentBy: uuid('sent_by')
+      .notNull()
+      .references(() => users.id),
+    sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    amountCheck: check('payment_reminders_amount_check', sql`${t.amountPaise} > 0`),
+    orgPatientTimeIdx: index('payment_reminders_org_patient_time_idx').on(t.orgId, t.patientId, t.sentAt),
   }),
 );

@@ -6,7 +6,10 @@ import { canDo } from '@/services/context';
 import { getPatient } from '@/services/patients';
 import { openBillsForReceipt } from '@/services/receipts';
 import { patientAccount } from '@/services/reports';
+import { add, ZERO } from '@/domain/money';
+import { outstandingOf } from '@/domain/ledger';
 import { PageHead } from '@/components/ui';
+import PayQr from '@/components/PayQr';
 import ReceiptForm from './ReceiptForm';
 
 export default async function NewReceiptPage({ searchParams }: { searchParams: Promise<{ patient?: string; amount?: string; again?: string }> }) {
@@ -31,6 +34,13 @@ export default async function NewReceiptPage({ searchParams }: { searchParams: P
     <>
       <PageHead eyebrow={branch.name} title={`Payment from ${patient.fullName}`} sub={patient.fileNumbers.join(', ')} />
       <ReceiptForm key={`${patient.id}:${again}`} initialAmount={initialAmount} patient={{ id: patient.id, name: patient.fullName }} branchName={branch.name} open={open} balancePaise={account.balancePaise} />
+      <PayQr
+        upiId={branch.upiId}
+        payee={branch.upiPayee}
+        amount={add(ZERO, ...open.map(outstandingOf))}
+        note={open.length === 1 ? open[0]!.number : `${branch.code} dues`}
+        title="Patient paying by UPI? Let them scan"
+      />
     </>
   );
 }

@@ -4,6 +4,7 @@ import { businessDate, displayDate, resolveViewDate, shortDay } from '@/domain/d
 import { add, formatINR, type Paise } from '@/domain/money';
 import { canDo, scopeBranchIds } from '@/services/context';
 import { dashboard, parallelRun, unclosedEarlierDays } from '@/services/reports';
+import { closeStreaks, STREAK_WINDOW_DAYS } from '@/services/streak';
 import { recordDashboardView } from '@/services/usage';
 import { Card, Empty, MODE_LABEL, PageHead, StatusPill, Tile } from '@/components/ui';
 import DayNav from '@/components/DayNav';
@@ -14,10 +15,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const today = businessDate();
   // A past day is a read-only view (Q19, T27): nothing on it creates or closes anything.
   const { date, isToday } = resolveViewDate((await searchParams).date, today);
-  const [rows, pilot, unclosed] = await Promise.all([
+  const [rows, pilot, unclosed, streaks] = await Promise.all([
     dashboard(ctx, scopeBranchIds(ctx), date),
     parallelRun(ctx, scopeBranchIds(ctx), date),
     isToday ? unclosedEarlierDays(ctx, ctx.branchIds, today) : Promise.resolve([]),
+    isToday ? closeStreaks(ctx, scopeBranchIds(ctx), today) : Promise.resolve(new Map<string, number>()),
   ]);
   const inScope = new Set(scopeBranchIds(ctx));
   const dayWord = isToday ? 'today' : `on ${shortDay(date)}`;
@@ -92,6 +94,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                       <td data-label="Branch" className="strong">{r.branchName}</td>
                       <td data-label="Day">
                         <StatusPill status={r.dayStatus} />
+                        {(streaks.get(r.branchId) ?? 0) >= 2 ? (
+                          <span className="streak">
+                            Closed {(streaks.get(r.branchId) ?? 0) > STREAK_WINDOW_DAYS ? `${STREAK_WINDOW_DAYS}+` : streaks.get(r.branchId)} days in a row
+                          </span>
+                        ) : null}
                       </td>
                       <td data-label="Bills" className="num">{r.billCount}</td>
                       <td data-label="Billed" className="num">{formatINR(r.billedPaise)}</td>

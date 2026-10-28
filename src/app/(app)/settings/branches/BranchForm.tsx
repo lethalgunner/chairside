@@ -17,6 +17,8 @@ interface Branch {
   gstin: string;
   dayCloseTolerance: string;
   defaultFloat: string;
+  upiId: string;
+  upiPayee: string;
 }
 
 /** One branch's details. Field ids carry the branch code so two forms on the page never clash. */
@@ -118,6 +120,16 @@ export default function BranchForm({ branch, states }: { branch: Branch; states:
             <label htmlFor={id('float')}>Opening float (₹)</label>
             <input id={id('float')} inputMode="decimal" value={d.defaultFloat} onChange={text('defaultFloat')} {...aria('defaultFloat')} />
             {errors.defaultFloat ? err('defaultFloat') : <div className="hint">Cash left in the drawer each morning. Applies from the next day opened.</div>}
+          </div>
+          <div className="field">
+            <label htmlFor={id('upi')}>UPI ID for scan-to-pay</label>
+            <input id={id('upi')} value={d.upiId} onChange={text('upiId')} autoComplete="off" spellCheck={false} placeholder="clinicname@okhdfcbank" className={errors.upiId ? 'err mono' : 'mono'} aria-invalid={!!errors.upiId} aria-describedby={id(errors.upiId ? 'upiId-err' : 'upi-hint')} />
+            {errors.upiId ? err('upiId') : <div className="hint" id={id('upi-hint')}>Bills show a QR for the amount due. Scan it yourself and pay ₹1 first: a wrong ID sends patients’ money to someone else.</div>}
+          </div>
+          <div className="field">
+            <label htmlFor={id('payee')}>Name patients see when paying</label>
+            <input id={id('payee')} value={d.upiPayee} onChange={text('upiPayee')} placeholder={branch.name} {...aria('upiPayee')} />
+            {err('upiPayee')}
           </div>
         </div>
         {error ? <div className="callout warn" role="alert">{error}</div> : null}

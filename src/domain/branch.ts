@@ -7,6 +7,7 @@
  * here is format plus state code only; the check digit is not verified.
  */
 import { parseRupeesInput, type Paise } from './money';
+import { checkUpi } from './upi';
 import type { Checked, FieldErrors } from './staff';
 
 /** GST state codes: the first two digits of every GSTIN registered in that state or UT. */
@@ -74,6 +75,9 @@ export interface BranchDetailsInput {
   /** Rupees as typed. */
   dayCloseTolerance: string;
   defaultFloat: string;
+  /** UPI scan-to-pay (Sprint 2, T31). Optional; omitted = leave as is. */
+  upiId?: string;
+  upiPayee?: string;
 }
 
 export interface BranchDetails {
@@ -86,6 +90,9 @@ export interface BranchDetails {
   gstin: string | null;
   dayCloseTolerancePaise: Paise;
   defaultFloatPaise: Paise;
+  /** Present only when the form sent UPI fields. */
+  upiId?: string | null;
+  upiPayee?: string | null;
 }
 
 function rupeesField(raw: string, key: string, label: string, errors: FieldErrors): Paise | null {
@@ -131,6 +138,13 @@ export function checkBranchDetails(input: BranchDetailsInput): Checked<BranchDet
   const dayCloseTolerancePaise = rupeesField(input.dayCloseTolerance, 'dayCloseTolerance', 'The day-close tolerance', fieldErrors);
   const defaultFloatPaise = rupeesField(input.defaultFloat, 'defaultFloat', 'The opening float', fieldErrors);
 
+  let upi: { upiId: string | null; upiPayee: string | null } | null = null;
+  if (input.upiId !== undefined || input.upiPayee !== undefined) {
+    const u = checkUpi(input.upiId ?? '', input.upiPayee ?? '');
+    if (u.ok) upi = { upiId: u.upiId, upiPayee: u.payee };
+    else fieldErrors[u.field] = u.error;
+  }
+
   if (Object.keys(fieldErrors).length > 0 || dayCloseTolerancePaise === null || defaultFloatPaise === null) return { ok: false, fieldErrors };
-  return { ok: true, value: { name, addressLine, city, state, phone, gstRegistered, gstin, dayCloseTolerancePaise, defaultFloatPaise } };
+  return { ok: true, value: { name, addressLine, city, state, phone, gstRegistered, gstin, dayCloseTolerancePaise, defaultFloatPaise, ...(upi ?? {}) } };
 }

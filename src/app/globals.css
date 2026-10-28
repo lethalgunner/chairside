@@ -1339,3 +1339,77 @@ td.unbilled-actions {
     min-width: 0;
   }
 }
+
+/* UPI scan-to-pay (Sprint 2, T31). The QR keeps a white field in dark mode too: scanners need it. */
+.pay-qr-body {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.pay-qr .qr {
+  flex: none;
+  width: 200px;
+  height: 200px;
+  border-radius: 8px;
+  background: #fff;
+}
+.pay-qr-text {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.pay-qr-text p {
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+.big-amount {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.kv dd.words {
+  grid-column: 1 / -1;
+  text-align: right;
+  font-weight: 400;
+}
+
+/* WhatsApp click-to-send (Sprint 2, T32/T33). */
+.wa-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.reminded {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--ink-3);
+}
+.streak {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: var(--jade);
+  font-weight: 600;
+}
+.tile-action {
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+.remind-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+td.follow-up {
+  min-width: 11rem;
+}
+@media (max-width: 600px) {
+  td.follow-up {
+    min-width: 0;
+  }
+  .remind-confirm {
+    display: flex;
+    margin-top: 4px;
+  }
+}

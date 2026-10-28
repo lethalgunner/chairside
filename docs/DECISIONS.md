@@ -372,3 +372,32 @@ Also recorded from Sprint 1:
 - `usage_events` is telemetry for the pilot scorecard (kind, user, branch,
   duration, time; never patient data, never amounts). It is not audited and
   has no retention job yet; delete it with the rest of the pilot data (T26).
+
+## ADR-014 — WhatsApp is click-to-send; UPI QR is drawn in-house (Sprint 2)
+
+**Status:** accepted (CTO + CPO), 29 Oct 2026. KS to confirm.
+
+- **WhatsApp v1 is `wa.me` click-to-send only.** Chairside builds the message
+  and a person presses Send in their own WhatsApp. No Business API, no BSP, no
+  per-message cost, no number stored for the owner (the day summary opens
+  `wa.me/?text=`, so the sender picks the chat). Revisit only when reminder
+  data shows demand (CTO standing position, S9 cost-bearing endpoints).
+- **Message text never carries clinical detail** (CLAUDE.md): patient
+  reminders hold the first name, branch, amount, UPI ID and branch phone;
+  the day summary holds totals only. Tests assert both.
+- **Reminders are logged, the text is not.** `payment_reminders` is
+  append-only (org, branch, patient, amount, who, when) with RLS enabled. The
+  amount is recomputed on the server from open bills, never taken from the
+  browser. New capability `patient.remind`: owner, branch manager, front desk.
+- **Pilot 0 guard:** while bills are in the test series, a reminder needs a
+  tick that the amount was checked in the old software.
+- **UPI QR codes are drawn on the server** as inline SVG with
+  `qrcode-generator` (MIT, zero dependencies), never by a hosted QR service,
+  which would see every amount and UPI ID. The link follows the NPCI linking
+  spec (`pa`, `pn`, `am`, `cu`, `tn`), without `tr`/`mc` because a small
+  clinic's UPI ID may be personal. `pa` is left unencoded (some UPI apps do
+  not decode `%40`) and is re-validated against a strict pattern first.
+- The UPI ID is owner-only (`branch.manage`) and audited with the branch. A
+  QR is not proof of payment; staff still record the payment by hand.
+- The day-close streak counts closes, never zero variance, so nobody is
+  rewarded for fudging a cash count.

@@ -44,7 +44,12 @@ export type Capability =
    * T28). Owner and branch manager only: the leakage figure is the owner's
    * measure of what the desk forgot to bill, so the desk can't clear it.
    */
-  | 'procedure.dismiss';
+  | 'procedure.dismiss'
+  /**
+   * Open a WhatsApp dues reminder for a patient (Sprint 2, T32). The desk
+   * chases dues; doctors and assistants don't. Click-to-send only.
+   */
+  | 'patient.remind';
 
 const ALL: Capability[] = [
   'patient.register',
@@ -63,6 +68,7 @@ const ALL: Capability[] = [
   'receipt.cancel',
   'invoice.void_own_today',
   'procedure.dismiss',
+  'patient.remind',
 ];
 
 /** Capabilities only the owner holds in Pilot 0. */
@@ -80,6 +86,7 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
     'receipt.record',
     'expense.record_cash',
     'day.close',
+    'patient.remind',
   ],
   doctor: ['patient.register', 'patient.view', 'invoice.issue', 'receipt.record'],
   associate_doctor: ['patient.register', 'patient.view', 'invoice.issue', 'receipt.record'],

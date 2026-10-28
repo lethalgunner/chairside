@@ -36,6 +36,8 @@ export default async function BranchesPage() {
             gstin: b.gstin ?? '',
             dayCloseTolerance: toRupeeString(b.dayCloseTolerancePaise),
             defaultFloat: toRupeeString(b.defaultFloatPaise),
+            upiId: b.upiId ?? '',
+            upiPayee: b.upiPayee ?? '',
           }}
         />
       ))}

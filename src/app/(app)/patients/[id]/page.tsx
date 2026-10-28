@@ -2,12 +2,16 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireContext } from '@/lib/auth';
 import { displayDate } from '@/domain/dates';
-import { formatINR, type Paise } from '@/domain/money';
+import { add, formatINR, ZERO, type Paise } from '@/domain/money';
+import { remindedLabel } from '@/domain/whatsapp';
 import { formatIndianMobile } from '@/domain/phone';
 import { canDo } from '@/services/context';
 import { listInvoices } from '@/services/invoices';
 import { getPatient } from '@/services/patients';
+import { reminderTargets } from '@/services/reminders';
 import { patientAccount, patientReceipts } from '@/services/reports';
+import { testSeriesEnabled } from '@/services/util';
+import RemindButton from '@/components/RemindButton';
 import { Card, Empty, MODE_LABEL, PageHead, StatusPill } from '@/components/ui';
 
 const ENTRY_LABEL: Record<string, string> = {
@@ -32,6 +36,14 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
   const canBill = branch ? canDo(ctx, 'invoice.issue', branch) : false;
   const canPay = branch ? canDo(ctx, 'receipt.record', branch) : false;
   const bal = account.balancePaise;
+  // Dues per branch, for "Remind on WhatsApp" (T32). Open bills only, so an old bill beyond the 50 listed still counts.
+  const open = await listInvoices(ctx, { branchIds: ctx.branchIds, patientId: id, openOnly: true, limit: 500 });
+  const dueByBranch = new Map<string, { name: string; due: Paise }>();
+  for (const b of open) {
+    const cur = dueByBranch.get(b.branchId);
+    dueByBranch.set(b.branchId, { name: b.branchName, due: add(cur?.due ?? ZERO, b.duePaise) });
+  }
+  const reminders = [...(await reminderTargets(ctx, [...dueByBranch].map(([branchId, v]) => ({ patientId: id, branchId, amountPaise: v.due })))).values()];
 
   return (
     <>
@@ -65,6 +77,19 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
         <div className={`tile${bal > 0 ? ' alert' : bal < 0 ? ' good' : ''}`}>
           <div className="k">{formatINR(Math.abs(bal) as Paise)}</div>
           <div className="l">{bal > 0 ? 'Owes the clinic' : bal < 0 ? 'Paid in advance' : 'Nothing owed'}</div>
+          {reminders.map((r) => (
+            <div key={r.branchId} className="tile-action">
+              {reminders.length > 1 ? <span className="small">{dueByBranch.get(r.branchId)?.name}: {formatINR(r.amountPaise)} · </span> : null}
+              <RemindButton
+                patientId={r.patientId}
+                branchId={r.branchId}
+                href={r.href}
+                amountLabel={formatINR(r.amountPaise)}
+                lastLabel={r.lastSentAt ? remindedLabel(r.lastSentAt) : null}
+                confirmOldSystem={testSeriesEnabled()}
+              />
+            </div>
+          ))}
         </div>
       </div>
 

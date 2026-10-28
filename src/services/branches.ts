@@ -17,6 +17,10 @@ export interface BranchInfo {
   gstin: string | null;
   dayCloseTolerancePaise: Paise;
   defaultFloatPaise: Paise;
+  /** UPI scan-to-pay (T31); both null = no QR. */
+  upiId: string | null;
+  upiPayee: string | null;
+  phone: string | null;
 }
 
 function toInfo(b: typeof branches.$inferSelect): BranchInfo {
@@ -30,6 +34,9 @@ function toInfo(b: typeof branches.$inferSelect): BranchInfo {
     gstin: b.gstin,
     dayCloseTolerancePaise: b.dayCloseTolerancePaise as Paise,
     defaultFloatPaise: b.defaultFloatPaise as Paise,
+    upiId: b.upiId,
+    upiPayee: b.upiPayee,
+    phone: b.phone,
   };
 }
 
@@ -63,7 +70,6 @@ export async function getBranch(ctx: TenantContext, branchId: string, db: DB | T
 
 export interface BranchSettings extends BranchInfo {
   addressLine: string | null;
-  phone: string | null;
 }
 
 /** Branches this user may edit, with every editable field. */
@@ -75,7 +81,7 @@ export async function listBranchSettings(ctx: TenantContext): Promise<BranchSett
     .from(branches)
     .where(and(eq(branches.orgId, ctx.orgId), inArray(branches.id, editable)))
     .orderBy(asc(branches.name));
-  return rows.map((b) => ({ ...toInfo(b), addressLine: b.addressLine, phone: b.phone }));
+  return rows.map((b) => ({ ...toInfo(b), addressLine: b.addressLine }));
 }
 
 export type SaveBranchResult = { ok: true } | { ok: false; fieldErrors: FieldErrors };
@@ -106,6 +112,8 @@ export async function updateBranchDetails(ctx: TenantContext, branchId: string, 
       gstin: b.gstin,
       dayCloseTolerancePaise: b.dayCloseTolerancePaise,
       defaultFloatPaise: b.defaultFloatPaise,
+      upiId: b.upiId,
+      upiPayee: b.upiPayee,
     };
     await writeAudit(tx, ctx, { action: 'branch.update', entityType: 'branch', entityId: b.id, branchId: b.id, before, after: checked.value });
     return { ok: true as const };

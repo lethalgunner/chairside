@@ -122,6 +122,8 @@ const branchInput = z.object({
   gstin: z.string().max(40),
   dayCloseTolerance: z.string().max(30),
   defaultFloat: z.string().max(30),
+  upiId: z.string().max(300).optional(),
+  upiPayee: z.string().max(120).optional(),
 });
 
 export async function saveBranchAction(branchId: string, input: z.input<typeof branchInput>): Promise<ActionResult<SaveBranchResult>> {

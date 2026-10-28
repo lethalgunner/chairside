@@ -4,9 +4,12 @@ import { requireContext } from '@/lib/auth';
 import { displayDate } from '@/domain/dates';
 import { add, formatINR, type Paise } from '@/domain/money';
 import type { TaxCategory } from '@/domain/tax';
+import { amountInWords } from '@/domain/words';
+import { getBranch } from '@/services/branches';
 import { canDo } from '@/services/context';
 import { billCancellationFor, getInvoice } from '@/services/invoices';
 import { CategoryLabel, Card, MODE_LABEL, PageHead, StatusPill, TaxPill } from '@/components/ui';
+import PayQr from '@/components/PayQr';
 import VoidForm from './VoidForm';
 
 /** What GST calls this document, from what it contains (CGST Rules 46, 46A, 49). */
@@ -27,6 +30,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const sameBranch = ctx.activeBranchId === inv.branchId;
   const canPay = sameBranch && inv.status === 'issued' && inv.duePaise > 0 && canDo(ctx, 'receipt.record', inv.branchId);
   const cancel = billCancellationFor(ctx, inv);
+  const branch = inv.status === 'issued' && inv.duePaise > 0 ? await getBranch(ctx, inv.branchId) : null;
 
   return (
     <>
@@ -103,6 +107,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             {t.roundingPaise ? (<><dt>Rounding</dt><dd>{formatINR(t.roundingPaise)}</dd></>) : null}
             <dt className="strong">Total</dt>
             <dd className="strong">{formatINR(t.totalPaise)}</dd>
+            <dt className="sr-only">In words</dt>
+            <dd className="words muted small">{amountInWords(t.totalPaise)}</dd>
             <dt>Paid</dt>
             <dd>{formatINR(inv.paidPaise)}</dd>
             <dt className="strong">Due</dt>
@@ -134,6 +140,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           <p><Link className="link" href={`/patients/${inv.patientId}`}>Patient account →</Link></p>
         </Card>
       </div>
+      {branch ? <PayQr upiId={branch.upiId} payee={branch.upiPayee} amount={inv.duePaise} note={inv.number} title={`Scan to pay ${formatINR(inv.duePaise)} by UPI`} /> : null}
       {cancel.allowed ? <VoidForm invoiceId={inv.id} number={inv.number} hasProcedures={inv.lines.some((l) => l.procedureId !== null)} /> : null}
       {!cancel.allowed && inv.status === 'issued' && !cancel.needsPaymentsCancelled ? <p className="muted small">{cancel.reason}</p> : null}
       {!cancel.allowed && cancel.needsPaymentsCancelled ? (

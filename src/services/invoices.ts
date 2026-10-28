@@ -570,6 +570,7 @@ export interface InvoiceRow {
   number: string;
   status: string;
   issuedOn: string;
+  branchId: string;
   branchName: string;
   patientId: string;
   patientName: string;
@@ -595,6 +596,7 @@ export async function listInvoices(
       number: invoices.number,
       status: invoices.status,
       issuedOn: invoices.issuedOn,
+      branchId: invoices.branchId,
       branchName: branches.name,
       patientId: invoices.patientId,
       patientName: patients.fullName,
@@ -615,6 +617,7 @@ export async function listInvoices(
       number: r.number,
       status: r.status,
       issuedOn: r.issuedOn,
+      branchId: r.branchId,
       branchName: r.branchName,
       patientId: r.patientId,
       patientName: r.patientName,

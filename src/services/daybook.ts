@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { getDb, type Tx } from '@/db/client';
-import { dayBooks, expenses, invoices, receipts } from '@/db/schema';
+import { dayBooks, expenses, invoices, receipts, users } from '@/db/schema';
 import { businessDate } from '@/domain/dates';
 import {
   countFromDenominations,
@@ -67,6 +67,8 @@ export interface DaySummary {
     varianceReason: string | null;
     denominations: Record<string, number>;
     closedAt: Date | null;
+    /** Who closed it, for the owner's WhatsApp summary (T33). */
+    closedByName: string | null;
     legacyBillCount: number | null;
     legacyCollectedPaise: Paise | null;
   };
@@ -114,6 +116,10 @@ export async function getDaySummary(ctx: TenantContext, branchId: string, date =
       ),
     );
 
+  const [closer] = book?.closedBy
+    ? await db.select({ name: users.fullName }).from(users).where(and(eq(users.id, book.closedBy), eq(users.orgId, ctx.orgId))).limit(1)
+    : [];
+
   const opening = (book?.openingFloatPaise ?? branch.defaultFloatPaise) as Paise;
   const cashOutPaise = add(...cashOut.map((c) => c.amount as Paise));
   const preview = reconcileDay({
@@ -150,6 +156,7 @@ export async function getDaySummary(ctx: TenantContext, branchId: string, date =
             varianceReason: book.varianceReason,
             denominations: book.denominationCount ?? {},
             closedAt: book.closedAt,
+            closedByName: closer?.name ?? null,
             legacyBillCount: book.legacyBillCount,
             legacyCollectedPaise: (book.legacyCollectedPaise ?? null) as Paise | null,
           }

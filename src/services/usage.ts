@@ -61,3 +61,13 @@ export async function recordRegistrationTime(ctx: TenantContext, branchId: strin
     logFailure('patient_register');
   }
 }
+
+/** Someone opened the day-close summary in WhatsApp (T33). Kind, who, where, when: nothing else. */
+export async function recordDaySummaryOpen(ctx: TenantContext, branchId: string): Promise<void> {
+  if (!ctx.branchIds.includes(branchId)) return;
+  try {
+    await getDb().insert(usageEvents).values({ orgId: ctx.orgId, branchId, userId: ctx.userId, kind: 'day_summary_open' });
+  } catch {
+    logFailure('day_summary_open');
+  }
+}

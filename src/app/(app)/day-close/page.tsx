@@ -5,6 +5,9 @@ import { DENOMINATIONS } from '@/domain/ledger';
 import { formatINR, type Paise } from '@/domain/money';
 import { canDo } from '@/services/context';
 import { getDaySummary } from '@/services/daybook';
+import { unbilledProcedures } from '@/services/reports';
+import { daySummaryText, waLink } from '@/domain/whatsapp';
+import DaySummaryButton from '@/components/DaySummaryButton';
 import { Card, MODE_LABEL, PageHead, StatusPill } from '@/components/ui';
 import DayCloseForm from './DayCloseForm';
 import LegacyCompare from '@/components/LegacyCompare';
@@ -40,6 +43,27 @@ export default async function DayClosePage({ searchParams }: { searchParams: Pro
   const comparison = s.closed
     ? compareWithLegacy({ legacyBillCount: s.closed.legacyBillCount, legacyCollectedPaise: s.closed.legacyCollectedPaise, billCount: s.billCount, collectedPaise: s.totalCollectedPaise })
     : null;
+  // The owner's WhatsApp summary (T33): totals only, built here so nothing about the day comes from the browser.
+  const summaryHref =
+    s.status === 'closed' && s.closed
+      ? waLink(
+          daySummaryText({
+            branchName: s.branchName,
+            dayLabel: shortDay(date),
+            billCount: s.billCount,
+            billedPaise: s.billedPaise,
+            collected: Object.entries(s.byMode)
+              .filter(([, v]) => v !== 0)
+              .map(([m, v]) => ({ mode: MODE_LABEL[m] ?? m, amountPaise: v as Paise })),
+            collectedPaise: s.totalCollectedPaise,
+            cashOutPaise: s.cashOutPaise,
+            variancePaise: s.closed.variancePaise,
+            closedBy: s.closed.closedByName ?? 'the desk',
+            legacyVerdict: comparison && (comparison.bills.old !== null || comparison.collected.old !== null) ? comparison.verdict : null,
+            unbilledCount: isToday ? (await unbilledProcedures(ctx, [branchId])).length : 0,
+          }),
+        )
+      : null;
 
   return (
     <>
@@ -97,6 +121,7 @@ export default async function DayClosePage({ searchParams }: { searchParams: Pro
             {s.closed.varianceReason ? (<><dt>Reason</dt><dd>{s.closed.varianceReason}</dd></>) : null}
           </dl>
           {comparison ? <LegacyCompare c={comparison} /> : <p className="muted small">No old-system figures were entered at close.</p>}
+          {summaryHref ? <DaySummaryButton href={summaryHref} branchId={branchId} /> : null}
           {!isToday ? null : canReopen ? <ReopenForm branchId={branchId} date={today} /> : <p className="muted small">Only the owner can reopen a closed day.</p>}
         </Card>
       ) : !isToday ? (

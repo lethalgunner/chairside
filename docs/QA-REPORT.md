@@ -122,3 +122,34 @@ Axe: no serious or critical issues on 13 screens at both widths. Desk sees plain
 - Scorecard counts only days with activity (a shut day doesn't count against the clinic). CPO to confirm.
 - After a real 12-hour timeout the browser has already dropped the cookie, so a plain page load shows no "signed out" message; a form submit always does.
 - GST 40% is accepted by paste as by the item form; rates still need a CA.
+
+## Sprint 2 · "Money in, on WhatsApp" (T31–T35) — 29 Oct 2026
+**Built:** UPI scan-to-pay QR on the bill and Record payment (T31); WhatsApp dues reminder on Receivables and the patient page, with a reminder log (T32); WhatsApp day summary after close (T33); amount in words, Indian numbering (T34); day-close streak on Today (T35). Migration `0005_sprint2`, ADR-014. **QA:** sweep on the production build at 1366 and 390 px, light and dark, owner and front desk; axe on every new screen; QR decoded from screenshots with OpenCV.
+
+### Automated (final tree, all executed)
+| Suite | Tests | Pass |
+|---|---|---|
+| `npx vitest run` | 293 | 293 |
+| `npm run test:db` | 104 | 104 |
+| `npm run test:e2e` | 73 | 73 |
+| typecheck / `next build` | — | clean |
+
+### Defects
+| ID | Sev | Summary | Status |
+|---|---|---|---|
+| S2-Q1 | S3 | Receivables at 390 px: the new Follow up column squeezed the table, and the patient name scrolled off the side | Fixed: Receivables uses the phone stack layout; the tick panel wraps |
+| S2-Q2 | S3 | UPI link percent-encoded the `@` in the UPI ID; some UPI apps don't decode `%40` in `pa` (*verify* on real phones) | Fixed: `pa` unencoded and re-validated; test for parameter smuggling |
+| S2-Q3 | S4 | One cold-start run timed out waiting for "saved" on Settings → Branches (3 reruns green) | Test waits 15 s for the first save |
+
+### Checked and clean
+- QR decodes to `upi://pay?pa=demokanpur@okicici&pn=Demo%20Dental%20Kanpur&am=500.00&cu=INR&tn=DKNT/26-27/00001` (OpenCV, light and dark; white field kept in dark mode).
+- A branch without a UPI ID shows no QR; a fully paid bill shows none.
+- Reminder text: first name, branch, amount, UPI ID; never the treatment, surname or doctor. The amount is recomputed on the server; nothing due → refused. Accountant, another branch's desk and another organisation are refused.
+- Pilot 0 tick blocks "Open WhatsApp" until checked; keyboard reaches the button and the tick.
+- Day summary for Demo Pune matches the golden path by hand: ₹10,690 billed, ₹7,000 collected (UPI 5,000, cash 2,000), ₹100 paid out, drawer short by ₹50, "98 bills may be missing".
+- Amount in words: lakh and crore, paise, zero (unit tests); "Rupees Five Hundred only" on screen.
+- No sideways scroll at 390 px on the bill, patient, receivables or day-close screens.
+
+### Not verified
+- Scanning the QR with real UPI apps (GPay, PhonePe, Paytm, BHIM) and paying ₹1. KS to do this once with the clinic's real UPI ID before staff use it.
+- `npm audit` reports a high-severity advisory in `zod` < 4.6.6 (memory exhaustion on oversized collections). It predates Sprint 2, and the fix is a breaking major upgrade. Logged for the CTO.
