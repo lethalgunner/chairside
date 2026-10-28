@@ -7,6 +7,7 @@ import { CategoryLabel, TaxPill } from '@/components/ui';
 import type { TaxCategory } from '@/domain/tax';
 import { useActionForm } from '@/lib/nav/use-action-form';
 import NotSent from '@/components/NotSent';
+import PasteImport from './PasteImport';
 
 interface Item {
   id: string;
@@ -37,12 +38,14 @@ export default function CatalogueEditor({ items, taxCategories, rates }: Props) 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [pasting, setPasting] = useState(false);
   const exempt = draft.taxCategory === 'exempt_healthcare';
 
   function open(item: Item | null) {
     setErrors({});
     setError(null);
     setSaved(null);
+    setPasting(false);
     setEditing(item ? item.id : 'new');
     setDraft(item ? { code: item.code, name: item.name, category: item.category ?? '', price: item.price, taxCategory: item.taxCategory, hsnSacCode: item.hsnSacCode, gstRateBp: item.gstRateBp } : EMPTY);
   }
@@ -146,9 +149,12 @@ export default function CatalogueEditor({ items, taxCategories, rates }: Props) 
             </div>
           </div>
         </form>
+      ) : pasting ? (
+        <PasteImport onClose={() => setPasting(false)} />
       ) : (
         <div className="actions">
           <button className="primary" type="button" onClick={() => open(null)}>Add item</button>
+          <button className="secondary-btn" type="button" onClick={() => { setSaved(null); setError(null); setPasting(true); }}>Paste from Excel</button>
         </div>
       )}
       <section className="card" aria-label="Items">
