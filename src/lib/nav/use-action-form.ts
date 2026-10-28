@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useRef, useState } from 'react';
 import { afterAction } from './after-action';
+import { isSignedOutResult, loginHref } from './safe-next';
 
 /** Shown when the action never reached the server or its answer never came back (T23, Q12). */
 export const NOT_SENT = 'Not sent: check the internet and press again. Nothing was saved.';
@@ -29,6 +30,11 @@ export function useActionForm(form: string) {
    * when the call itself failed (network down, request dropped): then the form
    * keeps everything typed, `notSent` holds the message to show, and pressing
    * again is safe because bills and payments reuse their idempotency key.
+   *
+   * Also null when the session had run out (T29, QA Q13): the action saved
+   * nothing, and the page loads the sign-in screen with "You were signed out.
+   * Nothing was saved." and a `next` that brings the person back to this page.
+   * The button stays busy until the page unloads.
    */
   const send = useCallback(async <T,>(call: () => Promise<T>): Promise<T | null> => {
     if (inFlight.current) return null;
@@ -36,7 +42,12 @@ export function useActionForm(form: string) {
     setBusy(true);
     setNotSent(null);
     try {
-      return await call();
+      const res = await call();
+      if (isSignedOutResult(res)) {
+        window.location.assign(loginHref(window.location.pathname + window.location.search, true));
+        return null;
+      }
+      return res;
     } catch {
       inFlight.current = false;
       setBusy(false);

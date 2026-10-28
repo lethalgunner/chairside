@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { login } from './helpers';
 
@@ -7,7 +8,11 @@ test.describe('no anonymous access', () => {
   for (const r of ROUTES) {
     test(`GET ${r} sends a signed-out visitor to /login`, async ({ page }) => {
       await page.goto(r);
-      await expect(page).toHaveURL(/\/login$/);
+      // T29: with the page to come back to, and no "signed out" message for someone who never signed in.
+      const url = new URL(page.url());
+      expect(url.pathname).toBe('/login');
+      expect(url.searchParams.get('next')).toBe(r === '/' ? null : r);
+      expect(url.searchParams.get('reason')).toBeNull();
       await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
     });
   }
@@ -15,13 +20,31 @@ test.describe('no anonymous access', () => {
   test('a forged session cookie is refused', async ({ page, context }) => {
     await context.addCookies([{ name: 'cs_session', value: 'forged-value', domain: 'localhost', path: '/' }]);
     await page.goto('/patients');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fpatients&reason=expired$/);
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   });
 
+  // T29: action POSTs reach the action (which checks the session in the database) so a
+  // form can tell "signed out" from "network down". Without a session they get only that answer.
   test('a server-action POST without a session gets no data', async ({ request }) => {
-    const res = await request.post('/', { headers: { 'Next-Action': 'deadbeef', 'Content-Type': 'text/plain' }, data: '[]', maxRedirects: 0 });
-    expect([303, 307, 308]).toContain(res.status());
-    expect(res.headers()['location']).toContain('/login');
+    const unknown = await request.post('/', { headers: { 'Next-Action': 'deadbeef', 'Content-Type': 'text/plain' }, data: '[]', maxRedirects: 0 });
+    expect(unknown.status()).toBe(404);
+
+    const manifest = JSON.parse(readFileSync('.next/server/server-reference-manifest.json', 'utf8')) as { node: Record<string, { exportedName?: string }> };
+    for (const name of ['issueBillAction', 'recordReceiptAction', 'registerPatientAction', 'inviteStaffAction']) {
+      const id = Object.entries(manifest.node).find(([, v]) => v.exportedName === name)?.[0];
+      expect(id, name).toBeTruthy();
+      for (const cookie of [undefined, 'cs_session=forged-value']) {
+        const res = await request.post('/', {
+          headers: { 'Next-Action': id!, 'Content-Type': 'text/plain;charset=UTF-8', ...(cookie ? { Cookie: cookie } : {}) },
+          data: '[{}]',
+          maxRedirects: 0,
+        });
+        const body = await res.text();
+        expect(body, name).toContain('{"ok":false,"error":"You were signed out. Nothing was saved.","signedOut":true}');
+        expect(body, name).not.toContain('"ok":true');
+      }
+    }
   });
 
   test('wrong password shows one generic message', async ({ page }) => {

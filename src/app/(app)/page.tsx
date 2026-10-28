@@ -72,7 +72,7 @@ export default async function Dashboard() {
                       </td>
                       <td data-label="Bills" className="num">{r.billCount}</td>
                       <td data-label="Billed" className="num">{formatINR(r.billedPaise)}</td>
-                      <td data-label="By mode" className="muted small">
+                      <td data-label="Collected by mode" className="muted small">
                         {Object.entries(r.byMode).length === 0
                           ? '—'
                           : Object.entries(r.byMode)

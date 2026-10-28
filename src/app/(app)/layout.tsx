@@ -41,7 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 {active.gstRegistered ? <span className="pill tax12">GST registered</span> : <span className="pill exempt">Not GST registered</span>}
               </>
             ) : (
-              <>Viewing <strong>all branches</strong> · pick one in the sidebar to bill or take payments</>
+              <span>Viewing <strong>all branches</strong> · pick a branch in the branch menu to bill or take payments</span>
             )}
           </div>
           {canAnywhere(ctx, 'patient.view') ? <GlobalSearch /> : null}

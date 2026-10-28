@@ -2,7 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { acceptInvite, requireContext, setActiveBranch, signIn, signOut } from '@/lib/auth';
+import { acceptInvite, getContext, setActiveBranch, signIn, signOut } from '@/lib/auth';
+import { signedOut, type SignedOut } from './run';
 
 /** Returns ok instead of redirecting, so the client can navigate with the T18 fallback. */
 export async function signInAction(_prev: { error?: string; ok?: boolean } | null, form: FormData): Promise<{ error?: string; ok?: boolean }> {
@@ -16,8 +17,9 @@ export async function signOutAction(): Promise<void> {
   redirect('/login');
 }
 
-export async function switchBranchAction(branchId: string): Promise<void> {
-  const ctx = await requireContext();
+export async function switchBranchAction(branchId: string): Promise<SignedOut | undefined> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('branch.switch');
   if (branchId !== 'all' && !ctx.branchIds.includes(branchId)) return;
   if (branchId === 'all' && ctx.branchIds.length < 2) return;
   await setActiveBranch(branchId);

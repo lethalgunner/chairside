@@ -32,7 +32,8 @@ export default async function GstPage({ searchParams }: { searchParams: Promise<
           </div>
           {p.hsn.length ? (
             <div className="tablewrap">
-              <table>
+              {/* Stacks into labelled cards on a phone (T30): a sideways-scrolling table there has nothing to focus (axe). */}
+              <table className="stack-table">
                 <thead>
                   <tr>
                     <th scope="col">HSN/SAC</th>
@@ -45,11 +46,11 @@ export default async function GstPage({ searchParams }: { searchParams: Promise<
                 <tbody>
                   {p.hsn.map((h) => (
                     <tr key={`${h.hsnSacCode}-${h.gstRateBp}-${h.taxCategory}`}>
-                      <td><TaxPill rateBp={h.gstRateBp} code={h.hsnSacCode} /></td>
-                      <td><CategoryLabel c={h.taxCategory} /></td>
-                      <td className="num">{formatINR(h.valuePaise)}</td>
-                      <td className="num">{formatINR(h.cgstPaise)}</td>
-                      <td className="num">{formatINR(h.sgstPaise)}</td>
+                      <td data-label="HSN/SAC"><TaxPill rateBp={h.gstRateBp} code={h.hsnSacCode} /></td>
+                      <td data-label="Type"><CategoryLabel c={h.taxCategory} /></td>
+                      <td data-label="Value" className="num">{formatINR(h.valuePaise)}</td>
+                      <td data-label="CGST" className="num">{formatINR(h.cgstPaise)}</td>
+                      <td data-label="SGST" className="num">{formatINR(h.sgstPaise)}</td>
                     </tr>
                   ))}
                 </tbody>

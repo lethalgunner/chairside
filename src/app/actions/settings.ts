@@ -2,13 +2,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { requireContext } from '@/lib/auth';
+import { getContext } from '@/lib/auth';
 import { updateBranchDetails, type SaveBranchResult } from '@/services/branches';
 import { createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type SaveItemResult } from '@/services/catalogue';
 import { previewCatalogueImport, saveCatalogueImport, type ImportPreview, type ImportSaveResult } from '@/services/catalogue-import';
 import { inviteStaff, reissueInvite, setStaffActive, type InviteStaffResult } from '@/services/staff';
 import { UserFacingError } from '@/services/context';
-import { run, type ActionResult } from './run';
+import { run, signedOut, type ActionResult } from './run';
 
 /**
  * Owner settings (Pilot 0 slice 2). Thin: shape-check the input, resolve the
@@ -32,7 +32,8 @@ const inviteInput = z.object({
 });
 
 export async function inviteStaffAction(input: z.input<typeof inviteInput>): Promise<ActionResult<InviteStaffResult>> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('staff.invite');
   const res = await run('staff.invite', () => inviteStaff(ctx, parse(inviteInput, input)));
   if (res.ok && res.data.ok) revalidatePath('/settings/team');
   return res;
@@ -41,14 +42,16 @@ export async function inviteStaffAction(input: z.input<typeof inviteInput>): Pro
 const idInput = z.string().uuid();
 
 export async function reissueInviteAction(userId: string): Promise<ActionResult<{ token: string; expiresAt: Date; fullName: string }>> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('staff.reinvite');
   const res = await run('staff.reinvite', () => reissueInvite(ctx, parse(idInput, userId)));
   if (res.ok) revalidatePath('/settings/team');
   return res;
 }
 
 export async function setStaffActiveAction(userId: string, active: boolean): Promise<ActionResult> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut(active ? 'staff.reactivate' : 'staff.deactivate');
   const res = await run(active ? 'staff.reactivate' : 'staff.deactivate', async () => {
     await setStaffActive(ctx, parse(idInput, userId), parse(z.boolean(), active));
     return undefined;
@@ -69,7 +72,8 @@ const itemInput = z.object({
 
 /** Create when id is null, otherwise edit. */
 export async function saveCatalogueItemAction(id: string | null, input: z.input<typeof itemInput>): Promise<ActionResult<SaveItemResult>> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut(id ? 'catalogue.update' : 'catalogue.create');
   const res = await run(id ? 'catalogue.update' : 'catalogue.create', () => {
     const data = parse(itemInput, input);
     return id ? updateCatalogueItem(ctx, parse(idInput, id), data) : createCatalogueItem(ctx, data);
@@ -79,7 +83,8 @@ export async function saveCatalogueItemAction(id: string | null, input: z.input<
 }
 
 export async function setCatalogueItemActiveAction(id: string, active: boolean): Promise<ActionResult> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut(active ? 'catalogue.reactivate' : 'catalogue.deactivate');
   const res = await run(active ? 'catalogue.reactivate' : 'catalogue.deactivate', async () => {
     await setCatalogueItemActive(ctx, parse(idInput, id), parse(z.boolean(), active));
     return undefined;
@@ -118,7 +123,8 @@ const branchInput = z.object({
 });
 
 export async function saveBranchAction(branchId: string, input: z.input<typeof branchInput>): Promise<ActionResult<SaveBranchResult>> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('branch.update');
   const res = await run('branch.update', () => updateBranchDetails(ctx, parse(idInput, branchId), parse(branchInput, input)));
   if (res.ok && res.data.ok) revalidatePath('/', 'layout');
   return res;

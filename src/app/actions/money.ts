@@ -1,34 +1,37 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireContext } from '@/lib/auth';
+import { getContext } from '@/lib/auth';
 import { parseRupeesInput, type Paise } from '@/domain/money';
 import { closeDay, recordCashOut, reopenDay, type CloseDayInput } from '@/services/daybook';
 import { issueBill, voidInvoice, type IssueBillInput, type IssueBillResult } from '@/services/invoices';
 import { cancelReceipt, recordReceipt, type RecordReceiptInput, type RecordReceiptResult } from '@/services/receipts';
 import { UserFacingError } from '@/services/context';
-import { run, type ActionResult } from './run';
+import { run, signedOut, type ActionResult } from './run';
 
 function refresh() {
   revalidatePath('/', 'layout');
 }
 
 export async function issueBillAction(input: IssueBillInput): Promise<ActionResult<IssueBillResult>> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('bill.issue');
   const res = await run('bill.issue', () => issueBill(ctx, input));
   if (res.ok) refresh();
   return res;
 }
 
 export async function recordReceiptAction(input: RecordReceiptInput): Promise<ActionResult<RecordReceiptResult>> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('receipt.record');
   const res = await run('receipt.record', () => recordReceipt(ctx, input));
   if (res.ok) refresh();
   return res;
 }
 
 export async function voidInvoiceAction(invoiceId: string, reason: string): Promise<ActionResult> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('invoice.void');
   const res = await run('invoice.void', async () => {
     await voidInvoice(ctx, invoiceId, reason);
     return undefined;
@@ -38,7 +41,8 @@ export async function voidInvoiceAction(invoiceId: string, reason: string): Prom
 }
 
 export async function cancelReceiptAction(receiptId: string, reason: string): Promise<ActionResult> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('receipt.cancel');
   const res = await run('receipt.cancel', async () => {
     await cancelReceipt(ctx, receiptId, reason);
     return undefined;
@@ -54,7 +58,8 @@ function rupees(input: string, what: string): Paise {
 }
 
 export async function recordCashOutAction(amount: string, description: string): Promise<ActionResult> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('cash.out');
   const res = await run('cash.out', async () => {
     await recordCashOut(ctx, { amountPaise: rupees(amount, 'the amount'), description });
     return undefined;
@@ -69,7 +74,8 @@ export async function closeDayAction(input: {
   legacyBillCount?: string;
   legacyCollected?: string;
 }): Promise<ActionResult<{ variancePaise: number }>> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('day.close');
   const res = await run('day.close', async () => {
     const payload: CloseDayInput = {
       denominations: input.denominations,
@@ -85,7 +91,8 @@ export async function closeDayAction(input: {
 }
 
 export async function reopenDayAction(branchId: string, date: string, reason: string): Promise<ActionResult> {
-  const ctx = await requireContext();
+  const ctx = await getContext();
+  if (!ctx) return signedOut('day.reopen');
   const res = await run('day.reopen', async () => {
     await reopenDay(ctx, { branchId, date, reason });
     return undefined;
