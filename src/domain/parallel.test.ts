@@ -39,4 +39,14 @@ describe('old system vs Chairside (T21, Q10)', () => {
     expect(addDays('2027-01-01', -1)).toBe('2026-12-31');
     expect(addDays('2026-10-21', -6)).toBe('2026-10-15');
   });
+
+  it('half-entered figures never read as a match (QA 28 Oct)', () => {
+    const moneyOnly = compareWithLegacy({ legacyBillCount: null, legacyCollectedPaise: P(1_000), billCount: 1, collectedPaise: P(1_000) })!;
+    expect(moneyOnly.verdict).toBe('Collected matches; enter the old system\u2019s bill count too');
+    expect(moneyOnly.matches).toBe(false);
+    const countOnly = compareWithLegacy({ legacyBillCount: 1, legacyCollectedPaise: null, billCount: 1, collectedPaise: P(1_000) })!;
+    expect(countOnly.verdict).toBe('Bill count matches; enter the old system\u2019s collected amount too');
+    expect(countOnly.matches).toBe(false);
+    expect(compareWithLegacy({ legacyBillCount: 1, legacyCollectedPaise: P(1_000), billCount: 1, collectedPaise: P(1_000) })!.matches).toBe(true);
+  });
 });

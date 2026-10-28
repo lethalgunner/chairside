@@ -70,3 +70,22 @@ Each server action logs one line, e.g. `[action] patient.register 15ms ok`, as a
 
 ### Deploy note
 Migration `0003_receipt_cancel` (adds three nullable columns to `receipts` and one ledger entry type) runs automatically on the next production deploy. It adds no table, so no RLS line is needed.
+
+## Production check and Slice 2–3 QA pass — 28 Oct 2026
+**Deployed:** `12bb11a` on GitHub `main`; Vercel built it and applied migration 0003 (journal entry 4) to the Mumbai database. **Live checks:** `/api/health` ok; signed-out visits redirect to sign-in; a bad invite link says it has expired or was used; responses come from `bom1`.
+**Not run on production:** anything behind sign-in (QA does not hold production credentials). The signed-in pass ran on the same commit as a local production build with the demo seed, at 1366 px and 390 px, with axe on every screen.
+
+### Defects
+| ID | Sev | Summary | Status |
+|---|---|---|---|
+| Q24 | S2 | Inviting an email that already has a login renamed that person to whatever name was typed ("Dup Person" renamed Priya); the confirmation showed the typed name, so the owner could not tell | Fixed: the name is never changed on that path; the message names the real person and says whether a role was added or nothing changed. 2 DB tests |
+| Q25 | S3 | Team and Price list scrolled sideways on a 390 px phone (144 px and 232 px); Price list's Edit/Deactivate were off-screen | Fixed: both tables stack per row below 600 px. e2e asserts no overflow and Edit in view |
+| Q26 | S3 | No browser security headers in production: framing allowed, no nosniff, no referrer policy, `X-Powered-By: Next.js` | Fixed: X-Frame-Options DENY, frame-ancestors 'none', nosniff, Referrer-Policy same-origin (keeps `/setup?token` out of Referer), Permissions-Policy; powered-by off. e2e checks three routes |
+| Q27 | S3 | Day close said "Matches" when only the collected amount was entered (bill count blank) | Fixed: "Collected matches; enter the old system's bill count too", not counted as a match. Unit test |
+| Q28 | S4 | Bill-count box silently turns "-2" into 2 (digits-only mask) | Accepted: numeric keypad field; no change |
+
+### Clean
+Axe: no serious or critical issues on 13 screens at both widths. Desk sees plain "Only the owner can…" on every settings page. Payment amount: "1,000.555", "-100", "0", "1e3" refused with a message; "Rs.1000/-" accepted. Price list: duplicate code, bad price, short HSN refused; "500/-" accepted. Split payment pre-fills ₹3,500 after ₹1,000 of ₹4,500.
+
+### Automated (after fixes, all executed)
+169 unit · 65 database · 44 browser · typecheck and build clean.

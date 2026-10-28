@@ -42,10 +42,13 @@ export function compareWithLegacy(p: {
   if (moneyDiff !== null && moneyDiff > 0) parts.push(`Chairside has ${rupeesPlain(moneyDiff)} more collected than the old system`);
   if (extra) parts.push(`Chairside has ${plural(extra, 'more bill', 'more bills')} than the old system`);
 
+  // Half-entered figures are not a match (QA 28 Oct: money alone said "Matches" with no bill count).
+  const gap = p.legacyBillCount === null ? 'enter the old system\u2019s bill count too' : p.legacyCollectedPaise === null ? 'enter the old system\u2019s collected amount too' : null;
+  const verdict = parts.length ? parts.join('. ') : gap ? `${p.legacyBillCount === null ? 'Collected' : 'Bill count'} matches; ${gap}` : 'Matches';
   return {
     bills: { old: p.legacyBillCount, chairside: p.billCount, diff: billDiff },
     collected: { old: p.legacyCollectedPaise, chairside: p.collectedPaise, diff: moneyDiff },
-    verdict: parts.length ? parts.join('. ') : 'Matches',
-    matches: parts.length === 0,
+    verdict,
+    matches: parts.length === 0 && gap === null,
   };
 }
