@@ -5,12 +5,17 @@ import { displayDate } from '@/domain/dates';
 import { add, formatINR, ZERO, type Paise } from '@/domain/money';
 import { remindedLabel } from '@/domain/whatsapp';
 import { formatIndianMobile } from '@/domain/phone';
-import { canDo } from '@/services/context';
+import { canAnywhere, canDo } from '@/services/context';
 import { listInvoices } from '@/services/invoices';
 import { getPatient } from '@/services/patients';
 import { reminderTargets } from '@/services/reminders';
 import { patientAccount, patientReceipts } from '@/services/reports';
 import { testSeriesEnabled } from '@/services/util';
+import { openRecalls, MAX_RECALL_DAYS } from '@/services/recalls';
+import { openVisitFor } from '@/services/visits';
+import { addDays, businessDate } from '@/domain/dates';
+import { defaultDueOn, RECALL_KINDS, RECALL_LABEL, VISIT_LABEL } from '@/domain/visits';
+import { AddToQueue, CloseRecall, RecallForm } from './FrontDesk';
 import RemindButton from '@/components/RemindButton';
 import { Card, Empty, MODE_LABEL, PageHead, StatusPill } from '@/components/ui';
 
@@ -25,10 +30,10 @@ const ENTRY_LABEL: Record<string, string> = {
   receipt_cancel: 'Cancelled payment',
 };
 
-export default async function PatientPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ new?: string }> }) {
+export default async function PatientPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ new?: string; saved?: string }> }) {
   const ctx = await requireContext();
   const { id } = await params;
-  const { new: isNew } = await searchParams;
+  const { new: isNew, saved } = await searchParams;
   const patient = await getPatient(ctx, id);
   if (!patient) notFound();
   const [account, bills, payments] = await Promise.all([patientAccount(ctx, id), listInvoices(ctx, { branchIds: ctx.branchIds, patientId: id, limit: 50 }), patientReceipts(ctx, id)]);
@@ -43,6 +48,10 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
     const cur = dueByBranch.get(b.branchId);
     dueByBranch.set(b.branchId, { name: b.branchName, due: add(cur?.due ?? ZERO, b.duePaise) });
   }
+  const today = businessDate();
+  const [visit, nextVisits] = await Promise.all([openVisitFor(ctx, id), openRecalls(ctx, { branchIds: ctx.branchIds, patientId: id, today })]);
+  const canQueue = branch ? canDo(ctx, 'visit.manage', branch) : false;
+  const canRecall = branch ? canDo(ctx, 'recall.manage', branch) : false;
   const reminders = [...(await reminderTargets(ctx, [...dueByBranch].map(([branchId, v]) => ({ patientId: id, branchId, amountPaise: v.due })))).values()];
 
   return (
@@ -50,6 +59,11 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
       {isNew ? (
         <div className="callout good" role="status">
           Registered. {canBill ? 'Next: add what was done today.' : ''}
+        </div>
+      ) : null}
+      {saved ? (
+        <div className="callout good" role="status">
+          Details saved.
         </div>
       ) : null}
       <PageHead
@@ -66,6 +80,17 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
             {canPay ? (
               <Link className="cta secondary-cta" href={`/receipts/new?patient=${patient.id}`}>
                 Record payment
+              </Link>
+            ) : null}
+            {canQueue && !visit ? <AddToQueue patientId={patient.id} /> : null}
+            {visit ? (
+              <Link className="pill due" href="/queue">
+                Token {visit.token} · {VISIT_LABEL[visit.status]}
+              </Link>
+            ) : null}
+            {canAnywhere(ctx, 'patient.edit') ? (
+              <Link className="link" href={`/patients/${patient.id}/edit`}>
+                Edit details
               </Link>
             ) : null}
           </>
@@ -92,6 +117,34 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
           ))}
         </div>
       </div>
+
+      {canRecall || nextVisits.length > 0 ? (
+        <Card title="Next visit">
+          {nextVisits.length > 0 ? (
+            <ul className="plain">
+              {nextVisits.map((r) => (
+                <li key={r.id}>
+                  <strong>{RECALL_LABEL[r.kind]}</strong> due {displayDate(r.dueOn)}
+                  {nextVisits.length > 1 || r.branchId !== branch ? ` at ${r.branchName}` : ''}
+                  {r.bucket === 'overdue' ? <span className="pill credit"> Overdue</span> : null}{' '}
+                  {canDo(ctx, 'recall.manage', r.branchId) ? <CloseRecall recallId={r.id} label={`${RECALL_LABEL[r.kind]} for ${patient.fullName}`} /> : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted small">No next visit set.</p>
+          )}
+          {canRecall ? (
+            <RecallForm
+              patientId={patient.id}
+              kinds={RECALL_KINDS.map((k) => ({ v: k, label: RECALL_LABEL[k] }))}
+              defaults={Object.fromEntries(RECALL_KINDS.map((k) => [k, defaultDueOn(k, today)]))}
+              min={today}
+              max={addDays(today, MAX_RECALL_DAYS)}
+            />
+          ) : null}
+        </Card>
+      ) : null}
 
       <Card title="Bills" flush>
         {bills.length === 0 ? (

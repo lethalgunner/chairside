@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getContext } from '@/lib/auth';
-import { registerPatient, type PatientSummary } from '@/services/patients';
+import { registerPatient, updatePatient, type PatientSummary } from '@/services/patients';
 import { run, signedOut } from './run';
 
 export interface RegisterFormState {
@@ -43,4 +43,29 @@ export async function registerPatientAction(input: {
   if (!res.data.ok) return { fieldErrors: res.data.fieldErrors, duplicates: res.data.duplicates };
   revalidatePath('/patients');
   return { createdId: res.data.patientId };
+}
+
+/** Fix a patient's details (Sprint 3, T38). Same answer shape as registration. */
+export async function editPatientAction(
+  patientId: string,
+  input: { fullName: string; phone: string; sex: string; age: string; referralSource: string; referralDetail?: string; acknowledgedDuplicate: boolean },
+): Promise<RegisterFormState> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('patient.edit');
+  const res = await run('patient.edit', () =>
+    updatePatient(ctx, patientId, {
+      fullName: input.fullName,
+      phone: input.phone,
+      sex: input.sex as 'F' | 'M' | 'O',
+      age: input.age === '' ? Number.NaN : Number(input.age),
+      referralSource: input.referralSource,
+      referralDetail: input.referralDetail,
+      acknowledgedDuplicate: input.acknowledgedDuplicate,
+    }),
+  );
+  if (!res.ok) return { error: res.error };
+  if (!res.data.ok) return { fieldErrors: res.data.fieldErrors, duplicates: res.data.duplicates };
+  revalidatePath('/patients');
+  revalidatePath(`/patients/${patientId}`);
+  return { createdId: patientId };
 }

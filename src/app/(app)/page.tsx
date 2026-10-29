@@ -6,6 +6,7 @@ import { canDo, scopeBranchIds } from '@/services/context';
 import { dashboard, parallelRun, unclosedEarlierDays } from '@/services/reports';
 import { closeStreaks, STREAK_WINDOW_DAYS } from '@/services/streak';
 import { recordDashboardView } from '@/services/usage';
+import { queueFor } from '@/services/visits';
 import { Card, Empty, MODE_LABEL, PageHead, StatusPill, Tile } from '@/components/ui';
 import DayNav from '@/components/DayNav';
 
@@ -15,12 +16,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const today = businessDate();
   // A past day is a read-only view (Q19, T27): nothing on it creates or closes anything.
   const { date, isToday } = resolveViewDate((await searchParams).date, today);
-  const [rows, pilot, unclosed, streaks] = await Promise.all([
+  const [rows, pilot, unclosed, streaks, queue] = await Promise.all([
     dashboard(ctx, scopeBranchIds(ctx), date),
     parallelRun(ctx, scopeBranchIds(ctx), date),
     isToday ? unclosedEarlierDays(ctx, ctx.branchIds, today) : Promise.resolve([]),
     isToday ? closeStreaks(ctx, scopeBranchIds(ctx), today) : Promise.resolve(new Map<string, number>()),
+    isToday ? queueFor(ctx, scopeBranchIds(ctx), today) : Promise.resolve([]),
   ]);
+  const waitingNow = queue.filter((v) => v.status === 'waiting').length;
+  const inChairNow = queue.filter((v) => v.status === 'in_chair').length;
+  const seenNotBilled = queue.filter((v) => v.seenNotBilled).length;
   const inScope = new Set(scopeBranchIds(ctx));
   const dayWord = isToday ? 'today' : `on ${shortDay(date)}`;
   const single = ctx.activeBranchId !== 'all' ? ctx.activeBranchId : null;
@@ -163,6 +168,19 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           {/* Unbilled work and money owed are figures for now, not for a past day. */}
           {isToday ? (
           <div className="row">
+            {queue.length > 0 ? (
+              <Card title="Waiting room" action={<Link className="link" href="/queue">Open →</Link>}>
+                <p>
+                  <strong>{waitingNow}</strong> waiting · <strong>{inChairNow}</strong> in the chair · {queue.length} today
+                  {seenNotBilled > 0 ? (
+                    <>
+                      <br />
+                      <span className="due-text strong">{seenNotBilled} seen, not billed</span>
+                    </>
+                  ) : null}
+                </p>
+              </Card>
+            ) : null}
             {unbilledCount > 0 ? (
               <Card title="Done but not billed" action={<Link className="link" href="/unbilled">Bill them →</Link>}>
                 <p>

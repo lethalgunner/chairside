@@ -70,12 +70,14 @@ export default function Sidebar({ userName, branches, activeBranchId, can }: Pro
         ) : null}
         <div className="sec">Today</div>
         {link('/', 'Dashboard')}
+        {can.patients ? link('/queue', 'Waiting room') : null}
         {can.dayClose ? link('/day-close', 'Day close') : null}
         {can.bill ? link('/unbilled', 'Unbilled') : null}
         {can.patients || can.bill ? <div className="sec">Practice</div> : null}
         {can.patients ? link('/patients', 'Patients') : null}
         {can.patients ? link('/invoices', 'Bills') : null}
         {can.patients || can.reports ? link('/receivables', 'Receivables') : null}
+        {can.patients ? link('/recalls', 'Recalls') : null}
         {can.gst ? <div className="sec">Books</div> : null}
         {can.gst ? link('/gst', 'GST working papers') : null}
         {can.reports ? link('/scorecard', 'Pilot scorecard') : null}

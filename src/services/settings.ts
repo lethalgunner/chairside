@@ -6,6 +6,8 @@ export interface SettingsAccess {
   team: boolean;
   catalogue: boolean;
   branches: boolean;
+  /** Export my data (Sprint 3, T40). */
+  export: boolean;
 }
 
 export function settingsAccess(ctx: TenantContext): SettingsAccess {
@@ -13,6 +15,7 @@ export function settingsAccess(ctx: TenantContext): SettingsAccess {
     team: canOrgWide(ctx.grants, 'staff.manage'),
     catalogue: canAnywhere(ctx, 'catalogue.manage'),
     branches: canAnywhere(ctx, 'branch.manage'),
+    export: canOrgWide(ctx.grants, 'data.export'),
   };
 }
 

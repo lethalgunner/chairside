@@ -6,7 +6,7 @@ import { getContext } from '@/lib/auth';
 import { updateBranchDetails, type SaveBranchResult } from '@/services/branches';
 import { createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type SaveItemResult } from '@/services/catalogue';
 import { previewCatalogueImport, saveCatalogueImport, type ImportPreview, type ImportSaveResult } from '@/services/catalogue-import';
-import { inviteStaff, reissueInvite, setStaffActive, type InviteStaffResult } from '@/services/staff';
+import { inviteStaff, passwordResetLink, reissueInvite, setStaffActive, type InviteStaffResult } from '@/services/staff';
 import { UserFacingError } from '@/services/context';
 import { run, signedOut, type ActionResult } from './run';
 
@@ -45,6 +45,14 @@ export async function reissueInviteAction(userId: string): Promise<ActionResult<
   const ctx = await getContext();
   if (!ctx) return signedOut('staff.reinvite');
   const res = await run('staff.reinvite', () => reissueInvite(ctx, parse(idInput, userId)));
+  if (res.ok) revalidatePath('/settings/team');
+  return res;
+}
+
+export async function passwordResetLinkAction(userId: string): Promise<ActionResult<{ token: string; expiresAt: Date; fullName: string }>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('staff.reset_link');
+  const res = await run('staff.reset_link', () => passwordResetLink(ctx, parse(idInput, userId)));
   if (res.ok) revalidatePath('/settings/team');
   return res;
 }

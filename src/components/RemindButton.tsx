@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { logReminderAction } from '@/app/actions/whatsapp';
+import { logRecallReminderAction } from '@/app/actions/frontdesk';
 
 /**
  * "Remind on WhatsApp" (Sprint 2, T32). The link is built on the server; this
@@ -17,6 +18,7 @@ export default function RemindButton({
   lastLabel,
   confirmOldSystem,
   compact = false,
+  recallId,
 }: {
   patientId: string;
   branchId: string;
@@ -25,6 +27,8 @@ export default function RemindButton({
   lastLabel: string | null;
   confirmOldSystem: boolean;
   compact?: boolean;
+  /** A next-visit recall reminder (T37) instead of a dues reminder (T32). */
+  recallId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [checked, setChecked] = useState(!confirmOldSystem);
@@ -37,7 +41,7 @@ export default function RemindButton({
   function opened() {
     setOpen(false);
     setError(null);
-    void logReminderAction(patientId, branchId)
+    void (recallId ? logRecallReminderAction(recallId) : logReminderAction(patientId, branchId))
       .then((r) => (r.ok ? setLast('Reminded today') : setError(r.error)))
       .catch(() => setError('The reminder opened, but Chairside could not note it. It may not show as reminded.'));
   }

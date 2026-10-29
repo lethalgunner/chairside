@@ -43,6 +43,13 @@
       "when": 1793218440765,
       "tag": "0005_sprint2",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793231766362,
+      "tag": "0006_sprint3",
+      "breakpoints": true
     }
   ]
 }

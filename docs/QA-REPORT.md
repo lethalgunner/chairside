@@ -153,3 +153,31 @@ Axe: no serious or critical issues on 13 screens at both widths. Desk sees plain
 ### Not verified
 - Scanning the QR with real UPI apps (GPay, PhonePe, Paytm, BHIM) and paying ₹1. KS to do this once with the clinic's real UPI ID before staff use it.
 - `npm audit` reports a high-severity advisory in `zod` < 4.6.6 (memory exhaustion on oversized collections). It predates Sprint 2, and the fix is a breaking major upgrade. Logged for the CTO.
+
+## Sprint 3 · "Front desk, done right" (T36–T41) + QA from scratch — 29 Oct 2026
+**Built:** waiting room with tokens and "seen, not billed" (T36); next-visit recalls with a WhatsApp reminder (T37); edit patient details (T38); owner password reset link (T39); owner CSV export (T40); zod 4 (T41). Migration `0006_sprint3`, ADR-015.
+**QA from scratch:** every screen (16 routes) as owner, Pune desk and Kanpur desk, at 1366 and 390 px, on the production build. Each screen was checked for server errors, browser console errors, sideways scroll, a single page heading and axe (WCAG 2.1 AA, serious or critical), then the full regression suite ran.
+
+### Automated (final tree, all executed)
+| Suite | Tests | Pass |
+|---|---|---|
+| `npx vitest run` | 302 | 302 |
+| `npm run test:db` | 118 | 118 |
+| `npm run test:e2e` (incl. `12-sprint3`) | 77 | 77 |
+| Whole-app sweep (3 roles × 2 widths × 16 screens) | 6 | 6 |
+| typecheck / `next build` / `npm audit --omit=dev` | — | clean / clean / 0 |
+
+### Defects
+None open from this pass. All 96 screen checks in the sweep came back clean: no console errors, no sideways scroll, no serious axe issues.
+
+### Checked and clean
+- Tokens 1, 2, 3 per branch per day; Kanpur counts its own; a second active visit is refused with its token; finished visits and past days can't change.
+- "Seen, not billed" appears when a patient is marked Done with nothing billed, and clears when the bill is issued.
+- A recall replaces the open one; overdue, due-today and this-week buckets; the WhatsApp text never names the treatment; Booked closes it.
+- Patient edit audits only the changed fields; a new mobile triggers the duplicate warning; the age is re-recorded with today's date.
+- Reset link: the old password keeps working until the link is used, then sessions end. A manager, yourself, a person with no password set, and another clinic are all refused.
+- Export: CSV with BOM, money from paise, a formula name defused (`'=Evil…`), owner only (the desk gets 403), audited with the count only.
+
+### Not verified
+- The real 12-hour session expiry on the live site, and real UPI apps (carried over from Sprint 2).
+- Dev-only `npm audit` advisories (vitest, esbuild, tinypool): not in the production bundle; logged for the CTO.

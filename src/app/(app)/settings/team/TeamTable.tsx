@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { reissueInviteAction, setStaffActiveAction } from '@/app/actions/settings';
+import { passwordResetLinkAction, reissueInviteAction, setStaffActiveAction } from '@/app/actions/settings';
 import type { InviteStatus } from '@/domain/staff';
 import InviteLink from './InviteLink';
 import { useActionForm } from '@/lib/nav/use-action-form';
@@ -28,7 +28,21 @@ function LoginPill({ row }: { row: TeamRow }) {
 export default function TeamTable({ rows }: { rows: TeamRow[] }) {
   const { busy: pending, notSent, send, release, navigate } = useActionForm('staff.update');
   const [error, setError] = useState<string | null>(null);
-  const [link, setLink] = useState<{ token: string; name: string } | null>(null);
+  const [link, setLink] = useState<{ token: string; name: string; reset?: boolean } | null>(null);
+
+  /** Make a one-time link and show it once (new link, or a forgotten-password reset, T39). */
+  const makeLink = (call: () => ReturnType<typeof reissueInviteAction>, reset: boolean) =>
+    void (async () => {
+      setError(null);
+      const res = await send(call);
+      if (!res) return;
+      if (!res.ok) {
+        release();
+        return setError(res.error);
+      }
+      setLink({ token: res.data.token, name: res.data.fullName, reset });
+      await navigate();
+    })();
 
   const act = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) =>
     void (async () => {
@@ -44,7 +58,7 @@ export default function TeamTable({ rows }: { rows: TeamRow[] }) {
 
   return (
     <>
-      {link ? <div className="body"><InviteLink token={link.token} name={link.name} onDone={() => setLink(null)} /></div> : null}
+      {link ? <div className="body"><InviteLink token={link.token} name={link.name} reset={link.reset} onDone={() => setLink(null)} /></div> : null}
       {error ? <div className="body"><div className="callout warn" role="alert">{error}</div></div> : null}
       <NotSent message={notSent} />
       <div className="tablewrap">
@@ -74,21 +88,20 @@ export default function TeamTable({ rows }: { rows: TeamRow[] }) {
                       className="secondary-btn"
                       disabled={pending}
                       aria-label={`New link for ${r.fullName}`}
-                      onClick={() =>
-                        void (async () => {
-                          setError(null);
-                          const res = await send(() => reissueInviteAction(r.id));
-                          if (!res) return;
-                          if (!res.ok) {
-                            release();
-                            return setError(res.error);
-                          }
-                          setLink({ token: res.data.token, name: res.data.fullName });
-                          await navigate();
-                        })()
-                      }
+                      onClick={() => makeLink(() => reissueInviteAction(r.id), false)}
                     >
                       New link
+                    </button>
+                  ) : null}
+                  {r.active && !r.isSelf && r.status === 'set_up' ? (
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      disabled={pending}
+                      aria-label={`Reset password link for ${r.fullName}`}
+                      onClick={() => makeLink(() => passwordResetLinkAction(r.id), true)}
+                    >
+                      Reset password link
                     </button>
                   ) : null}
                   {r.isSelf ? null : r.active ? (

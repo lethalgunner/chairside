@@ -974,3 +974,80 @@ export const paymentReminders = pgTable(
     orgPatientTimeIdx: index('payment_reminders_org_patient_time_idx').on(t.orgId, t.patientId, t.sentAt),
   }),
 );
+
+/**
+ * Today's waiting room (Sprint 3, T36). One row per patient per visit day at
+ * a branch, with a token number 1, 2, 3… per branch per day. No complaint or
+ * clinical note is ever stored here. Status changes are audited.
+ */
+export const visits = pgTable(
+  'visits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id),
+    businessDate: date('business_date').notNull(),
+    token: integer('token').notNull(),
+    status: text('status').notNull().default('waiting'),
+    arrivedAt: timestamp('arrived_at', { withTimezone: true }).notNull().defaultNow(),
+    seatedAt: timestamp('seated_at', { withTimezone: true }),
+    doneAt: timestamp('done_at', { withTimezone: true }),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+  },
+  (t) => ({
+    statusCheck: check('visits_status_check', sql`${t.status} in ('waiting', 'in_chair', 'done', 'left')`),
+    tokenUnique: uniqueIndex('visits_branch_day_token_unique').on(t.branchId, t.businessDate, t.token),
+    // A patient is in today's queue at a branch at most once while waiting or in the chair.
+    activeUnique: uniqueIndex('visits_branch_day_patient_active_unique')
+      .on(t.branchId, t.businessDate, t.patientId)
+      .where(sql`status in ('waiting', 'in_chair')`),
+    orgDayIdx: index('visits_org_day_idx').on(t.orgId, t.businessDate),
+  }),
+);
+
+/**
+ * Next-visit recalls (Sprint 3, T37). At most one open recall per patient
+ * per branch; setting a new one closes the old. Kinds are generic words, never
+ * a diagnosis. Reminders are counted here; the message text is not stored.
+ */
+export const recalls = pgTable(
+  'recalls',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id),
+    dueOn: date('due_on').notNull(),
+    kind: text('kind').notNull(),
+    status: text('status').notNull().default('open'),
+    remindCount: integer('remind_count').notNull().default(0),
+    lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true }),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    closedBy: uuid('closed_by').references(() => users.id),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+  },
+  (t) => ({
+    kindCheck: check('recalls_kind_check', sql`${t.kind} in ('checkup', 'cleaning', 'continue', 'review')`),
+    statusCheck: check('recalls_status_check', sql`${t.status} in ('open', 'done', 'cancelled')`),
+    openUnique: uniqueIndex('recalls_branch_patient_open_unique').on(t.branchId, t.patientId).where(sql`status = 'open'`),
+    orgDueIdx: index('recalls_org_due_idx').on(t.orgId, t.status, t.dueOn),
+  }),
+);

@@ -49,7 +49,15 @@ export type Capability =
    * Open a WhatsApp dues reminder for a patient (Sprint 2, T32). The desk
    * chases dues; doctors and assistants don't. Click-to-send only.
    */
-  | 'patient.remind';
+  | 'patient.remind'
+  /** Today's waiting room: add to the queue, seat, mark done (Sprint 3, T36). */
+  | 'visit.manage'
+  /** Set or close a patient's next-visit recall (Sprint 3, T37). */
+  | 'recall.manage'
+  /** Fix a patient's name, mobile, sex, age or referral (Sprint 3, T38). Audited. */
+  | 'patient.edit'
+  /** Download the clinic's data as CSV (Sprint 3, T40). Owner only. */
+  | 'data.export';
 
 const ALL: Capability[] = [
   'patient.register',
@@ -69,11 +77,15 @@ const ALL: Capability[] = [
   'invoice.void_own_today',
   'procedure.dismiss',
   'patient.remind',
+  'visit.manage',
+  'recall.manage',
+  'patient.edit',
+  'data.export',
 ];
 
 /** Capabilities only the owner holds in Pilot 0. */
 // catalogue.manage is owner-only until per-branch prices exist: the price list is org-wide (CPO Dev-1, Slice 3 T24).
-const OWNER_ONLY: readonly Capability[] = ['day.reopen', 'staff.manage', 'branch.manage', 'receipt.cancel', 'catalogue.manage'];
+const OWNER_ONLY: readonly Capability[] = ['day.reopen', 'staff.manage', 'branch.manage', 'receipt.cancel', 'catalogue.manage', 'data.export'];
 
 export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
   owner: ALL,
@@ -87,10 +99,13 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
     'expense.record_cash',
     'day.close',
     'patient.remind',
+    'visit.manage',
+    'recall.manage',
+    'patient.edit',
   ],
-  doctor: ['patient.register', 'patient.view', 'invoice.issue', 'receipt.record'],
-  associate_doctor: ['patient.register', 'patient.view', 'invoice.issue', 'receipt.record'],
-  assistant: ['patient.register', 'patient.view'],
+  doctor: ['patient.register', 'patient.view', 'invoice.issue', 'receipt.record', 'visit.manage', 'recall.manage'],
+  associate_doctor: ['patient.register', 'patient.view', 'invoice.issue', 'receipt.record', 'visit.manage', 'recall.manage'],
+  assistant: ['patient.register', 'patient.view', 'visit.manage'],
   accountant: ['report.branch', 'report.gst'],
   auditor: ['report.branch', 'report.gst'],
 };

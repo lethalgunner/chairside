@@ -1413,3 +1413,25 @@ td.follow-up {
     margin-top: 4px;
   }
 }
+
+/* Waiting room (Sprint 3, T36) and recalls (T37). */
+td.token {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.visit-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+}
+.recall-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+}
+.recall-form .field {
+  margin: 0;
+}

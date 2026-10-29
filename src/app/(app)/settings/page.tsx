@@ -6,7 +6,8 @@ import { Empty, PageHead } from '@/components/ui';
 const SECTIONS = [
   { key: 'team', href: '/settings/team', title: 'Team', sub: 'Invite staff, send a new link, deactivate someone who has left.' },
   { key: 'catalogue', href: '/settings/catalogue', title: 'Price list', sub: 'Treatments and products, their prices and GST.' },
-  { key: 'branches', href: '/settings/branches', title: 'Branches', sub: 'Address, GST registration and GSTIN, day-close tolerance and opening float.' },
+  { key: 'branches', href: '/settings/branches', title: 'Branches', sub: 'Address, GST registration and GSTIN, day-close tolerance, opening float and UPI ID.' },
+  { key: 'export', href: '/settings/export', title: 'Export my data', sub: 'Download patients, bills and payments as spreadsheets.' },
 ] as const;
 
 export default async function SettingsPage() {

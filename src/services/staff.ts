@@ -194,6 +194,26 @@ export async function reissueInvite(ctx: TenantContext, userId: string): Promise
 }
 
 /**
+ * A one-time link for someone who forgot a password they already set
+ * (Sprint 3, T39). Owner only. Their old password keeps working until the
+ * link is used; using it sets the new password and ends every session
+ * (redeemInvite). Not for yourself: sign out and ask another owner.
+ */
+export async function passwordResetLink(ctx: TenantContext, userId: string): Promise<{ token: string; expiresAt: Date; fullName: string }> {
+  assertStaffManager(ctx);
+  return getDb().transaction(async (tx) => {
+    const u = await orgUser(tx, ctx, userId, true);
+    if (u.id === ctx.userId) throw new UserFacingError('You can’t reset your own password here. Ask another owner, or KS.');
+    if (!u.active) throw new UserFacingError('Reactivate them before sending a new link.');
+    if (!u.email) throw new UserFacingError('Add an email for them first, using Invite.');
+    if (!u.passwordHash) throw new UserFacingError('They haven’t set a password yet. Use “New link” instead.');
+    const { token, expiresAt } = await createInvite(tx, { orgId: ctx.orgId, userId: u.id });
+    await writeAudit(tx, ctx, { action: 'staff.password_reset_link', entityType: 'user', entityId: u.id, after: { expiresAt } });
+    return { token, expiresAt, fullName: u.fullName };
+  });
+}
+
+/**
  * Deactivate or reactivate. Deactivating signs the person out everywhere and
  * cancels any unused link. Owner rows are locked first so two owners cannot
  * deactivate each other at the same moment and leave the clinic with none.

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { registerPatientAction, type RegisterFormState } from '@/app/actions/patients';
+import { editPatientAction, registerPatientAction, type RegisterFormState } from '@/app/actions/patients';
 import { formatIndianMobile } from '@/domain/phone';
 import { useActionForm } from '@/lib/nav/use-action-form';
 import NotSent from '@/components/NotSent';
@@ -18,14 +18,25 @@ const SEXES = [
  * referral as buttons (one tap, not a dropdown), age instead of a date picker.
  * All fields are controlled, so a failed submit never wipes what was typed.
  */
-export default function NewPatientForm({ referralSources, initialPhone, initialName }: { referralSources: string[]; initialPhone: string; initialName: string }) {
-  const { busy: pending, notSent, send, release, navigate } = useActionForm('patient.register');
+export default function NewPatientForm({
+  referralSources,
+  initialPhone,
+  initialName,
+  edit,
+}: {
+  referralSources: string[];
+  initialPhone: string;
+  initialName: string;
+  /** Editing an existing patient (Sprint 3, T38): its id and current details. */
+  edit?: { patientId: string; sex: string; age: string; referralSource: string; referralDetail: string };
+}) {
+  const { busy: pending, notSent, send, release, navigate } = useActionForm(edit ? 'patient.edit' : 'patient.register');
   const [phone, setPhone] = useState(initialPhone);
   const [fullName, setFullName] = useState(initialName);
-  const [sex, setSex] = useState('');
-  const [age, setAge] = useState('');
-  const [referral, setReferral] = useState('Walk-in');
-  const [referralDetail, setReferralDetail] = useState('');
+  const [sex, setSex] = useState(edit?.sex ?? '');
+  const [age, setAge] = useState(edit?.age ?? '');
+  const [referral, setReferral] = useState(edit?.referralSource ?? 'Walk-in');
+  const [referralDetail, setReferralDetail] = useState(edit?.referralDetail ?? '');
   const [ack, setAck] = useState(false);
   const [state, setState] = useState<RegisterFormState>({});
   const err = state.fieldErrors ?? {};
@@ -39,11 +50,12 @@ export default function NewPatientForm({ referralSources, initialPhone, initialN
     e.preventDefault();
     void (async () => {
       const formMs = shownAt.current === null ? undefined : Math.round(performance.now() - shownAt.current);
-      const res = await send(() => registerPatientAction({ fullName, phone, sex, age, referralSource: referral, referralDetail, acknowledgedDuplicate: ack, formMs }));
+      const fields = { fullName, phone, sex, age, referralSource: referral, referralDetail, acknowledgedDuplicate: ack };
+      const res = await send(() => (edit ? editPatientAction(edit.patientId, fields) : registerPatientAction({ ...fields, formMs })));
       if (!res) return;
       setState(res);
       // Navigate outside any transition; the button stays on "Saving…" until the patient page is up (T18).
-      if (res.createdId) return navigate(`/patients/${res.createdId}?new=1`);
+      if (res.createdId) return navigate(edit ? `/patients/${res.createdId}?saved=1` : `/patients/${res.createdId}?new=1`);
       release();
     })();
   }
@@ -58,7 +70,7 @@ export default function NewPatientForm({ referralSources, initialPhone, initialN
             <label htmlFor="phone">
               Mobile <span className="req">required</span>
             </label>
-            <input id="phone" inputMode="tel" autoComplete="off" value={phone} onChange={(e) => { setPhone(e.target.value); setAck(false); }} className={err.phone ? 'err' : undefined} aria-invalid={!!err.phone} aria-describedby={describedBy('phone')} autoFocus />
+            <input id="phone" inputMode="tel" autoComplete="off" value={phone} onChange={(e) => { setPhone(e.target.value); setAck(false); }} className={err.phone ? 'err' : undefined} aria-invalid={!!err.phone} aria-describedby={describedBy('phone')} autoFocus={!edit} />
             {err.phone ? <div className="hint err-text" id="phone-err">{err.phone}</div> : <div className="hint">+91, spaces and a leading 0 are fine.</div>}
           </div>
           <div className="field">
@@ -119,7 +131,7 @@ export default function NewPatientForm({ referralSources, initialPhone, initialN
               ))}
             </ul>
             <label className="ack">
-              <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> This is a different person (for example, a family member on the same phone). Register anyway.
+              <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> This is a different person (for example, a family member on the same phone). {edit ? 'Save anyway.' : 'Register anyway.'}
             </label>
           </div>
         ) : null}
@@ -133,9 +145,9 @@ export default function NewPatientForm({ referralSources, initialPhone, initialN
 
         <div className="actions">
           <button className="primary" type="submit" disabled={pending || (!!state.duplicates?.length && !ack)}>
-            {pending ? 'Saving…' : 'Register patient'}
+            {pending ? 'Saving…' : edit ? 'Save changes' : 'Register patient'}
           </button>
-          <Link className="secondary" href="/patients">
+          <Link className="secondary" href={edit ? `/patients/${edit.patientId}` : '/patients'}>
             Cancel
           </Link>
         </div>

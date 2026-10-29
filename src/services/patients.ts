@@ -194,3 +194,105 @@ export async function getPatient(ctx: TenantContext, patientId: string): Promise
   const [p] = await summaries(ctx.orgId, eq(patients.id, patientId), 1);
   return p ?? null;
 }
+
+// ---------------------------------------------------------------------------
+// Edit patient details (Sprint 3, T38). Same rules as registration. Patients
+// are org-level, so anyone with patient.edit at any branch may fix a typo;
+// the audit keeps the before and after of the fields that changed.
+// KNOWN LIMIT (ADR-015): bills don't snapshot the name yet, so an edited name
+// also shows on that patient's earlier (test-series) bills.
+// ---------------------------------------------------------------------------
+
+export interface PatientDetails {
+  id: string;
+  fullName: string;
+  phone: string;
+  sex: string | null;
+  age: number | null;
+  referralSource: string | null;
+  referralDetail: string | null;
+}
+
+export async function getPatientDetails(ctx: TenantContext, patientId: string): Promise<PatientDetails | null> {
+  if (!canAnywhere(ctx, 'patient.edit')) throw new ForbiddenError();
+  if (!isUuid(patientId)) return null;
+  const [p] = await getDb()
+    .select()
+    .from(patients)
+    .where(and(eq(patients.id, patientId), eq(patients.orgId, ctx.orgId), sql`${patients.mergedIntoId} is null`))
+    .limit(1);
+  if (!p) return null;
+  return {
+    id: p.id,
+    fullName: p.fullName,
+    phone: p.phone,
+    sex: p.sex,
+    age: ageNow(p.approximateAge, p.ageRecordedOn, businessDate()),
+    referralSource: p.referralSource,
+    referralDetail: p.referralDetail,
+  };
+}
+
+export type EditResult = { ok: true; changed: string[] } | { ok: false; fieldErrors?: Record<string, string>; duplicates?: PatientSummary[] };
+
+export async function updatePatient(ctx: TenantContext, patientId: string, raw: RegisterPatientInput): Promise<EditResult> {
+  if (!canAnywhere(ctx, 'patient.edit')) throw new ForbiddenError();
+  if (!isUuid(patientId)) throw new ForbiddenError();
+  const parsed = registerPatientInput.safeParse(raw);
+  const fieldErrors: Record<string, string> = {};
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] ??= issue.message;
+  }
+  const phone10 = normaliseIndianMobile(String(raw.phone ?? ''));
+  if (!phone10) fieldErrors.phone = 'Enter a 10-digit Indian mobile number.';
+  if (!parsed.success || !phone10) return { ok: false, fieldErrors };
+  const input = parsed.data;
+  const fullName = input.fullName.replace(/\s+/g, ' ');
+  const today = businessDate();
+
+  return getDb().transaction(async (tx) => {
+    const [p] = await tx
+      .select()
+      .from(patients)
+      .where(and(eq(patients.id, patientId), eq(patients.orgId, ctx.orgId), sql`${patients.mergedIntoId} is null`))
+      .for('update');
+    if (!p) throw new ForbiddenError();
+
+    const currentAge = ageNow(p.approximateAge, p.ageRecordedOn, today);
+    const next = {
+      fullName,
+      phone: phone10,
+      sex: input.sex,
+      referralSource: input.referralSource,
+      referralDetail: input.referralDetail || null,
+    };
+    const before: Record<string, unknown> = {};
+    const after: Record<string, unknown> = {};
+    for (const k of Object.keys(next) as (keyof typeof next)[]) {
+      if ((p[k] ?? null) !== next[k]) {
+        before[k] = p[k] ?? null;
+        after[k] = next[k];
+      }
+    }
+    const ageChanged = currentAge !== input.age;
+    if (ageChanged) {
+      before.age = currentAge;
+      after.age = input.age;
+    }
+    const changed = Object.keys(after);
+    if (changed.length === 0) return { ok: true as const, changed };
+
+    // A new mobile or name gets the same duplicate warning as registration (other patients only).
+    if ((after.phone !== undefined || after.fullName !== undefined) && !input.acknowledgedDuplicate) {
+      const duplicates = (await findPossibleDuplicates(ctx, phone10, fullName)).filter((d) => d.id !== p.id);
+      if (duplicates.length > 0) return { ok: false as const, duplicates };
+    }
+
+    await tx
+      .update(patients)
+      .set({ ...next, ...(ageChanged ? { approximateAge: input.age, ageRecordedOn: today } : {}) })
+      .where(and(eq(patients.id, p.id), eq(patients.orgId, ctx.orgId)));
+    await writeAudit(tx, ctx, { action: 'patient.edit', entityType: 'patient', entityId: p.id, before, after });
+    return { ok: true as const, changed };
+  });
+}

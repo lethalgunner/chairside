@@ -401,3 +401,32 @@ Also recorded from Sprint 1:
   QR is not proof of payment; staff still record the payment by hand.
 - The day-close streak counts closes, never zero variance, so nobody is
   rewarded for fudging a cash count.
+
+## ADR-015 — Front-desk records: waiting room, recalls, patient edits, owner export (Sprint 3)
+
+**Status:** accepted (CTO + CPO), 29 Oct 2026. KS to confirm.
+
+- **Waiting room (`visits`)** holds who arrived, their token (1, 2, 3… per
+  branch per business day, unique), and status times. **Never a complaint or
+  clinical note.** Only today's queue changes; status moves forward with one
+  undo (In chair → Waiting); every change is audited. "Seen, not billed" is
+  derived (Done, with no issued bill and no recorded work that day at that
+  branch), never stored.
+- **Recalls** keep one open recall per patient per branch (partial unique
+  index). Kinds are generic words (check-up, cleaning, continue treatment,
+  review). The WhatsApp text says "your next visit", never a treatment
+  (ADR-014). The reminder count and time are kept; the text is not.
+- **Patient edit** is an UPDATE to a non-financial master row, audited with
+  the before and after of changed fields only. **Known limit:** invoices don't
+  snapshot the patient's name, so an edit renames old test-series bills too.
+  **Before G1 (the real bill series), invoices must snapshot the buyer name
+  and mobile at issue.**
+- **Password reset link** reuses the one-time invite: owner only, never for
+  yourself. The old password works until the link is used; using it ends every
+  session. It replaces the GitHub workflow for forgotten passwords.
+- **Export** is owner-only (`data.export`, org-wide grant), served by GET
+  route handlers with `no-store`, and CSV cells are defused against spreadsheet
+  formulas. Each export is audited with its kind and row count, never the data.
+- **zod 4.6.7** replaces zod 3 (advisory GHSA-mrhx-c7xc-m3w5). No code changes
+  were needed; the full suite is green. Dev-only advisories in vitest and
+  esbuild remain and don't reach production; upgrade vitest separately.
