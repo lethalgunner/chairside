@@ -1332,3 +1332,71 @@ export const prescriptionLines = pgTable('prescription_lines', {
   instructions: text('instructions'),
   sortOrder: integer('sort_order').notNull().default(0),
 });
+
+/**
+ * Stock-lite (Sprint 6, LET-176): medicines and clinic supplies. Quantities
+ * are whole units (strips, boxes, pieces). On hand is always the sum of
+ * movements at a branch, never stored (convention 4). No batch tracking: a
+ * "received" movement carries the expiry date of what came in.
+ */
+export const stockItems = pgTable(
+  'stock_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    kind: text('kind').notNull(),
+    medicineId: uuid('medicine_id').references(() => medicines.id),
+    /** Sold to patients as this price-list item: billing it takes it out of stock. */
+    catalogueItemId: uuid('catalogue_item_id').references(() => catalogueItems.id),
+    name: text('name').notNull(),
+    unit: text('unit').notNull(),
+    reorderLevel: integer('reorder_level').notNull().default(0),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    kindCheck: check('stock_items_kind_check', sql`${t.kind} in ('medicine', 'supply')`),
+    reorderCheck: check('stock_items_reorder_check', sql`${t.reorderLevel} >= 0`),
+    medicineUnique: uniqueIndex('stock_items_medicine_unique').on(t.orgId, t.medicineId),
+    catalogueUnique: uniqueIndex('stock_items_catalogue_unique').on(t.orgId, t.catalogueItemId),
+    nameUnique: uniqueIndex('stock_items_name_unique').on(t.orgId, sql`lower(${t.name})`),
+  }),
+);
+
+/** Append-only. Positive in, negative out. "sold" rows point at the bill line. */
+export const stockMovements = pgTable(
+  'stock_movements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id),
+    stockItemId: uuid('stock_item_id')
+      .notNull()
+      .references(() => stockItems.id),
+    kind: text('kind').notNull(),
+    quantity: integer('quantity').notNull(),
+    expiresOn: date('expires_on'),
+    unitCostPaise: bigint('unit_cost_paise', { mode: 'number' }),
+    reason: text('reason'),
+    invoiceLineId: uuid('invoice_line_id').references(() => invoiceLines.id),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    kindCheck: check('stock_movements_kind_check', sql`${t.kind} in ('received', 'used', 'sold', 'adjusted', 'returned')`),
+    signCheck: check(
+      'stock_movements_sign_check',
+      sql`${t.quantity} <> 0 and (${t.kind} not in ('received', 'returned') or ${t.quantity} > 0) and (${t.kind} not in ('used', 'sold') or ${t.quantity} < 0)`,
+    ),
+    costCheck: check('stock_movements_cost_check', sql`${t.unitCostPaise} is null or ${t.unitCostPaise} >= 0`),
+    itemBranchIdx: index('stock_movements_item_branch_idx').on(t.stockItemId, t.branchId),
+  }),
+);

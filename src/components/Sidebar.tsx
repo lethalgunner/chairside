@@ -9,7 +9,7 @@ interface Props {
   userName: string;
   branches: { id: string; name: string; gstRegistered: boolean }[];
   activeBranchId: string;
-  can: { patients: boolean; bill: boolean; dayClose: boolean; reports: boolean; gst: boolean; settings: boolean };
+  can: { patients: boolean; bill: boolean; dayClose: boolean; reports: boolean; gst: boolean; settings: boolean; stock: boolean };
 }
 
 export default function Sidebar({ userName, branches, activeBranchId, can }: Props) {
@@ -79,6 +79,7 @@ export default function Sidebar({ userName, branches, activeBranchId, can }: Pro
         {can.patients ? link('/invoices', 'Bills') : null}
         {can.patients || can.reports ? link('/receivables', 'Receivables') : null}
         {can.patients ? link('/recalls', 'Recalls') : null}
+        {can.stock ? link('/stock', 'Stock') : null}
         {can.gst ? <div className="sec">Books</div> : null}
         {can.gst ? link('/gst', 'GST working papers') : null}
         {can.reports ? link('/scorecard', 'Pilot scorecard') : null}

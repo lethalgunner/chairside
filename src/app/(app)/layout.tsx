@@ -30,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           reports: canAnywhere(ctx, 'report.branch'),
           gst: canAnywhere(ctx, 'report.gst'),
           settings: hasAnySettings(settingsAccess(ctx)),
+          stock: canAnywhere(ctx, 'stock.manage'),
         }}
       />
       <div className="content">

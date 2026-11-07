@@ -8,6 +8,7 @@ import { closeStreaks, STREAK_WINDOW_DAYS } from '@/services/streak';
 import { recordDashboardView } from '@/services/usage';
 import { queueFor } from '@/services/visits';
 import { appointmentCounts } from '@/services/appointments';
+import { listStock } from '@/services/stock';
 import { Card, Empty, MODE_LABEL, PageHead, StatusPill, Tile } from '@/components/ui';
 import DayNav from '@/components/DayNav';
 
@@ -25,6 +26,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     isToday ? queueFor(ctx, scopeBranchIds(ctx), today) : Promise.resolve([]),
   ]);
   const appts = await appointmentCounts(ctx, scopeBranchIds(ctx), date);
+  const stockBranch = ctx.activeBranchId !== 'all' ? ctx.activeBranchId : null;
+  const stock = isToday && stockBranch && canDo(ctx, 'stock.manage', stockBranch) ? (await listStock(ctx, stockBranch)).filter((r) => r.active) : [];
+  const stockLow = stock.filter((r) => r.low).length;
+  const stockExpiring = stock.filter((r) => r.expiring || r.expired).length;
   const waitingNow = queue.filter((v) => v.status === 'waiting').length;
   const inChairNow = queue.filter((v) => v.status === 'in_chair').length;
   const seenNotBilled = queue.filter((v) => v.seenNotBilled).length;
@@ -170,6 +175,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           {/* Unbilled work and money owed are figures for now, not for a past day. */}
           {isToday ? (
           <div className="row">
+            {stockLow + stockExpiring > 0 ? (
+              <Card title="Stock" action={<Link className="link" href="/stock">Open →</Link>}>
+                <p>
+                  {stockLow > 0 ? <span className="due-text strong">{stockLow} low</span> : null}
+                  {stockLow > 0 && stockExpiring > 0 ? ' · ' : null}
+                  {stockExpiring > 0 ? <span className="strong">{stockExpiring} may expire within 60 days</span> : null}
+                </p>
+              </Card>
+            ) : null}
             {appts.total > 0 ? (
               <Card title="Appointments" action={<Link className="link" href="/appointments">Open →</Link>}>
                 <p>

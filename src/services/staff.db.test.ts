@@ -34,7 +34,7 @@ describe('team: invite (T14)', () => {
 
     let row = (await listStaff(owner)).find((p) => p.id === r.userId)!;
     expect(row.status).toBe('pending');
-    expect(row.grants).toEqual([{ role: 'front_desk', branchName: 'Kanpur' }]);
+    expect(row.grants).toEqual([expect.objectContaining({ role: 'front_desk', branchName: 'Kanpur', branchId: f.kanpur.id })]);
 
     const redeemed = await redeemInvite(r.token, 'ravi has a long password', 'ravi has a long password');
     expect(redeemed.ok).toBe(true);
