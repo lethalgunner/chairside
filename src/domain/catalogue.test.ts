@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkCatalogueItem, GST_RATES_BP, isGoodsCategory, type CatalogueItemInput } from './catalogue';
+import { checkCatalogueItem, GST_RATES_BP, isGoodsCategory, suggestItemCode, type CatalogueItemInput } from './catalogue';
 
 const base: CatalogueItemInput = {
   code: ' ngd ',
@@ -53,5 +53,35 @@ describe('price list validation (T15)', () => {
     expect(checkCatalogueItem({ ...base, hsnSacCode: '90211000' }).ok).toBe(true);
     expect(checkCatalogueItem({ ...base, hsnSacCode: '90211' }).ok).toBe(false);
     expect(checkCatalogueItem({ ...base, category: '' })).toMatchObject({ ok: true, value: { category: null } });
+  });
+});
+
+describe('code for an item added from the bill', () => {
+  const none = new Set<string>();
+  it('uses initials for several words and the word for one', () => {
+    expect(suggestItemCode('Root canal treatment', none)).toBe('RCT');
+    expect(suggestItemCode('Scaling', none)).toBe('SCALING');
+    expect(suggestItemCode('Bleaching (in-office)', none)).toBe('BIO');
+    expect(suggestItemCode('Orthodontics', none)).toBe('ORTHODON');
+  });
+  it('falls back when the name has no usable letters', () => {
+    expect(suggestItemCode('दांत', none)).toBe('ITEM');
+    expect(suggestItemCode('X', none)).toBe('ITEM');
+    expect(suggestItemCode('X ray', none)).toBe('XR');
+  });
+  it('adds a number when the code is taken', () => {
+    expect(suggestItemCode('Root canal treatment', new Set(['RCT']))).toBe('RCT-2');
+    expect(suggestItemCode('Root canal treatment', new Set(['RCT', 'RCT-2']))).toBe('RCT-3');
+  });
+  it('always passes the price list code rule', () => {
+    const taken = new Set<string>();
+    for (const name of ['Orthodontics', 'A b c d e f g h i j', 'दांत', 'Zirconia crown', 'Q']) {
+      for (let i = 0; i < 12; i++) {
+        const code = suggestItemCode(name, taken);
+        taken.add(code);
+        const r = checkCatalogueItem({ code, name: 'Valid name', category: '', price: '100', taxCategory: 'exempt_healthcare', hsnSacCode: '9993', gstRateBp: 0 });
+        expect(r.ok, code).toBe(true);
+      }
+    }
   });
 });

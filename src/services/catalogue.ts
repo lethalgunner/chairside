@@ -2,7 +2,7 @@ import { and, asc, desc, eq, inArray, isNull, lte, or } from 'drizzle-orm';
 import { getDb, type DB, type Tx } from '@/db/client';
 import { catalogueItems, memberships, priceListEntries, users } from '@/db/schema';
 import { businessDate } from '@/domain/dates';
-import { checkCatalogueItem, type CatalogueItemInput } from '@/domain/catalogue';
+import { checkCatalogueItem, suggestItemCode, type CatalogueItemInput } from '@/domain/catalogue';
 import type { Paise } from '@/domain/money';
 import type { FieldErrors } from '@/domain/staff';
 import type { TaxCategory } from '@/domain/tax';
@@ -142,6 +142,36 @@ export async function createCatalogueItem(ctx: TenantContext, input: CatalogueIt
     if (isUniqueViolation(err, 'catalogue_org_code_unique')) return { ok: false, fieldErrors: { code: `Code ${checked.value.code} is already used. Pick another.` } };
     throw err;
   }
+}
+
+export type BillItemInput = Pick<CatalogueItemInput, 'name' | 'price' | 'taxCategory' | 'hsnSacCode' | 'gstRateBp'>;
+export type BillItemResult = { ok: true; item: CatalogueEntry } | { ok: false; fieldErrors: FieldErrors };
+
+/**
+ * "+ New item" on the bill (KS, 7 Nov 2026). Same rules, audit and owner-only
+ * capability as Settings → Price list; only the code is chosen for the owner.
+ * The item joins the org-wide price list, so the bill is still priced by the
+ * server from the list, and the item is there for the next patient.
+ * GST treatment is the owner's pick, unverified until a CA confirms (Q6).
+ */
+export async function addItemFromBill(ctx: TenantContext, branchId: string, input: BillItemInput): Promise<BillItemResult> {
+  assertCatalogueManager(ctx);
+  if (!ctx.branchIds.includes(branchId)) throw new ForbiddenError();
+  // Two tries: a code taken between reading and inserting gets the next number.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const rows = await getDb().select({ code: catalogueItems.code }).from(catalogueItems).where(eq(catalogueItems.orgId, ctx.orgId));
+    const code = suggestItemCode(input.name, new Set(rows.map((r) => r.code)));
+    const res = await createCatalogueItem(ctx, { ...input, code, category: '' });
+    if (!res.ok) {
+      if (res.fieldErrors.code && Object.keys(res.fieldErrors).length === 1 && attempt === 0) continue;
+      const { code: _code, ...fieldErrors } = res.fieldErrors;
+      return { ok: false, fieldErrors: Object.keys(fieldErrors).length > 0 ? fieldErrors : { name: 'Could not save this item. Press again.' } };
+    }
+    const item = (await listCatalogue(ctx, branchId)).find((c) => c.id === res.id);
+    if (!item) throw new Error('New item missing from the price list');
+    return { ok: true, item };
+  }
+  return { ok: false, fieldErrors: { name: 'Could not save this item. Press again.' } };
 }
 
 async function lockItem(tx: Tx, ctx: TenantContext, id: string) {

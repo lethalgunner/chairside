@@ -4,7 +4,7 @@ import { closeDb, getDb } from '@/db/client';
 import { auditLog, catalogueItems } from '@/db/schema';
 import type { CatalogueItemInput } from '@/domain/catalogue';
 import { createFixture, key, type Fixture } from '@/test/fixtures';
-import { createCatalogueItem, listCatalogue, listCatalogueForSettings, setCatalogueItemActive, updateCatalogueItem } from './catalogue';
+import { addItemFromBill, createCatalogueItem, listCatalogue, listCatalogueForSettings, setCatalogueItemActive, updateCatalogueItem } from './catalogue';
 import { ForbiddenError, UserFacingError } from './context';
 import { getInvoice, issueBill } from './invoices';
 import { registerPatient } from './patients';
@@ -104,5 +104,43 @@ describe('price list settings (T15)', () => {
     await expect(listCatalogueForSettings(f.ctx('accountant'))).rejects.toThrow(ForbiddenError);
     await expect(updateCatalogueItem(other.ctx('owner'), id, guard)).rejects.toThrow(ForbiddenError);
     await expect(setCatalogueItemActive(other.ctx('owner'), id, false)).rejects.toThrow(ForbiddenError);
+  });
+});
+
+describe('+ New item on the bill', () => {
+  const crown = { name: 'Zirconia crown premium', price: '12,000', taxCategory: 'goods_prosthetic', hsnSacCode: '9021', gstRateBp: 500 };
+
+  it('owner adds an item that is priced for the branch, audited, and billable at once', async () => {
+    const res = await addItemFromBill(f.ctx('owner', f.pune.id), f.pune.id, crown);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.item).toMatchObject({ code: 'ZCP', name: 'Zirconia crown premium', pricePaise: 1_200_000, taxCategory: 'goods_prosthetic', gstRateBp: 500 });
+    const audit = await getDb().select().from(auditLog).where(eq(auditLog.entityId, res.item.id));
+    expect(audit.map((a) => a.action)).toEqual(['catalogue.create']);
+    const inv = await billFor(res.item.id);
+    expect(inv.lines[0]).toMatchObject({ description: 'Zirconia crown premium', unitPricePaise: 1_200_000 });
+  });
+
+  it('the same name again gets the next code', async () => {
+    const res = await addItemFromBill(f.ctx('owner', f.pune.id), f.pune.id, crown);
+    expect(res.ok && res.item.code).toBe('ZCP-2');
+  });
+
+  it('exempt treatment is forced to 0 % and bad input comes back per field, without a code error', async () => {
+    const ok = await addItemFromBill(f.ctx('owner', f.pune.id), f.pune.id, { name: 'Gum depigmentation', price: '4000', taxCategory: 'exempt_healthcare', hsnSacCode: '9993', gstRateBp: 1800 });
+    expect(ok.ok && ok.item.gstRateBp).toBe(0);
+    const bad = await addItemFromBill(f.ctx('owner', f.pune.id), f.pune.id, { name: 'x', price: '-5', taxCategory: 'nope', hsnSacCode: '1', gstRateBp: 700 });
+    expect(bad.ok).toBe(false);
+    if (bad.ok) return;
+    expect(Object.keys(bad.fieldErrors).sort()).toEqual(['gstRateBp', 'hsnSacCode', 'name', 'price', 'taxCategory']);
+  });
+
+  it('front desk and manager cannot add to the price list from the bill', async () => {
+    await expect(addItemFromBill(f.ctx('desk', f.pune.id), f.pune.id, crown)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(addItemFromBill(f.ctx('manager', f.pune.id), f.pune.id, crown)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("another org's branch is refused", async () => {
+    await expect(addItemFromBill(f.ctx('owner', f.pune.id), other.pune.id, crown)).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

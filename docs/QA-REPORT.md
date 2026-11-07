@@ -1,5 +1,14 @@
 # QA report
 
+## "+ New item" on the bill (ADR-016) — 8 Nov 2026
+| Suite | Result |
+|---|---|
+| `npm test` | 306 / 306 (+4: item code suggestion always passes the code rule) |
+| `npm run test:db` | 123 / 123 (+5: owner adds, audited, billable at once; same name → next code; exempt forced to 0 %; desk and manager refused; other org's branch refused) |
+| `npm run test:e2e` | 79 / 79 (+2: owner adds from a no-match search, bad price caught, bill issued, item in Settings; desk sees "ask the owner", no button). axe clean on the open form |
+
+**Defect found and fixed (S3):** after a form moved to a new page, a click within 100 ms of landing could be undone 2.5 s later by the self-healing fallback (T18), yanking the user back. `afterAction` now counts "moved on" as landed. Seen as a failure of `11-sprint2` in two full runs.
+
 ## Pilot 0 build — 17 Oct 2026
 **Branch:** `pilot0` · **Result:** pass, with the open items below
 

@@ -10,6 +10,7 @@ import type { CatalogueEntry, DoctorOption } from '@/services/catalogue';
 import { TaxPill } from '@/components/ui';
 import { useActionForm } from '@/lib/nav/use-action-form';
 import NotSent from '@/components/NotSent';
+import NewItemForm, { type NewItemOptions } from './NewItemForm';
 
 interface Line {
   key: string;
@@ -33,6 +34,8 @@ interface Props {
   catalogue: CatalogueEntry[];
   doctors: DoctorOption[];
   unbilled: { procedureId: string; name: string; doctorName: string; valuePaise: Paise }[];
+  /** Owner only: lets "+ New item" add to the price list from the bill. Null for everyone else. */
+  newItem: NewItemOptions | null;
 }
 
 function parseDiscount(s: string): Paise | null {
@@ -47,7 +50,11 @@ function parseDiscount(s: string): Paise | null {
  * Totals are computed live by the same domain function the server uses, so
  * the preview and the issued bill cannot disagree.
  */
-export default function BillBuilder({ patient, branch, catalogue, doctors, unbilled }: Props) {
+export default function BillBuilder({ patient, branch, catalogue: listed, doctors, unbilled, newItem }: Props) {
+  // Items added with "+ New item" during this bill, until the page next loads.
+  const [added, setAdded] = useState<CatalogueEntry[]>([]);
+  const catalogue = useMemo(() => [...listed, ...added.filter((a) => !listed.some((c) => c.id === a.id))], [listed, added]);
+  const [creating, setCreating] = useState<string | null>(null);
   const { busy: pending, notSent, send, release, navigate } = useActionForm('bill.issue');
   const idem = useRef<string>(crypto.randomUUID());
   const [doctorId, setDoctorId] = useState(doctors.length === 1 ? doctors[0]!.id : '');
@@ -93,6 +100,13 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
     setLines((ls) => [...ls, { key: crypto.randomUUID(), catalogueItemId: c.id, name: c.name, unitPricePaise: c.pricePaise, qty: '1', discount: '', discountReason: '', tooth: '', taxCategory: c.taxCategory, hsnSacCode: c.hsnSacCode, gstRateBp: c.gstRateBp }]);
     setFilter('');
     setConfirming(false);
+  }
+
+  function addNewItem(item: CatalogueEntry) {
+    setAdded((xs) => [...xs, item]);
+    setCreating(null);
+    addItem(item);
+    filterRef.current?.focus();
   }
 
   function addUnbilled(u: Props['unbilled'][number]) {
@@ -237,9 +251,22 @@ export default function BillBuilder({ patient, branch, catalogue, doctors, unbil
                   </button>
                 </li>
               ))}
-              {matches.length === 0 ? <li className="muted small">Nothing matches “{filter}”.</li> : null}
+              {matches.length === 0 ? (
+                <li className="muted small">
+                  Nothing matches “{filter}”.{' '}
+                  {newItem ? null : 'Only the owner can add items to the price list.'}
+                </li>
+              ) : null}
             </ul>
+            {newItem && creating === null ? (
+              <button type="button" className="linkish" onClick={() => setCreating(filter.trim())}>
+                {filter.trim() && matches.length === 0 ? `+ Add “${filter.trim()}” as a new item` : '+ New item'}
+              </button>
+            ) : null}
           </div>
+          {newItem && creating !== null ? (
+            <NewItemForm key={creating} initialName={creating} taxCategories={newItem.taxCategories} rates={newItem.rates} onAdded={addNewItem} onCancel={() => setCreating(null)} />
+          ) : null}
         </div>
       </div>
 

@@ -430,3 +430,22 @@ Also recorded from Sprint 1:
 - **zod 4.6.7** replaces zod 3 (advisory GHSA-mrhx-c7xc-m3w5). No code changes
   were needed; the full suite is green. Dev-only advisories in vitest and
   esbuild remain and don't reach production; upgrade vitest separately.
+
+## ADR-016 — "+ New item" on the bill (7 Nov 2026)
+
+**Context.** KS, testing as owner: adding a treatment that isn't on the price
+list meant leaving the bill for Settings → Price list. Until now the bill took
+only price-list items, priced by the server, with discounts needing a reason.
+That rule exists to stop leakage (no typed prices at the desk) and to keep a
+GST treatment and HSN/SAC on every line. It was a consequence of T8/T15/T24,
+never a decision taken on the bill screen itself.
+
+**Decision.** Anyone with `catalogue.manage` (owner only) gets "+ New item" on
+the bill: name (prefilled from the search), price, GST treatment, and HSN/SAC
+and rate when taxable. It saves to the org-wide price list through the same
+validation, audit and capability as Settings, with a code picked for them
+(RCT, RCT-2…), then adds the line. The bill is still priced from the list.
+
+**Not decided (KS).** Whether front desk or managers may add items, or a
+one-off "Other" line with a typed price. Today they see "Only the owner can add
+items to the price list."

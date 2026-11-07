@@ -65,10 +65,14 @@ export function afterAction(router: SoftRouter, opts: { form: string; to?: strin
   const deps = { setInterval: (fn: () => void, ms: number) => window.setInterval(fn, ms), clearInterval: (h: unknown) => window.clearInterval(h as number), now: () => performance.now(), warn: (l: string) => console.warn(l) };
   if (opts.to) {
     const target = new URL(opts.to, window.location.href);
+    const here = () => window.location.pathname + window.location.search;
+    const start = here();
     router.push(opts.to);
     return settle(opts.form, {
       ...deps,
-      isDone: () => window.location.pathname === target.pathname && window.location.search === target.search,
+      // Landed, or already moved on: a click within one poll (100 ms) of landing
+      // used to miss the target and get yanked back 2.5 s later (QA, 8 Nov).
+      isDone: () => here() === target.pathname + target.search || here() !== start,
       hardNavigate: () => window.location.assign(target.href),
     });
   }

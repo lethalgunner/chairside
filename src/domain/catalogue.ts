@@ -71,3 +71,22 @@ export function checkCatalogueItem(input: CatalogueItemInput): Checked<Catalogue
   if (Object.keys(fieldErrors).length > 0 || price === null || !taxCategory) return { ok: false, fieldErrors };
   return { ok: true, value: { code, name, category, defaultPricePaise: price, taxCategory, hsnSacCode, gstRateBp, isGoods: isGoodsCategory(taxCategory) } };
 }
+
+/**
+ * A code for an item added from the bill (no code field there): initials for
+ * several words ("Root canal treatment" → RCT), else the first 8 letters
+ * ("Scaling" → SCALING), else ITEM; then -2, -3… if that code is taken.
+ * Always passes checkCatalogueItem's code rule. `taken` holds upper-case codes.
+ */
+export function suggestItemCode(name: string, taken: ReadonlySet<string>): string {
+  const words = name.toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+  let base = words.length >= 2 ? words.map((w) => w[0]).join('').slice(0, 8) : (words[0] ?? '').slice(0, 8);
+  if (base.length < 2) base = words.join('').slice(0, 8);
+  if (base.length < 2) base = 'ITEM';
+  if (!taken.has(base)) return base;
+  for (let n = 2; n < 1000; n++) {
+    const code = `${base}-${n}`;
+    if (!taken.has(code)) return code;
+  }
+  throw new Error('No free item code');
+}

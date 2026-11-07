@@ -4,10 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getContext } from '@/lib/auth';
 import { updateBranchDetails, type SaveBranchResult } from '@/services/branches';
-import { createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type SaveItemResult } from '@/services/catalogue';
+import { addItemFromBill, createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type BillItemResult, type SaveItemResult } from '@/services/catalogue';
 import { previewCatalogueImport, saveCatalogueImport, type ImportPreview, type ImportSaveResult } from '@/services/catalogue-import';
 import { inviteStaff, passwordResetLink, reissueInvite, setStaffActive, type InviteStaffResult } from '@/services/staff';
-import { UserFacingError } from '@/services/context';
+import { requireActiveBranch, UserFacingError } from '@/services/context';
 import { run, signedOut, type ActionResult } from './run';
 
 /**
@@ -87,6 +87,17 @@ export async function saveCatalogueItemAction(id: string | null, input: z.input<
     return id ? updateCatalogueItem(ctx, parse(idInput, id), data) : createCatalogueItem(ctx, data);
   });
   if (res.ok && res.data.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+const billItemInput = itemInput.pick({ name: true, price: true, taxCategory: true, hsnSacCode: true, gstRateBp: true });
+
+/** "+ New item" on the bill: adds to the price list and returns the item priced for the active branch. */
+export async function addBillItemAction(input: z.input<typeof billItemInput>): Promise<ActionResult<BillItemResult>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('catalogue.create_from_bill');
+  const res = await run('catalogue.create_from_bill', () => addItemFromBill(ctx, requireActiveBranch(ctx), parse(billItemInput, input)));
+  if (res.ok && res.data.ok) revalidatePath('/settings/catalogue');
   return res;
 }
 
