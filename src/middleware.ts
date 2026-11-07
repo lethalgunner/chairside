@@ -14,6 +14,8 @@ import { loginHref, PATH_HEADER } from '@/lib/nav/safe-next';
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (pathname === '/login' || pathname === '/setup' || pathname === '/api/health') return NextResponse.next();
+  // A doctor's calendar feed (LET-170): the token in the link is the credential, checked by the route.
+  if (pathname.startsWith('/calendar/')) return NextResponse.next();
   const search = new URLSearchParams(req.nextUrl.search);
   search.delete('_rsc');
   const qs = search.toString();

@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import { requireContext } from '@/lib/auth';
-import { businessDate, displayDate, resolveViewDate, shortDay } from '@/domain/dates';
+import { appointmentCounts } from '@/services/appointments';
+import { addDays, businessDate, displayDate, resolveViewDate, shortDay } from '@/domain/dates';
 import { DENOMINATIONS } from '@/domain/ledger';
 import { formatINR, type Paise } from '@/domain/money';
 import { canDo } from '@/services/context';
@@ -61,6 +62,10 @@ export default async function DayClosePage({ searchParams }: { searchParams: Pro
             closedBy: s.closed.closedByName ?? 'the desk',
             legacyVerdict: comparison && (comparison.bills.old !== null || comparison.collected.old !== null) ? comparison.verdict : null,
             unbilledCount: isToday ? (await unbilledProcedures(ctx, [branchId])).length : 0,
+            appointments: await (async () => {
+              const [d, next] = await Promise.all([appointmentCounts(ctx, [branchId], date), appointmentCounts(ctx, [branchId], addDays(date, 1))]);
+              return { booked: d.total, seen: d.arrived, noShow: d.noShow, byDoctor: d.byDoctor, tomorrow: next.total };
+            })(),
           }),
         )
       : null;

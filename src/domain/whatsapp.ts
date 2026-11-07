@@ -67,6 +67,14 @@ export interface DaySummaryInput {
   /** The old-vs-Chairside verdict as shown at day close, or null when not entered. */
   legacyVerdict: string | null;
   unbilledCount: number;
+  /** Appointment totals (Sprint 4, LET-171). Doctors by name; never a patient. */
+  appointments?: {
+    booked: number;
+    seen: number;
+    noShow: number;
+    byDoctor: { name: string; booked: number; seen: number; noShow: number }[];
+    tomorrow: number;
+  };
 }
 
 const signed = (p: Paise) => (p === 0 ? 'exact' : p > 0 ? `over by ${formatINR(p)}` : `short by ${formatINR(Math.abs(p) as Paise)}`);
@@ -83,6 +91,12 @@ export function daySummaryText(s: DaySummaryInput): string {
   lines.push(`Drawer: ${s.variancePaise === null ? 'not counted' : signed(s.variancePaise)}`);
   if (s.unbilledCount > 0) lines.push(`Done, not billed: ${s.unbilledCount}`);
   if (s.legacyVerdict) lines.push(`Old software: ${s.legacyVerdict}`);
+  const a = s.appointments;
+  if (a && (a.booked > 0 || a.tomorrow > 0)) {
+    lines.push(`Appointments: ${a.booked} booked · ${a.seen} seen · ${a.noShow} no-show`);
+    if (a.byDoctor.length > 1) for (const d of a.byDoctor) lines.push(`  ${d.name}: ${d.seen}/${d.booked} seen${d.noShow ? `, ${d.noShow} no-show` : ''}`);
+    lines.push(`Tomorrow: ${a.tomorrow} booked`);
+  }
   lines.push(`Closed by ${firstName(s.closedBy)}`);
   return lines.join('\n');
 }

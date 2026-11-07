@@ -1452,3 +1452,20 @@ td.token {
 .actions.top { border-top: 0; margin-top: 0; padding-top: 0; }
 fieldset.field { border: 0; padding: 0; margin: 0 0 14px; min-width: 0; }
 fieldset.field legend { font-size: 12.5px; font-weight: 600; margin-bottom: 6px; padding: 0; }
+
+/* Appointments (Sprint 4, LET-167) */
+.day-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.inline-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.inline-form input { min-width: 0; }
+.appt-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-items: start; }
+.appt-grid .card { position: relative; }
+.doc-dot { position: absolute; top: 18px; right: 16px; width: 10px; height: 10px; border-radius: 50%; }
+.appt-list { display: grid; gap: 8px; }
+.appt { display: grid; grid-template-columns: 52px 1fr auto; gap: 4px 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.appt:last-child { border-bottom: 0; }
+.appt .appt-actions { grid-column: 2 / -1; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.appt.s-cancelled > span:nth-child(2) { text-decoration: line-through; color: var(--ink-3); }
+.free-slots { margin-top: 12px; }
+.free-slots .chip { text-decoration: none; padding: 6px 10px; }
+.field.narrow { max-width: 180px; margin-top: 10px; }
+@media (max-width: 600px) { .appt-grid { grid-template-columns: 1fr; } }

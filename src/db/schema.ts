@@ -473,9 +473,16 @@ export const appointments = pgTable(
     endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
     status: appointmentStatusEnum('status').notNull().default('booked'),
     notes: text('notes'),
+    /** Plain words for the desk ("Check-up", "RCT sitting 2"). Never in the calendar feed or WhatsApp. */
+    reason: text('reason'),
+    cancelReason: text('cancel_reason'),
+    createdBy: uuid('created_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
+    // Also: EXCLUDE no overlap per doctor for active statuses (migration 0008, needs btree_gist).
+    timesCheck: check('appointments_times_check', sql`${t.endsAt} > ${t.startsAt}`),
     branchDayIdx: index('appointments_branch_day_idx').on(t.branchId, t.startsAt),
     doctorDayIdx: index('appointments_doctor_day_idx').on(t.doctorId, t.startsAt),
   }),
@@ -1063,6 +1070,8 @@ export const visits = pgTable(
     arrivedAt: timestamp('arrived_at', { withTimezone: true }).notNull().defaultNow(),
     seatedAt: timestamp('seated_at', { withTimezone: true }),
     doneAt: timestamp('done_at', { withTimezone: true }),
+    /** Set when the patient arrived for an appointment (Sprint 4, LET-167). */
+    appointmentId: uuid('appointment_id').references(() => appointments.id),
     createdBy: uuid('created_by')
       .notNull()
       .references(() => users.id),
@@ -1075,6 +1084,7 @@ export const visits = pgTable(
       .on(t.branchId, t.businessDate, t.patientId)
       .where(sql`status in ('waiting', 'in_chair')`),
     orgDayIdx: index('visits_org_day_idx').on(t.orgId, t.businessDate),
+    appointmentUnique: uniqueIndex('visits_appointment_unique').on(t.appointmentId).where(sql`appointment_id is not null`),
   }),
 );
 

@@ -83,6 +83,13 @@ describe('daySummaryText (T33)', () => {
     expect(daySummaryText({ ...base, variancePaise: paise(2_000) })).toContain('Drawer: over by ₹20.00');
     expect(daySummaryText({ ...base, variancePaise: null })).toContain('Drawer: not counted');
   });
+
+  it('adds appointments per doctor and tomorrow (LET-171), and stays quiet when there are none', () => {
+    const base = { branchName: 'B', dayLabel: 'D', billCount: 0, billedPaise: paise(0), collected: [], collectedPaise: paise(0), cashOutPaise: paise(0), closedBy: 'X Y', legacyVerdict: null, unbilledCount: 0, variancePaise: null };
+    const t = daySummaryText({ ...base, appointments: { booked: 9, seen: 7, noShow: 1, tomorrow: 6, byDoctor: [{ name: 'Dr. A', booked: 5, seen: 4, noShow: 1 }, { name: 'Dr. B', booked: 4, seen: 3, noShow: 0 }] } });
+    expect(t).toContain('Appointments: 9 booked · 7 seen · 1 no-show\n  Dr. A: 4/5 seen, 1 no-show\n  Dr. B: 3/4 seen\nTomorrow: 6 booked\nClosed by X');
+    expect(daySummaryText({ ...base, appointments: { booked: 0, seen: 0, noShow: 0, tomorrow: 0, byDoctor: [] } })).not.toContain('Appointments');
+  });
 });
 
 describe('remindedLabel (T32)', () => {

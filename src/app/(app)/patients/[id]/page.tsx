@@ -13,7 +13,9 @@ import { patientAccount, patientReceipts } from '@/services/reports';
 import { testSeriesEnabled } from '@/services/util';
 import { openRecalls, MAX_RECALL_DAYS } from '@/services/recalls';
 import { openVisitFor } from '@/services/visits';
-import { addDays, businessDate } from '@/domain/dates';
+import { upcomingForPatient } from '@/services/appointments';
+import { APPOINTMENT_LABEL } from '@/domain/appointments';
+import { addDays, businessDate, shortDay } from '@/domain/dates';
 import { defaultDueOn, RECALL_KINDS, RECALL_LABEL, VISIT_LABEL } from '@/domain/visits';
 import { AddToQueue, CloseRecall, RecallForm } from './FrontDesk';
 import RemindButton from '@/components/RemindButton';
@@ -49,7 +51,8 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
     dueByBranch.set(b.branchId, { name: b.branchName, due: add(cur?.due ?? ZERO, b.duePaise) });
   }
   const today = businessDate();
-  const [visit, nextVisits] = await Promise.all([openVisitFor(ctx, id), openRecalls(ctx, { branchIds: ctx.branchIds, patientId: id, today })]);
+  const [visit, nextVisits, appts] = await Promise.all([openVisitFor(ctx, id), openRecalls(ctx, { branchIds: ctx.branchIds, patientId: id, today }), upcomingForPatient(ctx, id)]);
+  const canBook = branch ? canDo(ctx, 'appointment.manage', branch) : false;
   const canQueue = branch ? canDo(ctx, 'visit.manage', branch) : false;
   const canRecall = branch ? canDo(ctx, 'recall.manage', branch) : false;
   const reminders = [...(await reminderTargets(ctx, [...dueByBranch].map(([branchId, v]) => ({ patientId: id, branchId, amountPaise: v.due })))).values()];
@@ -80,6 +83,11 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
             {canPay ? (
               <Link className="cta secondary-cta" href={`/receipts/new?patient=${patient.id}`}>
                 Record payment
+              </Link>
+            ) : null}
+            {canBook ? (
+              <Link className="cta secondary-cta" href={`/appointments/new?patient=${patient.id}`}>
+                Book appointment
               </Link>
             ) : null}
             {canQueue && !visit ? <AddToQueue patientId={patient.id} /> : null}
@@ -117,6 +125,21 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
           ))}
         </div>
       </div>
+
+      {appts.length > 0 ? (
+        <Card title="Appointments">
+          <ul className="plain">
+            {appts.map((a) => (
+              <li key={a.id}>
+                <strong>{a.date === today ? 'Today' : shortDay(a.date)} at {a.time}</strong> with {a.providerName}
+                {appts.some((x) => x.branchId !== a.branchId) || a.branchId !== branch ? ` at ${a.branchName}` : ''}
+                {a.reason ? <span className="muted"> · {a.reason}</span> : null} <span className="pill">{APPOINTMENT_LABEL[a.status]}</span>{' '}
+                <Link className="linkish small" href={`/appointments?date=${a.date}`}>Open day</Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       {canRecall || nextVisits.length > 0 ? (
         <Card title="Next visit">

@@ -30,7 +30,7 @@ export interface QueueRow {
 }
 
 /** Add a patient to today's queue at the active branch. Returns the token. */
-export async function addToQueue(ctx: TenantContext, patientId: string): Promise<{ visitId: string; token: number }> {
+export async function addToQueue(ctx: TenantContext, patientId: string, appointmentId: string | null = null): Promise<{ visitId: string; token: number }> {
   const branchId = requireActiveBranch(ctx);
   if (!canDo(ctx, 'visit.manage', branchId)) throw new ForbiddenError();
   if (!isUuid(patientId)) throw new ForbiddenError();
@@ -49,9 +49,9 @@ export async function addToQueue(ctx: TenantContext, patientId: string): Promise
         const token = next?.n ?? 1;
         const [v] = await tx
           .insert(visits)
-          .values({ orgId: ctx.orgId, branchId, patientId, businessDate: today, token, createdBy: ctx.userId })
+          .values({ orgId: ctx.orgId, branchId, patientId, businessDate: today, token, appointmentId, createdBy: ctx.userId })
           .returning({ id: visits.id });
-        await writeAudit(tx, ctx, { action: 'visit.add', entityType: 'visit', entityId: v!.id, branchId, after: { token, status: 'waiting' } });
+        await writeAudit(tx, ctx, { action: 'visit.add', entityType: 'visit', entityId: v!.id, branchId, after: { token, status: 'waiting', appointmentId } });
         return { visitId: v!.id, token };
       });
     } catch (err) {

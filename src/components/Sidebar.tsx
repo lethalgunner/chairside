@@ -70,6 +70,7 @@ export default function Sidebar({ userName, branches, activeBranchId, can }: Pro
         ) : null}
         <div className="sec">Today</div>
         {link('/', 'Dashboard')}
+        {can.patients ? link('/appointments', 'Appointments') : null}
         {can.patients ? link('/queue', 'Waiting room') : null}
         {can.dayClose ? link('/day-close', 'Day close') : null}
         {can.bill ? link('/unbilled', 'Unbilled') : null}

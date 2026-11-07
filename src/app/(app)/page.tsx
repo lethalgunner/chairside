@@ -7,6 +7,7 @@ import { dashboard, parallelRun, unclosedEarlierDays } from '@/services/reports'
 import { closeStreaks, STREAK_WINDOW_DAYS } from '@/services/streak';
 import { recordDashboardView } from '@/services/usage';
 import { queueFor } from '@/services/visits';
+import { appointmentCounts } from '@/services/appointments';
 import { Card, Empty, MODE_LABEL, PageHead, StatusPill, Tile } from '@/components/ui';
 import DayNav from '@/components/DayNav';
 
@@ -23,6 +24,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     isToday ? closeStreaks(ctx, scopeBranchIds(ctx), today) : Promise.resolve(new Map<string, number>()),
     isToday ? queueFor(ctx, scopeBranchIds(ctx), today) : Promise.resolve([]),
   ]);
+  const appts = await appointmentCounts(ctx, scopeBranchIds(ctx), date);
   const waitingNow = queue.filter((v) => v.status === 'waiting').length;
   const inChairNow = queue.filter((v) => v.status === 'in_chair').length;
   const seenNotBilled = queue.filter((v) => v.seenNotBilled).length;
@@ -168,6 +170,19 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           {/* Unbilled work and money owed are figures for now, not for a past day. */}
           {isToday ? (
           <div className="row">
+            {appts.total > 0 ? (
+              <Card title="Appointments" action={<Link className="link" href="/appointments">Open →</Link>}>
+                <p>
+                  <strong>{appts.waitingToArrive}</strong> still to come · <strong>{appts.arrived}</strong> arrived · {appts.total} booked today
+                  {appts.noShow > 0 ? (
+                    <>
+                      <br />
+                      <span className="due-text strong">{appts.noShow} no-show{appts.noShow > 1 ? 's' : ''}</span>
+                    </>
+                  ) : null}
+                </p>
+              </Card>
+            ) : null}
             {queue.length > 0 ? (
               <Card title="Waiting room" action={<Link className="link" href="/queue">Open →</Link>}>
                 <p>
