@@ -12,6 +12,8 @@ export interface SettingsAccess {
   doctors: boolean;
   /** The printed header on bills (Sprint 5, LET-174). Owner only. */
   print: boolean;
+  /** Medicines and prescription templates (Sprint 5, LET-172). */
+  medicines: boolean;
 }
 
 export function settingsAccess(ctx: TenantContext): SettingsAccess {
@@ -22,6 +24,7 @@ export function settingsAccess(ctx: TenantContext): SettingsAccess {
     export: canOrgWide(ctx.grants, 'data.export'),
     doctors: canAnywhere(ctx, 'provider.manage'),
     print: canAnywhere(ctx, 'branch.manage'),
+    medicines: canAnywhere(ctx, 'medicine.manage'),
   };
 }
 

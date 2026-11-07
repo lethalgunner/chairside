@@ -6,6 +6,7 @@ import { Empty, PageHead } from '@/components/ui';
 const SECTIONS = [
   { key: 'team', href: '/settings/team', title: 'Team', sub: 'Invite staff, send a new link, deactivate someone who has left.' },
   { key: 'doctors', href: '/settings/doctors', title: 'Doctors', sub: 'Profiles, registration numbers, where and when each doctor works, slot length and calendar links.' },
+  { key: 'medicines', href: '/settings/medicines', title: 'Medicines and templates', sub: 'The medicine list for prescriptions, and ready sets of medicines per treatment (e.g. root canal).' },
   { key: 'catalogue', href: '/settings/catalogue', title: 'Price list', sub: 'Treatments and products, their prices and GST.' },
   { key: 'branches', href: '/settings/branches', title: 'Branches', sub: 'Address, GST registration and GSTIN, day-close tolerance, opening float and UPI ID.' },
   { key: 'print', href: '/settings/print', title: 'Bill header', sub: 'Clinic name, logo, address and footer printed on bills, estimates and prescriptions.' },

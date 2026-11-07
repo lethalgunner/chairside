@@ -366,6 +366,8 @@ export const patients = pgTable(
     /** Household grouping, so one payer can settle for dependants. */
     householdId: uuid('household_id'),
 
+    /** Known allergies, written by a doctor on the prescription screen (Sprint 5, LET-173). Health data. */
+    allergies: text('allergies'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     mergedIntoId: uuid('merged_into_id'),
   },
@@ -1210,3 +1212,123 @@ export const treatmentPlanItems = pgTable(
     procedureUnique: uniqueIndex('treatment_plan_items_procedure_unique').on(t.procedureId),
   }),
 );
+
+/** The clinic's medicine list (Sprint 5, LET-172). Also the stock list for medicines (LET-176). */
+export const medicines = pgTable(
+  'medicines',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    name: text('name').notNull(),
+    strength: text('strength'),
+    form: text('form').notNull(),
+    dose: text('dose'),
+    frequency: text('frequency'),
+    days: integer('days'),
+    instructions: text('instructions'),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    nameUnique: uniqueIndex('medicines_org_name_strength_unique').on(t.orgId, sql`lower(${t.name})`, sql`coalesce(lower(${t.strength}), '')`),
+  }),
+);
+
+/** A ready set of medicines for a treatment, e.g. "Root canal" (LET-173). */
+export const rxTemplates = pgTable(
+  'rx_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    name: text('name').notNull(),
+    /** Suggest this template when this treatment was done or planned. */
+    catalogueItemId: uuid('catalogue_item_id').references(() => catalogueItems.id),
+    advice: text('advice'),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ orgIdx: index('rx_templates_org_idx').on(t.orgId) }),
+);
+
+export const rxTemplateLines = pgTable('rx_template_lines', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id')
+    .notNull()
+    .references(() => organisations.id),
+  templateId: uuid('template_id')
+    .notNull()
+    .references(() => rxTemplates.id),
+  medicineId: uuid('medicine_id')
+    .notNull()
+    .references(() => medicines.id),
+  dose: text('dose'),
+  frequency: text('frequency'),
+  days: integer('days'),
+  instructions: text('instructions'),
+  sortOrder: integer('sort_order').notNull().default(0),
+});
+
+/**
+ * A signed prescription (LET-173). Never edited: a correction is a new
+ * prescription with replacesId set, and the old one is marked replaced.
+ * Medicine names and doses are snapshotted on the lines.
+ */
+export const prescriptions = pgTable(
+  'prescriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id),
+    doctorId: uuid('doctor_id')
+      .notNull()
+      .references(() => providers.id),
+    rxNumber: integer('rx_number').notNull(),
+    issuedOn: date('issued_on').notNull(),
+    complaint: text('complaint'),
+    advice: text('advice'),
+    /** Allergies as written when signed. */
+    allergies: text('allergies'),
+    status: text('status').notNull().default('signed'),
+    replacesId: uuid('replaces_id'),
+    signedBy: uuid('signed_by')
+      .notNull()
+      .references(() => users.id),
+    signedAt: timestamp('signed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    statusCheck: check('prescriptions_status_check', sql`${t.status} in ('signed', 'replaced')`),
+    numberUnique: uniqueIndex('prescriptions_branch_number_unique').on(t.branchId, t.rxNumber),
+    patientIdx: index('prescriptions_patient_idx').on(t.orgId, t.patientId),
+    replacesUnique: uniqueIndex('prescriptions_replaces_unique').on(t.replacesId),
+  }),
+);
+
+export const prescriptionLines = pgTable('prescription_lines', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id')
+    .notNull()
+    .references(() => organisations.id),
+  prescriptionId: uuid('prescription_id')
+    .notNull()
+    .references(() => prescriptions.id),
+  medicineId: uuid('medicine_id').references(() => medicines.id),
+  name: text('name').notNull(),
+  strength: text('strength'),
+  form: text('form'),
+  dose: text('dose'),
+  frequency: text('frequency'),
+  days: integer('days'),
+  instructions: text('instructions'),
+  sortOrder: integer('sort_order').notNull().default(0),
+});

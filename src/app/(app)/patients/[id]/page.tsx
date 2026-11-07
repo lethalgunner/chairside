@@ -15,6 +15,7 @@ import { openRecalls, MAX_RECALL_DAYS } from '@/services/recalls';
 import { openVisitFor } from '@/services/visits';
 import { upcomingForPatient } from '@/services/appointments';
 import { listPlans, patientWork } from '@/services/plans';
+import { listPrescriptions, patientAllergies, prescriberAt } from '@/services/rx';
 import { PLAN_LABEL } from '@/domain/plans';
 import { APPOINTMENT_LABEL } from '@/domain/appointments';
 import { addDays, businessDate, shortDay } from '@/domain/dates';
@@ -56,7 +57,7 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
   const [visit, nextVisits, appts] = await Promise.all([openVisitFor(ctx, id), openRecalls(ctx, { branchIds: ctx.branchIds, patientId: id, today }), upcomingForPatient(ctx, id)]);
   const canBook = branch ? canDo(ctx, 'appointment.manage', branch) : false;
   const canPlan = branch ? canDo(ctx, 'plan.manage', branch) : false;
-  const [plans, work] = await Promise.all([listPlans(ctx, { patientId: id }), patientWork(ctx, id)]);
+  const [plans, work, rxs, allergies, prescriber] = await Promise.all([listPlans(ctx, { patientId: id }), patientWork(ctx, id), listPrescriptions(ctx, id), patientAllergies(ctx, id), branch ? prescriberAt(ctx, branch) : Promise.resolve(null)]);
   const canQueue = branch ? canDo(ctx, 'visit.manage', branch) : false;
   const canRecall = branch ? canDo(ctx, 'recall.manage', branch) : false;
   const reminders = [...(await reminderTargets(ctx, [...dueByBranch].map(([branchId, v]) => ({ patientId: id, branchId, amountPaise: v.due })))).values()];
@@ -87,6 +88,11 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
             {canPay ? (
               <Link className="cta secondary-cta" href={`/receipts/new?patient=${patient.id}`}>
                 Record payment
+              </Link>
+            ) : null}
+            {prescriber ? (
+              <Link className="cta secondary-cta" href={`/prescriptions/new?patient=${patient.id}`}>
+                Write prescription
               </Link>
             ) : null}
             {canBook ? (
@@ -141,6 +147,21 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
           ))}
         </div>
       </div>
+
+      {allergies ? <div className="callout warn allergy" role="note"><strong>Allergies:</strong> {allergies}</div> : null}
+
+      {rxs.length > 0 ? (
+        <Card title="Prescriptions">
+          <ul className="plain">
+            {rxs.map((r) => (
+              <li key={r.id}>
+                <Link className="link" href={`/prescriptions/${r.id}`}>{r.ref}</Link> · {displayDate(r.issuedOn)} · {r.doctor} · {r.count} medicine{r.count > 1 ? 's' : ''}
+                {r.status === 'replaced' ? <span className="pill credit"> Replaced</span> : null}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       {plans.length > 0 || canPlan ? (
         <Card title="Treatment plans" action={canPlan ? <Link className="link" href={`/plans/new?patient=${patient.id}`}>+ New plan</Link> : undefined}>
