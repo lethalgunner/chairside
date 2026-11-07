@@ -4,6 +4,7 @@ import { proceduresPerformed } from '@/db/schema';
 import { procedureDismissal } from '@/domain/corrections';
 import { assertCan, ForbiddenError, UserFacingError, type TenantContext } from './context';
 import { writeAudit } from './audit';
+import { reopenPlanItems } from './plan-links';
 import { isUuid } from './util';
 
 /**
@@ -33,6 +34,7 @@ export async function dismissProcedure(ctx: TenantContext, procedureId: string, 
       .update(proceduresPerformed)
       .set({ dismissedAt: new Date(), dismissedBy: ctx.userId, dismissReason: verdict.reason })
       .where(and(eq(proceduresPerformed.id, proc.id), isNull(proceduresPerformed.dismissedAt), isNull(proceduresPerformed.invoiceLineId)));
+    await reopenPlanItems(tx, ctx.orgId, [proc.id]);
     await writeAudit(tx, ctx, {
       action: 'procedure.dismiss',
       entityType: 'procedure',

@@ -1469,3 +1469,14 @@ fieldset.field legend { font-size: 12.5px; font-weight: 600; margin-bottom: 6px;
 .free-slots .chip { text-decoration: none; padding: 6px 10px; }
 .field.narrow { max-width: 180px; margin-top: 10px; }
 @media (max-width: 600px) { .appt-grid { grid-template-columns: 1fr; } }
+
+/* Treatment plans (Sprint 4, LET-168/169) */
+.plan-list { display: grid; gap: 10px; }
+.plan-rows input.small-in { display: block; margin-bottom: 4px; }
+tr.dropped td { color: var(--ink-3); }
+tr.dropped td.strong { text-decoration: line-through; }
+.item-edit { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 12.5px; }
+.item-edit label { display: flex; gap: 4px; align-items: center; }
+details.add-more { padding: 14px 16px; }
+details.add-more > summary { cursor: pointer; font-weight: 600; }
+details.add-more .card { box-shadow: none; border: 0; margin: 0; }

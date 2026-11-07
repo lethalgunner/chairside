@@ -14,6 +14,8 @@ import { testSeriesEnabled } from '@/services/util';
 import { openRecalls, MAX_RECALL_DAYS } from '@/services/recalls';
 import { openVisitFor } from '@/services/visits';
 import { upcomingForPatient } from '@/services/appointments';
+import { listPlans, patientWork } from '@/services/plans';
+import { PLAN_LABEL } from '@/domain/plans';
 import { APPOINTMENT_LABEL } from '@/domain/appointments';
 import { addDays, businessDate, shortDay } from '@/domain/dates';
 import { defaultDueOn, RECALL_KINDS, RECALL_LABEL, VISIT_LABEL } from '@/domain/visits';
@@ -53,6 +55,8 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
   const today = businessDate();
   const [visit, nextVisits, appts] = await Promise.all([openVisitFor(ctx, id), openRecalls(ctx, { branchIds: ctx.branchIds, patientId: id, today }), upcomingForPatient(ctx, id)]);
   const canBook = branch ? canDo(ctx, 'appointment.manage', branch) : false;
+  const canPlan = branch ? canDo(ctx, 'plan.manage', branch) : false;
+  const [plans, work] = await Promise.all([listPlans(ctx, { patientId: id }), patientWork(ctx, id)]);
   const canQueue = branch ? canDo(ctx, 'visit.manage', branch) : false;
   const canRecall = branch ? canDo(ctx, 'recall.manage', branch) : false;
   const reminders = [...(await reminderTargets(ctx, [...dueByBranch].map(([branchId, v]) => ({ patientId: id, branchId, amountPaise: v.due })))).values()];
@@ -106,7 +110,19 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
       />
       {!branch ? <div className="callout">Pick a branch in the branch menu to bill this patient or take a payment.</div> : null}
 
-      <div className="tiles two">
+      <div className="tiles four">
+        <div className="tile">
+          <div className="k">{formatINR(work?.todoPaise ?? ZERO)}</div>
+          <div className="l">Still to do{work && work.pending.length > 0 ? ` · ${work.pending.length} item${work.pending.length > 1 ? 's' : ''}` : ''}</div>
+        </div>
+        <div className={`tile${work && work.doneUnbilledCount > 0 ? ' alert' : ''}`}>
+          <div className="k">{formatINR(work?.doneUnbilledPaise ?? ZERO)}</div>
+          <div className="l">Done, not billed{work && work.doneUnbilledCount > 0 && canBill ? <> · <Link className="link" href={`/bills/new?patient=${patient.id}`}>Bill it</Link></> : null}</div>
+        </div>
+        <div className="tile">
+          <div className="k">{formatINR(work?.billedPaise ?? ZERO)}</div>
+          <div className="l">Billed · {formatINR(work?.paidPaise ?? ZERO)} paid</div>
+        </div>
         <div className={`tile${bal > 0 ? ' alert' : bal < 0 ? ' good' : ''}`}>
           <div className="k">{formatINR(Math.abs(bal) as Paise)}</div>
           <div className="l">{bal > 0 ? 'Owes the clinic' : bal < 0 ? 'Paid in advance' : 'Nothing owed'}</div>
@@ -125,6 +141,34 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
           ))}
         </div>
       </div>
+
+      {plans.length > 0 || canPlan ? (
+        <Card title="Treatment plans" action={canPlan ? <Link className="link" href={`/plans/new?patient=${patient.id}`}>+ New plan</Link> : undefined}>
+          {plans.length === 0 ? <p className="muted small">No plan yet. Make one to give the patient an estimate and track work over several sittings.</p> : null}
+          <ul className="plain plan-list">
+            {plans.map((p) => (
+              <li key={p.id}>
+                <Link className="link strong" href={`/plans/${p.id}`}>{p.title}</Link> <span className="muted small">{p.ref} · {p.doctorName}</span>{' '}
+                <span className={`pill${p.status === 'cancelled' ? ' credit' : p.status === 'completed' ? ' paid' : ''}`}>{PLAN_LABEL[p.status]}</span>
+                <div className="muted small">
+                  {p.totals.doneCount}/{p.totals.count} done · estimate {formatINR(p.totals.estimateTotalPaise)} · billed {formatINR(p.totals.billedPaise)}
+                  {p.totals.todoPaise > 0 && p.status !== 'cancelled' ? ` · ${formatINR(p.totals.todoPaise)} to do` : ''}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {work && work.pending.length > 0 ? (
+            <details>
+              <summary className="small">Pending work ({work.pending.length})</summary>
+              <ul className="plain small">
+                {work.pending.map((i) => (
+                  <li key={i.id}>{i.name}{i.toothNumber ? `, tooth ${i.toothNumber}` : ''} · sitting {i.session} · {formatINR((i.unitPricePaise * i.quantity) as Paise)} <span className="muted">({i.planTitle})</span></li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </Card>
+      ) : null}
 
       {appts.length > 0 ? (
         <Card title="Appointments">

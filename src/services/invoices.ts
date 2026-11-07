@@ -24,6 +24,7 @@ import { getBranch } from './branches';
 import { listCatalogue } from './catalogue';
 import { assertCan, canDo, ForbiddenError, requireActiveBranch, UserFacingError, type TenantContext } from './context';
 import { writeAudit } from './audit';
+import { reopenPlanItems } from './plan-links';
 import { providerAtBranch } from './providers';
 import { ensureDayOpen } from './daybook';
 import { nextDocumentNumber } from './numbering';
@@ -454,6 +455,7 @@ export async function voidInvoice(ctx: TenantContext, invoiceId: string, reasonR
       after: { status: 'void', reason, workDone },
     });
     if (!workDone) {
+      await reopenPlanItems(tx, ctx.orgId, released.map((p) => p.id));
       for (const p of released) {
         await writeAudit(tx, ctx, {
           action: 'procedure.dismiss',

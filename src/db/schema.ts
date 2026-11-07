@@ -1125,3 +1125,77 @@ export const recalls = pgTable(
     orgDueIdx: index('recalls_org_due_idx').on(t.orgId, t.status, t.dueOn),
   }),
 );
+
+/**
+ * Treatment plans (Sprint 4, LET-168). Four states: draft, accepted,
+ * completed, cancelled. The estimate number is per branch and is not a tax
+ * document number (gapless series stay for bills only).
+ */
+export const treatmentPlans = pgTable(
+  'treatment_plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id),
+    doctorId: uuid('doctor_id')
+      .notNull()
+      .references(() => providers.id),
+    estimateNumber: integer('estimate_number').notNull(),
+    title: text('title').notNull(),
+    status: text('status').notNull().default('draft'),
+    cancelReason: text('cancel_reason'),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    statusCheck: check('treatment_plans_status_check', sql`${t.status} in ('draft', 'accepted', 'completed', 'cancelled')`),
+    numberUnique: uniqueIndex('treatment_plans_branch_number_unique').on(t.branchId, t.estimateNumber),
+    patientIdx: index('treatment_plans_patient_idx').on(t.orgId, t.patientId),
+  }),
+);
+
+/** One line of work in a plan. "Done" points at the procedure it created. */
+export const treatmentPlanItems = pgTable(
+  'treatment_plan_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => treatmentPlans.id),
+    catalogueItemId: uuid('catalogue_item_id')
+      .notNull()
+      .references(() => catalogueItems.id),
+    toothNumber: text('tooth_number'),
+    quantity: integer('quantity').notNull().default(1),
+    /** Agreed price per unit, before GST. Becomes the procedure's price when done. */
+    unitPricePaise: bigint('unit_price_paise', { mode: 'number' }).notNull(),
+    /** Why the agreed price differs from the price list, if it does. */
+    priceReason: text('price_reason'),
+    session: integer('session').notNull().default(1),
+    status: text('status').notNull().default('planned'),
+    procedureId: uuid('procedure_id').references(() => proceduresPerformed.id),
+    doneAt: timestamp('done_at', { withTimezone: true }),
+    dropReason: text('drop_reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    statusCheck: check('treatment_plan_items_status_check', sql`${t.status} in ('planned', 'done', 'dropped')`),
+    qtyCheck: check('treatment_plan_items_qty_check', sql`${t.quantity} between 1 and 99`),
+    priceCheck: check('treatment_plan_items_price_check', sql`${t.unitPricePaise} >= 0`),
+    planIdx: index('treatment_plan_items_plan_idx').on(t.planId),
+    procedureUnique: uniqueIndex('treatment_plan_items_procedure_unique').on(t.procedureId),
+  }),
+);
