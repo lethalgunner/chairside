@@ -176,3 +176,37 @@ export function accessibleBranches(grants: readonly Grant[], orgBranchIds: reado
   const ids = new Set(grants.map((g) => g.branchId).filter((b): b is string => b !== null));
   return orgBranchIds.filter((b) => ids.has(b));
 }
+
+/** Plain words for what each capability lets someone do, for the role table on Team (Sprint 5, LET-175). */
+export const CAPABILITY_LABEL: Record<Capability, string> = {
+  'patient.register': 'Register patients',
+  'patient.view': 'See patients and their bills',
+  'patient.edit': 'Fix patient details',
+  'patient.remind': 'Send WhatsApp dues reminders',
+  'invoice.issue': 'Make bills',
+  'invoice.void': 'Cancel any bill',
+  'invoice.void_own_today': 'Cancel own bill the same day',
+  'receipt.record': 'Take payments',
+  'receipt.cancel': 'Cancel a payment',
+  'expense.record_cash': 'Record cash paid out',
+  'day.close': 'Close the day',
+  'day.reopen': 'Reopen a closed day',
+  'report.branch': 'See branch reports',
+  'report.gst': 'See GST working papers',
+  'catalogue.manage': 'Change the price list',
+  'staff.manage': 'Invite staff and change roles',
+  'branch.manage': 'Change branch details and bill header',
+  'procedure.dismiss': 'Remove work marked as not done',
+  'visit.manage': 'Run the waiting room',
+  'recall.manage': 'Set next visits',
+  'data.export': 'Export all data',
+  'provider.manage': 'Change doctor profiles and hours',
+  'appointment.manage': 'Book and change appointments',
+  'plan.manage': 'Make treatment plans and mark work done',
+  'rx.write': 'Sign prescriptions (needs a doctor profile)',
+  'medicine.manage': 'Change medicines and templates',
+  'stock.manage': 'Record stock in and out',
+};
+
+/** Every capability, in the order the role table lists them. */
+export const ALL_CAPABILITIES: readonly Capability[] = ALL;

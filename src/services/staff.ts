@@ -8,7 +8,7 @@
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { getDb, type DB, type Tx } from '@/db/client';
 import { branches, memberships, users } from '@/db/schema';
-import { canOrgWide, type Role } from '@/domain/permissions';
+import { canOrgWide, ROLES, type Role } from '@/domain/permissions';
 import {
   checkStaffGrant,
   deactivationBlocker,
@@ -35,7 +35,7 @@ export interface StaffMember {
   email: string | null;
   active: boolean;
   isSelf: boolean;
-  grants: { role: Role; branchName: string | null }[];
+  grants: { id: string; role: Role; branchId: string | null; branchName: string | null }[];
   status: InviteStatus;
   inviteExpiresAt: Date | null;
 }
@@ -45,7 +45,7 @@ export async function listStaff(ctx: TenantContext): Promise<StaffMember[]> {
   const db = getDb();
   const people = await db.select().from(users).where(eq(users.orgId, ctx.orgId)).orderBy(asc(users.fullName));
   const grantRows = await db
-    .select({ userId: memberships.userId, role: memberships.role, branchName: branches.name })
+    .select({ id: memberships.id, userId: memberships.userId, role: memberships.role, branchId: memberships.branchId, branchName: branches.name })
     .from(memberships)
     .leftJoin(branches, eq(branches.id, memberships.branchId))
     .where(eq(memberships.orgId, ctx.orgId))
@@ -64,7 +64,7 @@ export async function listStaff(ctx: TenantContext): Promise<StaffMember[]> {
       email: p.email,
       active: p.active,
       isSelf: p.id === ctx.userId,
-      grants: grantRows.filter((g) => g.userId === p.id).map((g) => ({ role: g.role as Role, branchName: g.branchName })),
+      grants: grantRows.filter((g) => g.userId === p.id).map((g) => ({ id: g.id, role: g.role as Role, branchId: g.branchId, branchName: g.branchName })),
       status,
       inviteExpiresAt: status === 'pending' ? invite!.expiresAt : null,
     };
@@ -277,4 +277,61 @@ export async function staffBranchOptions(ctx: TenantContext): Promise<{ id: stri
     .from(branches)
     .where(and(eq(branches.orgId, ctx.orgId), inArray(branches.id, ctx.branchIds)))
     .orderBy(asc(branches.name));
+}
+
+// ---------------------------------------------------------------------------
+// Change someone's role or branch (Sprint 5, LET-175). Owner only. The
+// capability model is unchanged: these only add or remove grants. Every
+// change is audited and takes effect on the person's next request.
+// ---------------------------------------------------------------------------
+
+/** Give an existing person another role (at a branch, or org-wide for the owner). */
+export async function addRole(ctx: TenantContext, userId: string, roleRaw: string, branchIdRaw: string | null): Promise<void> {
+  assertStaffManager(ctx);
+  const role = ROLES.find((r) => r === roleRaw);
+  if (!role) throw new UserFacingError('Pick a role.');
+  const branchId = branchIdRaw || null;
+  if (role === 'owner' && branchId) throw new UserFacingError('The owner sees every branch. Leave the branch empty.');
+  if (role !== 'owner' && !branchId) throw new UserFacingError('Pick the branch they work at.');
+  if (branchId && (!isUuid(branchId) || !ctx.branchIds.includes(branchId))) throw new ForbiddenError();
+  await getDb().transaction(async (tx) => {
+    const u = await orgUser(tx, ctx, userId, true);
+    if (!u.active) throw new UserFacingError('Reactivate them first.');
+    const [existing] = await tx
+      .select({ id: memberships.id })
+      .from(memberships)
+      .where(and(eq(memberships.userId, u.id), eq(memberships.role, role), branchId ? eq(memberships.branchId, branchId) : isNull(memberships.branchId)))
+      .limit(1);
+    if (existing) throw new UserFacingError('They already have that role there.');
+    await tx.insert(memberships).values({ orgId: ctx.orgId, userId: u.id, branchId, role });
+    if (role === 'doctor' || role === 'associate_doctor') await ensureProvider(tx, ctx.orgId, u.id, branchId, role === 'associate_doctor' ? 'associate' : 'salaried');
+    await writeAudit(tx, ctx, { action: 'staff.role_added', entityType: 'user', entityId: u.id, branchId, after: { role, branchId } });
+  });
+}
+
+/**
+ * Take a role away. Not the last role (deactivate instead), not your own
+ * owner role, and never the last active owner.
+ */
+export async function removeRole(ctx: TenantContext, membershipId: string): Promise<void> {
+  assertStaffManager(ctx);
+  if (!isUuid(membershipId)) throw new ForbiddenError();
+  await getDb().transaction(async (tx) => {
+    const [m] = await tx.select().from(memberships).where(and(eq(memberships.id, membershipId), eq(memberships.orgId, ctx.orgId))).for('update');
+    if (!m) throw new ForbiddenError();
+    const mine = await tx.select({ id: memberships.id }).from(memberships).where(eq(memberships.userId, m.userId));
+    if (mine.length <= 1) throw new UserFacingError('That is their only role. Deactivate them instead, or add the new role first.');
+    if (m.role === 'owner') {
+      if (m.userId === ctx.userId) throw new UserFacingError('You can’t remove your own owner role. Ask another owner.');
+      const owners = await tx
+        .select({ id: memberships.id })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(and(eq(memberships.orgId, ctx.orgId), eq(memberships.role, 'owner'), eq(users.active, true)))
+        .for('update');
+      if (owners.length <= 1) throw new UserFacingError('This is the last active owner. Add another owner first.');
+    }
+    await tx.delete(memberships).where(eq(memberships.id, m.id));
+    await writeAudit(tx, ctx, { action: 'staff.role_removed', entityType: 'user', entityId: m.userId, branchId: m.branchId, before: { role: m.role, branchId: m.branchId } });
+  });
 }

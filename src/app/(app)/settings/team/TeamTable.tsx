@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { passwordResetLinkAction, reissueInviteAction, setStaffActiveAction } from '@/app/actions/settings';
+import { addRoleAction, passwordResetLinkAction, reissueInviteAction, removeRoleAction, setStaffActiveAction } from '@/app/actions/settings';
 import type { InviteStatus } from '@/domain/staff';
 import InviteLink from './InviteLink';
 import { useActionForm } from '@/lib/nav/use-action-form';
@@ -13,7 +13,7 @@ export interface TeamRow {
   email: string | null;
   active: boolean;
   isSelf: boolean;
-  access: string[];
+  access: { id: string; label: string; removable: boolean }[];
   status: InviteStatus;
   inviteUntil: string | null;
 }
@@ -25,7 +25,10 @@ function LoginPill({ row }: { row: TeamRow }) {
   return <span className="muted small">No login</span>;
 }
 
-export default function TeamTable({ rows }: { rows: TeamRow[] }) {
+export default function TeamTable({ rows, roles, branches }: { rows: TeamRow[]; roles: { value: string; label: string }[]; branches: { id: string; name: string }[] }) {
+  const [adding, setAdding] = useState<string | null>(null);
+  const [newRole, setNewRole] = useState('front_desk');
+  const [newBranch, setNewBranch] = useState(branches[0]?.id ?? '');
   const { busy: pending, notSent, send, release, navigate } = useActionForm('staff.update');
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<{ token: string; name: string; reset?: boolean } | null>(null);
@@ -79,7 +82,41 @@ export default function TeamTable({ rows }: { rows: TeamRow[] }) {
                   {r.isSelf ? <span className="muted small"> (you)</span> : null}
                   {r.email ? <div className="muted small">{r.email}</div> : null}
                 </td>
-                <td className="small" data-label="Access">{r.access.length ? r.access.join(', ') : '—'}</td>
+                <td className="small" data-label="Access">
+                  {r.access.length === 0 ? '—' : null}
+                  <ul className="plain grants">
+                    {r.access.map((g) => (
+                      <li key={g.id}>
+                        {g.label}{' '}
+                        {r.active && g.removable ? (
+                          <button type="button" className="icon-btn" disabled={pending} aria-label={`Remove ${g.label} from ${r.fullName}`} onClick={() => act(() => removeRoleAction(g.id))}>✕</button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {r.active ? (
+                    adding === r.id ? (
+                      <span className="inline-form">
+                        <label className="sr-only" htmlFor={`role-${r.id}`}>Role</label>
+                        <select id={`role-${r.id}`} value={newRole} onChange={(e) => setNewRole(e.target.value)}>
+                          {roles.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+                        </select>
+                        {newRole !== 'owner' ? (
+                          <>
+                            <label className="sr-only" htmlFor={`branch-${r.id}`}>Branch</label>
+                            <select id={`branch-${r.id}`} value={newBranch} onChange={(e) => setNewBranch(e.target.value)}>
+                              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                          </>
+                        ) : null}
+                        <button type="button" className="secondary-btn" disabled={pending} onClick={() => act(async () => { const res = await addRoleAction(r.id, newRole, newRole === 'owner' ? null : newBranch); if (res.ok) setAdding(null); return res; })}>Add role</button>
+                        <button type="button" className="linkish small" onClick={() => setAdding(null)}>Cancel</button>
+                      </span>
+                    ) : (
+                      <button type="button" className="linkish small" onClick={() => setAdding(r.id)} aria-label={`Add a role for ${r.fullName}`}>+ Role</button>
+                    )
+                  ) : null}
+                </td>
                 <td data-label="Login">{r.active ? <LoginPill row={r} /> : <span className="pill credit">Deactivated</span>}</td>
                 <td className="row-actions">
                   {r.active && (r.status === 'pending' || r.status === 'expired') ? (

@@ -1,5 +1,5 @@
 import { requireContext } from '@/lib/auth';
-import { ROLE_LABELS, ROLES } from '@/domain/permissions';
+import { ALL_CAPABILITIES, CAPABILITY_LABEL, ROLE_CAPABILITIES, ROLE_LABELS, ROLES } from '@/domain/permissions';
 import { listStaff, listWithoutLogin, staffBranchOptions } from '@/services/staff';
 import { settingsAccess } from '@/services/settings';
 import { Card, Empty, PageHead } from '@/components/ui';
@@ -38,13 +38,37 @@ export default async function TeamPage() {
               email: p.email,
               active: p.active,
               isSelf: p.isSelf,
-              access: p.grants.map((g) => `${ROLE_LABELS[g.role]}${g.branchName ? ` · ${g.branchName}` : ''}`),
+              access: p.grants.map((g) => ({ id: g.id, label: `${ROLE_LABELS[g.role]}${g.branchName ? ` · ${g.branchName}` : ''}`, removable: !(g.role === 'owner' && p.isSelf) && p.grants.length > 1 })),
               status: p.status,
               inviteUntil: p.inviteExpiresAt ? istDateTime(p.inviteExpiresAt) : null,
             }))}
+            roles={ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }))}
+            branches={branches}
           />
         )}
       </Card>
+      <details className="card role-table">
+        <summary>What each role can do</summary>
+        <div className="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Can</th>
+                {ROLES.map((r) => <th key={r} scope="col" className="small">{ROLE_LABELS[r]}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {ALL_CAPABILITIES.map((c) => (
+                <tr key={c}>
+                  <td>{CAPABILITY_LABEL[c]}</td>
+                  {ROLES.map((r) => <td key={r} className="center" aria-label={ROLE_CAPABILITIES[r].includes(c) ? 'yes' : 'no'}>{ROLE_CAPABILITIES[r].includes(c) ? '✓' : ''}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="muted small">A person can hold more than one role, e.g. Owner and Doctor. Changes apply from their next click.</p>
+      </details>
     </>
   );
 }

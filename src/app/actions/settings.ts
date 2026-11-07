@@ -7,7 +7,7 @@ import { savePrintHeader, updateBranchDetails, type SaveBranchResult } from '@/s
 import { addItemFromBill, createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type BillItemResult, type SaveItemResult } from '@/services/catalogue';
 import { issueCalendarToken, revokeCalendarToken, saveProvider, setProviderActive, setProviderHours, type SaveProviderResult } from '@/services/providers';
 import { previewCatalogueImport, saveCatalogueImport, type ImportPreview, type ImportSaveResult } from '@/services/catalogue-import';
-import { inviteStaff, passwordResetLink, reissueInvite, setStaffActive, type InviteStaffResult } from '@/services/staff';
+import { addRole, inviteStaff, passwordResetLink, reissueInvite, removeRole, setStaffActive, type InviteStaffResult } from '@/services/staff';
 import { requireActiveBranch, UserFacingError } from '@/services/context';
 import { run, signedOut, type ActionResult } from './run';
 
@@ -232,5 +232,31 @@ export async function savePrintHeaderAction(branchId: string, input: z.input<typ
   if (!ctx) return signedOut('branch.print_header');
   const res = await run('branch.print_header', () => savePrintHeader(ctx, parse(idInput, branchId), parse(printInput, input)));
   if (res.ok && res.data.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+// ---------------------------------------------------------------------------
+// Roles (Sprint 5, LET-175)
+// ---------------------------------------------------------------------------
+
+export async function addRoleAction(userId: string, role: string, branchId: string | null): Promise<ActionResult> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('staff.role_added');
+  const res = await run('staff.role_added', async () => {
+    await addRole(ctx, parse(idInput, userId), parse(z.string().max(30), role), branchId ? parse(idInput, branchId) : null);
+    return undefined;
+  });
+  if (res.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+export async function removeRoleAction(membershipId: string): Promise<ActionResult> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('staff.role_removed');
+  const res = await run('staff.role_removed', async () => {
+    await removeRole(ctx, parse(idInput, membershipId));
+    return undefined;
+  });
+  if (res.ok) revalidatePath('/', 'layout');
   return res;
 }

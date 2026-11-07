@@ -1522,3 +1522,10 @@ details.add-more .card { box-shadow: none; border: 0; margin: 0; }
 .rx-lines li strong { min-width: 160px; }
 input.filter { width: 100%; max-width: 320px; margin: 6px 0; }
 .allergy { border-left-color: var(--rust) !important; }
+
+/* Roles on Team (Sprint 5, LET-175) */
+.grants { display: grid; gap: 2px; }
+.role-table { padding: 14px 16px; }
+.role-table > summary { cursor: pointer; font-weight: 600; }
+.role-table table { font-size: 12px; }
+.role-table td.center { text-align: center; color: var(--jade); font-weight: 700; }
