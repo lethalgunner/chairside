@@ -8,6 +8,7 @@ const SECTIONS = [
   { key: 'doctors', href: '/settings/doctors', title: 'Doctors', sub: 'Profiles, registration numbers, where and when each doctor works, slot length and calendar links.' },
   { key: 'catalogue', href: '/settings/catalogue', title: 'Price list', sub: 'Treatments and products, their prices and GST.' },
   { key: 'branches', href: '/settings/branches', title: 'Branches', sub: 'Address, GST registration and GSTIN, day-close tolerance, opening float and UPI ID.' },
+  { key: 'print', href: '/settings/print', title: 'Bill header', sub: 'Clinic name, logo, address and footer printed on bills, estimates and prescriptions.' },
   { key: 'export', href: '/settings/export', title: 'Export my data', sub: 'Download patients, bills and payments as spreadsheets.' },
 ] as const;
 

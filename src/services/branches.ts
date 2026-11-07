@@ -6,6 +6,7 @@ import type { Paise } from '@/domain/money';
 import type { FieldErrors } from '@/domain/staff';
 import { writeAudit } from './audit';
 import { canDo, ForbiddenError, type TenantContext } from './context';
+import { checkPrintHeader, type PrintHeaderInput } from '@/domain/print';
 
 export interface BranchInfo {
   id: string;
@@ -119,3 +120,56 @@ export async function updateBranchDetails(ctx: TenantContext, branchId: string, 
     return { ok: true as const };
   });
 }
+
+// ---------------------------------------------------------------------------
+// Printed header (Sprint 5, LET-174). Owner only (branch.manage).
+// ---------------------------------------------------------------------------
+
+export interface PrintHeader {
+  branchId: string;
+  name: string;
+  addressLines: string[];
+  phone: string | null;
+  email: string | null;
+  gstin: string | null;
+  footer: string | null;
+  logo: string | null;
+  /** The raw settings, for the form. */
+  settings: { printName: string; printAddress: string; printEmail: string; printFooter: string; printLogo: string };
+}
+
+/** What prints at the top of bills, estimates and prescriptions for a branch. Falls back to the branch details. */
+export async function getPrintHeader(ctx: TenantContext, branchId: string, db: DB | Tx = getDb()): Promise<PrintHeader> {
+  if (!ctx.branchIds.includes(branchId)) throw new ForbiddenError();
+  const [b] = await db.select().from(branches).where(and(eq(branches.id, branchId), eq(branches.orgId, ctx.orgId))).limit(1);
+  if (!b) throw new ForbiddenError();
+  const fallback = [b.addressLine, [b.city, b.state, b.pincode].filter(Boolean).join(', ')].filter((x): x is string => !!x && x.trim() !== '');
+  return {
+    branchId: b.id,
+    name: b.printName ?? b.name,
+    addressLines: b.printAddress ? b.printAddress.split('\n') : fallback,
+    phone: b.phone,
+    email: b.printEmail,
+    gstin: b.gstRegistered ? b.gstin : null,
+    footer: b.printFooter,
+    logo: b.printLogo,
+    settings: { printName: b.printName ?? '', printAddress: b.printAddress ?? '', printEmail: b.printEmail ?? '', printFooter: b.printFooter ?? '', printLogo: b.printLogo ?? '' },
+  };
+}
+
+export async function savePrintHeader(ctx: TenantContext, branchId: string, input: PrintHeaderInput): Promise<SaveBranchResult> {
+  if (!isUuidLike(branchId) || !canDo(ctx, 'branch.manage', branchId)) throw new ForbiddenError();
+  const checked = checkPrintHeader(input);
+  if (!checked.ok) return checked;
+  return getDb().transaction(async (tx) => {
+    const [b] = await tx.select().from(branches).where(and(eq(branches.id, branchId), eq(branches.orgId, ctx.orgId))).for('update');
+    if (!b) throw new ForbiddenError();
+    await tx.update(branches).set(checked.value).where(and(eq(branches.id, b.id), eq(branches.orgId, ctx.orgId)));
+    // The logo itself is not copied into the audit log: just whether it changed.
+    const summary = (v: { printName: string | null; printAddress: string | null; printEmail: string | null; printFooter: string | null; printLogo: string | null }) => ({ ...v, printLogo: v.printLogo ? `${v.printLogo.length} chars` : null });
+    await writeAudit(tx, ctx, { action: 'branch.print_header', entityType: 'branch', entityId: b.id, branchId: b.id, before: summary(b), after: summary(checked.value) });
+    return { ok: true as const };
+  });
+}
+
+const isUuidLike = (v: string) => /^[0-9a-f-]{36}$/i.test(v);

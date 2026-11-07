@@ -10,6 +10,8 @@ export interface SettingsAccess {
   export: boolean;
   /** Doctor profiles and hours (Sprint 4, LET-166). */
   doctors: boolean;
+  /** The printed header on bills (Sprint 5, LET-174). Owner only. */
+  print: boolean;
 }
 
 export function settingsAccess(ctx: TenantContext): SettingsAccess {
@@ -19,6 +21,7 @@ export function settingsAccess(ctx: TenantContext): SettingsAccess {
     branches: canAnywhere(ctx, 'branch.manage'),
     export: canOrgWide(ctx.grants, 'data.export'),
     doctors: canAnywhere(ctx, 'provider.manage'),
+    print: canAnywhere(ctx, 'branch.manage'),
   };
 }
 

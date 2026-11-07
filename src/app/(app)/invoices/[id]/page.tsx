@@ -42,6 +42,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           <>
             <StatusPill status={inv.status} />
             {canPay ? <Link className="cta" href={`/receipts/new?patient=${inv.patientId}`}>Record payment</Link> : null}
+            <Link className="cta secondary-cta" href={`/invoices/${inv.id}/print`}>Print</Link>
           </>
         }
       />

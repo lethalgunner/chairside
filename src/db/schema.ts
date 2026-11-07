@@ -180,6 +180,17 @@ export const branches = pgTable(
      */
     upiId: text('upi_id'),
     upiPayee: text('upi_payee'),
+    /**
+     * The printed header on bills, estimates and prescriptions (Sprint 5,
+     * LET-174). Owner only. Null falls back to the branch name and address.
+     * The logo is a small PNG/JPEG data URL (≤200 KB) kept in Postgres so
+     * there is no file storage to secure yet.
+     */
+    printName: text('print_name'),
+    printAddress: text('print_address'),
+    printEmail: text('print_email'),
+    printFooter: text('print_footer'),
+    printLogo: text('print_logo'),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

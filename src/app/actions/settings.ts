@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getContext } from '@/lib/auth';
-import { updateBranchDetails, type SaveBranchResult } from '@/services/branches';
+import { savePrintHeader, updateBranchDetails, type SaveBranchResult } from '@/services/branches';
 import { addItemFromBill, createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type BillItemResult, type SaveItemResult } from '@/services/catalogue';
 import { issueCalendarToken, revokeCalendarToken, saveProvider, setProviderActive, setProviderHours, type SaveProviderResult } from '@/services/providers';
 import { previewCatalogueImport, saveCatalogueImport, type ImportPreview, type ImportSaveResult } from '@/services/catalogue-import';
@@ -211,5 +211,26 @@ export async function calendarLinkAction(providerId: string, revoke: boolean): P
     return { token: await issueCalendarToken(ctx, id) };
   });
   if (res.ok) revalidatePath('/settings/doctors');
+  return res;
+}
+
+// ---------------------------------------------------------------------------
+// Printed header (Sprint 5, LET-174)
+// ---------------------------------------------------------------------------
+
+const printInput = z.object({
+  printName: z.string().max(200),
+  printAddress: z.string().max(600),
+  printEmail: z.string().max(200),
+  printFooter: z.string().max(400),
+  // ≤200 KB as base64 is about 273 KB; the service checks the real size and type.
+  printLogo: z.string().max(300_000),
+});
+
+export async function savePrintHeaderAction(branchId: string, input: z.input<typeof printInput>): Promise<ActionResult<SaveBranchResult>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('branch.print_header');
+  const res = await run('branch.print_header', () => savePrintHeader(ctx, parse(idInput, branchId), parse(printInput, input)));
+  if (res.ok && res.data.ok) revalidatePath('/', 'layout');
   return res;
 }
