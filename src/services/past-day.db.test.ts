@@ -56,7 +56,7 @@ beforeAll(async () => {
   // d1 at Kanpur: one RCT, ₹500 cash.
   const kdesk = f.ctx('kanpurDesk');
   const kpid = await patient(kdesk);
-  await billOn(kdesk, kpid, f.items.rct, d1, f.ownerId); // the owner also practises, at every branch
+  await billOn(kdesk, kpid, f.items.rct, d1, f.ownerProviderId); // the owner also practises, at every branch
   await payOn(kdesk, kpid, 50_000, 'cash', d1);
   // The day books opened by those writes are today's; move them to the days
   // they stand for, then mark Pune's d2 closed as if closed that evening.

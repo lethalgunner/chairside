@@ -57,7 +57,19 @@ export type Capability =
   /** Fix a patient's name, mobile, sex, age or referral (Sprint 3, T38). Audited. */
   | 'patient.edit'
   /** Download the clinic's data as CSV (Sprint 3, T40). Owner only. */
-  | 'data.export';
+  | 'data.export'
+  /** Doctor profiles, working hours and calendar links (Sprint 4, LET-166). Owner only. */
+  | 'provider.manage'
+  /** Book, move, cancel appointments; mark arrived or no-show (Sprint 4, LET-167). */
+  | 'appointment.manage'
+  /** Create and change treatment plans; mark planned work done (Sprint 4, LET-168). Clinical. */
+  | 'plan.manage'
+  /** Write and sign prescriptions (Sprint 5, LET-173). Also needs a linked doctor profile. */
+  | 'rx.write'
+  /** The medicine list and prescription templates (Sprint 5, LET-172). */
+  | 'medicine.manage'
+  /** Record stock received, used or adjusted (Sprint 6, LET-176). */
+  | 'stock.manage';
 
 const ALL: Capability[] = [
   'patient.register',
@@ -81,15 +93,24 @@ const ALL: Capability[] = [
   'recall.manage',
   'patient.edit',
   'data.export',
+  'provider.manage',
+  'appointment.manage',
+  'plan.manage',
+  'rx.write',
+  'medicine.manage',
+  'stock.manage',
 ];
 
 /** Capabilities only the owner holds in Pilot 0. */
 // catalogue.manage is owner-only until per-branch prices exist: the price list is org-wide (CPO Dev-1, Slice 3 T24).
-const OWNER_ONLY: readonly Capability[] = ['day.reopen', 'staff.manage', 'branch.manage', 'receipt.cancel', 'catalogue.manage', 'data.export'];
+const OWNER_ONLY: readonly Capability[] = ['day.reopen', 'staff.manage', 'branch.manage', 'receipt.cancel', 'catalogue.manage', 'data.export', 'provider.manage'];
+/** Clinical acts a manager does not do unless they also hold a doctor grant. */
+const CLINICAL_ONLY: readonly Capability[] = ['rx.write'];
+const DOCTOR: Capability[] = ['patient.register', 'patient.view', 'invoice.issue', 'receipt.record', 'visit.manage', 'recall.manage', 'appointment.manage', 'plan.manage', 'rx.write', 'medicine.manage'];
 
 export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
   owner: ALL,
-  branch_manager: ALL.filter((c) => !OWNER_ONLY.includes(c)),
+  branch_manager: ALL.filter((c) => !OWNER_ONLY.includes(c) && !CLINICAL_ONLY.includes(c)),
   front_desk: [
     'patient.register',
     'patient.view',
@@ -102,10 +123,12 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
     'visit.manage',
     'recall.manage',
     'patient.edit',
+    'appointment.manage',
+    'stock.manage',
   ],
-  doctor: ['patient.register', 'patient.view', 'invoice.issue', 'receipt.record', 'visit.manage', 'recall.manage'],
-  associate_doctor: ['patient.register', 'patient.view', 'invoice.issue', 'receipt.record', 'visit.manage', 'recall.manage'],
-  assistant: ['patient.register', 'patient.view', 'visit.manage'],
+  doctor: DOCTOR,
+  associate_doctor: DOCTOR,
+  assistant: ['patient.register', 'patient.view', 'visit.manage', 'stock.manage'],
   accountant: ['report.branch', 'report.gst'],
   auditor: ['report.branch', 'report.gst'],
 };

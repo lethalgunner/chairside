@@ -1,7 +1,7 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { getDb } from '@/db/client';
-import { branches, invoiceLines, invoices, patientRegistrations, patients, receipts, users } from '@/db/schema';
+import { branches, invoiceLines, invoices, patientRegistrations, patients, providers, receipts, users } from '@/db/schema';
 import { ageNow, businessDate } from '@/domain/dates';
 import { rupeesCell, toCsv, type Cell } from '@/domain/csv';
 import { canOrgWide } from '@/domain/permissions';
@@ -44,7 +44,7 @@ export async function exportCsv(ctx: TenantContext, kind: ExportKind): Promise<{
     rows = ps.map(({ p, files }) => [files, p.fullName, p.phone, p.sex, ageNow(p.approximateAge, p.ageRecordedOn, today), p.referralSource, p.referralDetail, businessDate(p.createdAt)]);
   } else if (kind === 'bills') {
     header = ['Bill number', 'Date', 'Branch', 'Patient', 'Mobile', 'Doctor', 'Status', 'Exempt (₹)', 'Taxable (₹)', 'CGST (₹)', 'SGST (₹)', 'IGST (₹)', 'Rounding (₹)', 'Total (₹)', 'Paid (₹)', 'Due (₹)', 'GSTIN', 'Cancel reason'];
-    const doctor = alias(users, 'doctor');
+    const doctor = alias(providers, 'doctor');
     const paid = paidOnInvoiceSql();
     const bs = await db
       .select({ i: invoices, branch: branches.name, patient: patients.fullName, phone: patients.phone, doctor: doctor.fullName, paid })

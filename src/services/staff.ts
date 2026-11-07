@@ -21,6 +21,7 @@ import {
 import { cancelInvites, createInvite, latestInvites } from '@/lib/auth/invite';
 import { revokeUserSessions } from '@/lib/auth/session';
 import { writeAudit } from './audit';
+import { ensureProvider } from './providers';
 import { ForbiddenError, UserFacingError, type TenantContext } from './context';
 import { isUniqueViolation, isUuid } from './util';
 
@@ -131,6 +132,10 @@ export async function upsertStaffGrant(
     .where(and(eq(memberships.userId, userId), eq(memberships.role, grant.role), grant.branchId ? eq(memberships.branchId, grant.branchId) : isNull(memberships.branchId)))
     .limit(1);
   if (!existing) await db.insert(memberships).values({ orgId, userId, branchId: grant.branchId, role: grant.role });
+  // ADR-008: a doctor grant needs a doctor profile (provider) for that branch.
+  if (grant.role === 'doctor' || grant.role === 'associate_doctor') {
+    await ensureProvider(db, orgId, userId, grant.branchId, grant.role === 'associate_doctor' ? 'associate' : 'salaried');
+  }
 
   await writeAudit(db, { orgId, userId: actorId }, {
     action: created ? 'staff.create' : 'staff.grant',

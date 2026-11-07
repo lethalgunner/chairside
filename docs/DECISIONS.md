@@ -449,3 +449,19 @@ validation, audit and capability as Settings, with a code picked for them
 **Not decided (KS).** Whether front desk or managers may add items, or a
 one-off "Other" line with a typed price. Today they see "Only the owner can add
 items to the price list."
+
+## ADR-017 — Providers built (implements ADR-008), Sprint 4 (8 Nov 2026)
+
+**Decision.** `providers` and `provider_branches` (weekly days and hours per branch, slot length, colour,
+registration details, a hashed private calendar token). The six `doctor_id` columns (price lists,
+appointments, encounters, procedures, invoices, payout rules) now reference `providers`; the column names
+stay `doctor_id` to keep the change small.
+
+**Migration 0007 is one step, not expand-then-contract,** because production held only the demo clinic.
+Each existing doctor became a provider **with the same id as their user row**, so no issued bill or other
+posted row was updated (convention 5). New providers get their own ids; the test fixture deliberately gives
+providers ids different from users so mixing the two fails a test.
+
+**Invariant (ADR-008):** granting `doctor` or `associate_doctor` (invite, command line, seed) creates or
+extends the provider for that branch. Settings → Doctors (owner only, `provider.manage`) edits profiles,
+adds visiting doctors without a login, sets hours per branch, deactivates, and issues the calendar link.

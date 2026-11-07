@@ -8,6 +8,8 @@ export interface SettingsAccess {
   branches: boolean;
   /** Export my data (Sprint 3, T40). */
   export: boolean;
+  /** Doctor profiles and hours (Sprint 4, LET-166). */
+  doctors: boolean;
 }
 
 export function settingsAccess(ctx: TenantContext): SettingsAccess {
@@ -16,6 +18,7 @@ export function settingsAccess(ctx: TenantContext): SettingsAccess {
     catalogue: canAnywhere(ctx, 'catalogue.manage'),
     branches: canAnywhere(ctx, 'branch.manage'),
     export: canOrgWide(ctx.grants, 'data.export'),
+    doctors: canAnywhere(ctx, 'provider.manage'),
   };
 }
 

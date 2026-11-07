@@ -11,6 +11,7 @@ import {
   memberships,
   patients,
   proceduresPerformed,
+  providers,
   receiptAllocations,
   receipts,
   users,
@@ -23,6 +24,7 @@ import { getBranch } from './branches';
 import { listCatalogue } from './catalogue';
 import { assertCan, canDo, ForbiddenError, requireActiveBranch, UserFacingError, type TenantContext } from './context';
 import { writeAudit } from './audit';
+import { providerAtBranch } from './providers';
 import { ensureDayOpen } from './daybook';
 import { nextDocumentNumber } from './numbering';
 import { registerAtBranch } from './patients';
@@ -102,19 +104,7 @@ export async function issueBill(ctx: TenantContext, raw: IssueBillInput): Promis
         .limit(1);
       if (!patient) throw new ForbiddenError();
 
-      const [doctor] = await tx
-        .select({ id: users.id })
-        .from(users)
-        .innerJoin(memberships, eq(memberships.userId, users.id))
-        .where(
-          and(
-            eq(users.id, input.doctorId),
-            eq(users.orgId, ctx.orgId),
-            inArray(memberships.role, ['doctor', 'associate_doctor']),
-            sql`(${memberships.branchId} = ${branchId} or ${memberships.branchId} is null)`,
-          ),
-        )
-        .limit(1);
+      const doctor = await providerAtBranch(tx, ctx, input.doctorId, branchId);
       if (!doctor) throw new UserFacingError('That doctor does not work at this branch.');
 
       // First visit at this branch gets a file number here.
@@ -514,11 +504,11 @@ export async function getInvoice(ctx: TenantContext, invoiceId: string): Promise
   if (!isUuid(invoiceId)) return null;
   const db = getDb();
   const [row] = await db
-    .select({ inv: invoices, patientName: patients.fullName, branchName: branches.name, doctorName: users.fullName })
+    .select({ inv: invoices, patientName: patients.fullName, branchName: branches.name, doctorName: providers.fullName })
     .from(invoices)
     .innerJoin(patients, eq(patients.id, invoices.patientId))
     .innerJoin(branches, eq(branches.id, invoices.branchId))
-    .leftJoin(users, eq(users.id, invoices.doctorId))
+    .leftJoin(providers, eq(providers.id, invoices.doctorId))
     .where(and(eq(invoices.id, invoiceId), eq(invoices.orgId, ctx.orgId)))
     .limit(1);
   if (!row || !ctx.branchIds.includes(row.inv.branchId)) return null;

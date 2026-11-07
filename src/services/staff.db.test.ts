@@ -82,10 +82,10 @@ describe('team: invite (T14)', () => {
 
   it('gives an existing doctor record a login instead of creating a second person', async () => {
     const before = await listWithoutLogin(owner);
-    expect(before.map((p) => p.id)).toContain(f.doctorId);
-    const r = await inviteStaff(owner, { fullName: '', email: email('assoc'), role: 'associate_doctor', branchId: f.pune.id, linkUserId: f.doctorId });
-    expect(r).toMatchObject({ ok: true, userId: f.doctorId, fullName: 'Dr Associate' });
-    expect((await listWithoutLogin(owner)).map((p) => p.id)).not.toContain(f.doctorId);
+    expect(before.map((p) => p.id)).toContain(f.doctorUserId);
+    const r = await inviteStaff(owner, { fullName: '', email: email('assoc'), role: 'associate_doctor', branchId: f.pune.id, linkUserId: f.doctorUserId });
+    expect(r).toMatchObject({ ok: true, userId: f.doctorUserId, fullName: 'Dr Associate' });
+    expect((await listWithoutLogin(owner)).map((p) => p.id)).not.toContain(f.doctorUserId);
   });
 
   it('is owner only: a branch manager and the front desk are refused', async () => {

@@ -260,6 +260,70 @@ export const memberships = pgTable(
   }),
 );
 
+/**
+ * A clinician the practice bills and pays for (ADR-008, built in Sprint 4,
+ * LET-166). Separate from a login: a visiting doctor may have no user, and a
+ * manager with a login is not a provider. Clinical and money tables point
+ * their doctor_id here, not at users.
+ */
+export const providers = pgTable(
+  'providers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    userId: uuid('user_id').references(() => users.id),
+    fullName: text('full_name').notNull(),
+    qualification: text('qualification'),
+    /** Council registration, printed on prescriptions (unverified rule, counsel to confirm). */
+    registrationNumber: text('registration_number'),
+    registrationCouncil: text('registration_council'),
+    specialty: text('specialty'),
+    engagementType: text('engagement_type').notNull().default('salaried'),
+    colour: text('colour'),
+    slotMinutes: integer('slot_minutes').notNull().default(15),
+    /** Hash of the private calendar-feed token (LET-170). Never the token itself. */
+    calendarTokenHash: text('calendar_token_hash'),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    engagementCheck: check('providers_engagement_check', sql`${t.engagementType} in ('owner_partner', 'salaried', 'associate', 'visiting')`),
+    slotCheck: check('providers_slot_check', sql`${t.slotMinutes} in (10, 15, 20, 30)`),
+    colourCheck: check('providers_colour_check', sql`${t.colour} is null or ${t.colour} ~ '^#[0-9a-f]{6}$'`),
+    userUnique: uniqueIndex('providers_user_unique').on(t.userId),
+    orgIdx: index('providers_org_idx').on(t.orgId),
+    tokenUnique: uniqueIndex('providers_calendar_token_unique').on(t.calendarTokenHash),
+  }),
+);
+
+/** Where a provider works and when: one weekly window per branch (Sprint 4). */
+export const providerBranches = pgTable(
+  'provider_branches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    providerId: uuid('provider_id')
+      .notNull()
+      .references(() => providers.id),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id),
+    /** ISO weekdays worked, 1 = Monday … 7 = Sunday. */
+    days: jsonb('days').$type<number[]>().notNull().default(sql`'[1,2,3,4,5,6]'::jsonb`),
+    /** Local clinic time, "HH:MM". */
+    startTime: text('start_time').notNull().default('10:00'),
+    endTime: text('end_time').notNull().default('19:00'),
+  },
+  (t) => ({
+    timeCheck: check('provider_branches_time_check', sql`${t.startTime} ~ '^[0-2][0-9]:[0-5][0-9]$' and ${t.endTime} ~ '^[0-2][0-9]:[0-5][0-9]$' and ${t.startTime} < ${t.endTime}`),
+    pairUnique: uniqueIndex('provider_branches_unique').on(t.providerId, t.branchId),
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // Patients
 // ---------------------------------------------------------------------------
@@ -377,7 +441,7 @@ export const priceListEntries = pgTable(
     /** Null means it applies org-wide. */
     branchId: uuid('branch_id').references(() => branches.id),
     /** Null means it applies to every doctor at that branch. */
-    doctorId: uuid('doctor_id').references(() => users.id),
+    doctorId: uuid('doctor_id').references(() => providers.id),
     pricePaise: bigint('price_paise', { mode: 'number' }).notNull(),
     effectiveFrom: date('effective_from').notNull(),
   },
@@ -403,7 +467,7 @@ export const appointments = pgTable(
       .references(() => patients.id),
     doctorId: uuid('doctor_id')
       .notNull()
-      .references(() => users.id),
+      .references(() => providers.id),
     operatoryId: uuid('operatory_id').references(() => operatories.id),
     startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
     endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
@@ -433,7 +497,7 @@ export const encounters = pgTable(
       .references(() => patients.id),
     doctorId: uuid('doctor_id')
       .notNull()
-      .references(() => users.id),
+      .references(() => providers.id),
     operatoryId: uuid('operatory_id').references(() => operatories.id),
     appointmentId: uuid('appointment_id').references(() => appointments.id),
     occurredOn: date('occurred_on').notNull(),
@@ -476,7 +540,7 @@ export const proceduresPerformed = pgTable(
       .references(() => patients.id),
     doctorId: uuid('doctor_id')
       .notNull()
-      .references(() => users.id),
+      .references(() => providers.id),
     catalogueItemId: uuid('catalogue_item_id')
       .notNull()
       .references(() => catalogueItems.id),
@@ -575,7 +639,7 @@ export const invoices = pgTable(
     roundingPaise: bigint('rounding_paise', { mode: 'number' }).notNull().default(0),
     totalPaise: bigint('total_paise', { mode: 'number' }).notNull(),
 
-    doctorId: uuid('doctor_id').references(() => users.id),
+    doctorId: uuid('doctor_id').references(() => providers.id),
     // Client-generated per submission so a double click issues one invoice.
     idempotencyKey: text('idempotency_key').notNull(),
 
@@ -816,7 +880,7 @@ export const payoutRules = pgTable(
     branchId: uuid('branch_id').references(() => branches.id),
     doctorId: uuid('doctor_id')
       .notNull()
-      .references(() => users.id),
+      .references(() => providers.id),
     basis: payoutBasisEnum('basis').notNull(),
     /** Rate in basis points for percentage bases; paise for flat bases. */
     rateBp: integer('rate_bp'),

@@ -50,6 +50,13 @@
       "when": 1793231766362,
       "tag": "0006_sprint3",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794082580418,
+      "tag": "0007_sprint4_providers",
+      "breakpoints": true
     }
   ]
 }

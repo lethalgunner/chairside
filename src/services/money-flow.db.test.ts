@@ -128,7 +128,7 @@ describe('unregistered branch', () => {
     const patientId = await newPatient('owner');
     const res = await issueBill(owner, {
       patientId,
-      doctorId: f.ownerId,
+      doctorId: f.ownerProviderId,
       idempotencyKey: key(),
       mode: 'issue',
       lines: [

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { getContext } from '@/lib/auth';
 import { updateBranchDetails, type SaveBranchResult } from '@/services/branches';
 import { addItemFromBill, createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type BillItemResult, type SaveItemResult } from '@/services/catalogue';
+import { issueCalendarToken, revokeCalendarToken, saveProvider, setProviderActive, setProviderHours, type SaveProviderResult } from '@/services/providers';
 import { previewCatalogueImport, saveCatalogueImport, type ImportPreview, type ImportSaveResult } from '@/services/catalogue-import';
 import { inviteStaff, passwordResetLink, reissueInvite, setStaffActive, type InviteStaffResult } from '@/services/staff';
 import { requireActiveBranch, UserFacingError } from '@/services/context';
@@ -150,5 +151,65 @@ export async function saveBranchAction(branchId: string, input: z.input<typeof b
   if (!ctx) return signedOut('branch.update');
   const res = await run('branch.update', () => updateBranchDetails(ctx, parse(idInput, branchId), parse(branchInput, input)));
   if (res.ok && res.data.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+// ---------------------------------------------------------------------------
+// Doctors (Sprint 4, LET-166)
+// ---------------------------------------------------------------------------
+
+const providerInput = z.object({
+  fullName: z.string().max(200),
+  qualification: z.string().max(200),
+  registrationNumber: z.string().max(100),
+  registrationCouncil: z.string().max(200),
+  specialty: z.string().max(200),
+  engagementType: z.string().max(40),
+  colour: z.string().max(20),
+  slotMinutes: z.number().int(),
+});
+
+export async function saveProviderAction(id: string | null, input: z.input<typeof providerInput>): Promise<ActionResult<SaveProviderResult>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut(id ? 'provider.update' : 'provider.create');
+  const res = await run(id ? 'provider.update' : 'provider.create', () => saveProvider(ctx, id === null ? null : parse(idInput, id), parse(providerInput, input)));
+  if (res.ok && res.data.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+const hoursInput = z.object({ days: z.array(z.number().int()).max(7), startTime: z.string().max(5), endTime: z.string().max(5) }).nullable();
+
+export async function setProviderHoursAction(providerId: string, branchId: string, hours: z.input<typeof hoursInput>): Promise<ActionResult<{ ok: true } | { ok: false; fieldErrors: Record<string, string> }>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('provider.hours');
+  const res = await run('provider.hours', () => setProviderHours(ctx, parse(idInput, providerId), parse(idInput, branchId), parse(hoursInput, hours)));
+  if (res.ok && res.data.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+export async function setProviderActiveAction(providerId: string, active: boolean): Promise<ActionResult> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut(active ? 'provider.reactivate' : 'provider.deactivate');
+  const res = await run(active ? 'provider.reactivate' : 'provider.deactivate', async () => {
+    await setProviderActive(ctx, parse(idInput, providerId), parse(z.boolean(), active));
+    return undefined;
+  });
+  if (res.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+/** Returns the calendar link token once; only its hash is stored. */
+export async function calendarLinkAction(providerId: string, revoke: boolean): Promise<ActionResult<{ token: string | null }>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('provider.calendar_link');
+  const res = await run('provider.calendar_link', async () => {
+    const id = parse(idInput, providerId);
+    if (parse(z.boolean(), revoke)) {
+      await revokeCalendarToken(ctx, id);
+      return { token: null };
+    }
+    return { token: await issueCalendarToken(ctx, id) };
+  });
+  if (res.ok) revalidatePath('/settings/doctors');
   return res;
 }

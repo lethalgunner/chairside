@@ -39,8 +39,9 @@ beforeAll(async () => {
   f = await createFixture();
   other = await createFixture();
   // The fixture's associate doctor works at Pune only; let them bill at Kanpur too.
-  const { memberships } = await import('@/db/schema');
-  await getDb().insert(memberships).values({ orgId: f.orgId, userId: f.doctorId, branchId: f.kanpur.id, role: 'associate_doctor' });
+  const { memberships, providerBranches } = await import('@/db/schema');
+  await getDb().insert(memberships).values({ orgId: f.orgId, userId: f.doctorUserId, branchId: f.kanpur.id, role: 'associate_doctor' });
+  await getDb().insert(providerBranches).values({ orgId: f.orgId, providerId: f.doctorId, branchId: f.kanpur.id });
 });
 afterAll(async () => {
   await closeDb();

@@ -9,6 +9,7 @@ import {
   ledgerEntries,
   patients,
   proceduresPerformed,
+  providers,
   receipts,
   users,
 } from '@/db/schema';
@@ -129,7 +130,7 @@ export async function unbilledProcedures(ctx: TenantContext, branchIds: string[]
       branchId: proceduresPerformed.branchId,
       branchName: branches.name,
       itemName: catalogueItems.name,
-      doctorName: users.fullName,
+      doctorName: providers.fullName,
       performedAt: proceduresPerformed.performedAt,
       price: proceduresPerformed.unitPricePaise,
       qty: proceduresPerformed.quantity,
@@ -138,7 +139,7 @@ export async function unbilledProcedures(ctx: TenantContext, branchIds: string[]
     .innerJoin(patients, eq(patients.id, proceduresPerformed.patientId))
     .innerJoin(branches, eq(branches.id, proceduresPerformed.branchId))
     .innerJoin(catalogueItems, eq(catalogueItems.id, proceduresPerformed.catalogueItemId))
-    .innerJoin(users, eq(users.id, proceduresPerformed.doctorId))
+    .innerJoin(providers, eq(providers.id, proceduresPerformed.doctorId))
     .where(unbilledWhere(ctx, ids))
     .orderBy(asc(proceduresPerformed.performedAt));
   return rows.map((r) => ({ ...r, valuePaise: (r.price * r.qty) as Paise }));

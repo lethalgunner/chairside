@@ -12,6 +12,7 @@ import { closeDb, getDb } from '../src/db/client';
 import { branches, catalogueItems, memberships, organisations, users } from '../src/db/schema';
 import { isGoodsCategory } from '../src/domain/catalogue';
 import { isValidBranchCode } from '../src/domain/numbering';
+import { ensureProvider } from '../src/services/providers';
 
 const file = z.object({
   org: z.object({ name: z.string().min(2) }),
@@ -98,6 +99,7 @@ async function main() {
         .where(and(eq(memberships.userId, u!.id), eq(memberships.role, 'doctor'), branchId ? eq(memberships.branchId, branchId) : isNull(memberships.branchId)))
         .limit(1);
       if (!m) await db.insert(memberships).values({ orgId, userId: u!.id, branchId, role: 'doctor' });
+      await ensureProvider(db, orgId, u!.id, branchId);
     }
   }
 

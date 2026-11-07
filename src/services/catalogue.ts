@@ -7,6 +7,7 @@ import type { Paise } from '@/domain/money';
 import type { FieldErrors } from '@/domain/staff';
 import type { TaxCategory } from '@/domain/tax';
 import { writeAudit } from './audit';
+import { listProviders, type ProviderOption } from './providers';
 import { canAnywhere, ForbiddenError, type TenantContext } from './context';
 import { isUniqueViolation, isUuid } from './util';
 
@@ -66,27 +67,11 @@ export async function listCatalogue(
   }));
 }
 
-export interface DoctorOption {
-  id: string;
-  fullName: string;
-}
+export type DoctorOption = ProviderOption;
 
-/** People who can be credited with a procedure at this branch. */
+/** Doctors who can be credited with work at this branch: active providers working there (ADR-008). */
 export async function listDoctors(ctx: TenantContext, branchId: string): Promise<DoctorOption[]> {
-  const rows = await getDb()
-    .selectDistinct({ id: users.id, fullName: users.fullName })
-    .from(users)
-    .innerJoin(memberships, eq(memberships.userId, users.id))
-    .where(
-      and(
-        eq(users.orgId, ctx.orgId),
-        eq(users.active, true),
-        inArray(memberships.role, ['doctor', 'associate_doctor']),
-        or(eq(memberships.branchId, branchId), isNull(memberships.branchId)),
-      ),
-    )
-    .orderBy(asc(users.fullName));
-  return rows;
+  return listProviders(ctx, branchId);
 }
 
 // ---------------------------------------------------------------------------

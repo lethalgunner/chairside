@@ -90,7 +90,7 @@ describe('Not done: remove (T28)', () => {
     const { procedureId } = await recordUnbilled(f.ctx('desk'));
     await expect(dismissProcedure(f.ctx('desk'), procedureId, 'Desk tries to clear it')).rejects.toThrow(ForbiddenError);
     await expect(dismissProcedure(f.ctx('accountant'), procedureId, 'Accountant tries')).rejects.toThrow(ForbiddenError);
-    const kanpur = await recordUnbilled(f.ctx('kanpurDesk'), f.ownerId);
+    const kanpur = await recordUnbilled(f.ctx('kanpurDesk'), f.ownerProviderId);
     await expect(dismissProcedure(f.ctx('manager'), kanpur.procedureId, 'Not my branch')).rejects.toThrow(ForbiddenError);
     expect((await row(procedureId)).dismissedAt).toBeNull();
     expect((await row(kanpur.procedureId)).dismissedAt).toBeNull();

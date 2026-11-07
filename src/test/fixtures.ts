@@ -8,6 +8,7 @@ import { branches, catalogueItems, memberships, organisations, users } from '@/d
 import { hashPassword } from '@/lib/auth/password';
 import type { Grant, Role } from '@/domain/permissions';
 import type { TenantContext } from '@/services/context';
+import { ensureProvider } from '@/services/providers';
 
 let counter = 0;
 function code(): string {
@@ -21,7 +22,12 @@ export interface Fixture {
   pune: { id: string; code: string };
   kanpur: { id: string; code: string };
   items: { rct: string; crown: string; brush: string; whitening: string };
+  /** The associate's provider id (ADR-008): what bills and procedures take as doctorId. */
   doctorId: string;
+  /** The associate's user row (no login). */
+  doctorUserId: string;
+  /** The owner's provider id; the owner also works as a doctor. */
+  ownerProviderId: string;
   ownerId: string;
   password: string;
   emails: { owner: string; desk: string; manager: string; accountant: string };
@@ -74,6 +80,10 @@ export async function createFixture(): Promise<Fixture> {
   for (const [userId, gs] of Object.entries(grants)) {
     for (const g of gs) await db.insert(memberships).values({ orgId, userId, branchId: g.branchId, role: g.role as Role });
   }
+  // ADR-008: doctors are providers. Their ids differ from the login ids on purpose,
+  // so a test that mixes the two up fails.
+  const ownerProviderId = await ensureProvider(db, orgId, ownerId, null, 'owner_partner');
+  const doctorProviderId = await ensureProvider(db, orgId, doctorId, pune!.id, 'associate');
 
   const item = async (c: string, name: string, price: number, taxCategory: 'exempt_healthcare' | 'goods_prosthetic' | 'goods_retail' | 'cosmetic_service', hsn: string, rate: number) =>
     (await db.insert(catalogueItems).values({ orgId, code: c, name, defaultPricePaise: price, taxCategory, hsnSacCode: hsn, gstRateBp: rate, isGoods: taxCategory.startsWith('goods') }).returning())[0]!.id;
@@ -91,7 +101,9 @@ export async function createFixture(): Promise<Fixture> {
     pune: { id: pune!.id, code: puneCode },
     kanpur: { id: kanpur!.id, code: kanpurCode },
     items,
-    doctorId,
+    doctorId: doctorProviderId,
+    doctorUserId: doctorId,
+    ownerProviderId,
     ownerId,
     password,
     emails,
