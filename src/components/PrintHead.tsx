@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import PrintButton from './PrintButton';
 
 /**
@@ -30,9 +31,11 @@ export default function PrintHead({ name, addressLines, phone, email, gstin, log
 }
 
 /** A Print button and the "test, not a tax invoice" note while the CA hasn't signed off. */
-export function PrintBar({ title, testNote }: { title: string; testNote?: string | null }) {
+export function PrintBar({ title, testNote, back }: { title: string; testNote?: string | null; back?: { href: string; label: string } }) {
   return (
     <div className="print-bar no-print">
+      {/* A way back that doesn't depend on the browser's Back button (tablets in full screen; QA 8 Nov). */}
+      {back ? <Link className="link" href={back.href}>← {back.label}</Link> : null}
       <span className="muted small">{title}</span>
       <PrintButton />
       {testNote ? <span className="pill credit">{testNote}</span> : null}

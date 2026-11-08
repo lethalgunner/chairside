@@ -7,7 +7,7 @@
 |---|---|
 | `npm test` | 335 / 335 |
 | `npm run test:db` | 160 / 160 (permissions, audit and other-org refusal for every new service; overlap refused by Postgres; plan done → procedure → bill at the agreed price; signed prescription append-only; stock on hand derived, bill sale and cancel move stock) |
-| `npm run test:e2e` | 86 / 86, two clean full runs (`14-sprints-4-6`: book, move, cancel, double booking refused, arrived → waiting room; doctor profile and calendar link; bill header; medicines and root canal template; plan → estimate → sitting done → billed → prescription from template; roles; stock. `15-phone`: six new screens fit 390 px). axe clean on every new screen |
+| `npm run test:e2e` | 85 / 85, two clean full runs (`14-sprints-4-6`: book, move, cancel, double booking refused, arrived → waiting room; doctor profile and calendar link; bill header; medicines and root canal template; plan → estimate → sitting done → billed → prescription from template; roles; stock; seven new screens fit 390 px). axe clean on every new screen |
 | Upgrade test | Old version's test data (65 bills, 75 procedures, 157 logins) migrated through 0007–0012: 50 providers created, no bill or procedure left pointing at a missing doctor |
 | `btree_gist` on Supabase | Available (not yet installed); migration 0008 installs it in `extensions` |
 
@@ -18,6 +18,7 @@
 | S4-Q2 | S3 | Team page: two fields labelled "Role"; wide role table not keyboard-scrollable (axe) | "+ Access" wording; table is a focusable region |
 | S4-Q3 | S3 | Stock: "10 boxs" | Unit labels |
 | S4-Q4 | S4 | Appointments on a phone: doctor colour dot overlapped "Not working this day" | Header leaves room for the dot |
+| S4-Q5 | S3 | Estimate and printed bill had no way back except the browser's Back button (stuck on a tablet in full screen; also made one test flaky) | "← Back to plan" / "← Back to bill" on the print bar; 8 clean repeat runs since |
 
 **Watch in the parallel run:** booking at the edge of a doctor's hours; printing on the clinic's printer (A4 and A5); stock counts after a cancelled bill.
 

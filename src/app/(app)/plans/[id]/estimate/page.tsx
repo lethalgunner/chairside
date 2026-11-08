@@ -21,7 +21,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
   const t = plan.totals;
   return (
     <>
-      <PrintBar title={`Estimate ${plan.ref}`} />
+      <PrintBar title={`Estimate ${plan.ref}`} back={{ href: `/plans/${plan.id}`, label: 'Back to plan' }} />
       <article className="print-doc">
         <PrintHead {...head} />
         <h1>Treatment estimate {plan.ref}</h1>

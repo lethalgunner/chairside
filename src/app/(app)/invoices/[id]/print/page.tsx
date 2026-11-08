@@ -24,7 +24,7 @@ export default async function PrintBillPage({ params }: { params: Promise<{ id: 
   const test = testSeriesEnabled();
   return (
     <>
-      <PrintBar title={`Bill ${inv.number}`} testNote={test ? 'Test series: not a tax invoice' : null} />
+      <PrintBar title={`Bill ${inv.number}`} back={{ href: `/invoices/${inv.id}`, label: 'Back to bill' }} testNote={test ? 'Test series: not a tax invoice' : null} />
       <article className="print-doc">
         <PrintHead {...head} />
         {test ? <div className="test-mark">TEST BILL · NOT A TAX INVOICE</div> : null}

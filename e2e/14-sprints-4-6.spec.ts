@@ -178,7 +178,8 @@ test('owner at Kanpur: plan with an estimate, sitting 1 done and billed at the a
   await expect(page.getByRole('heading', { name: 'Treatment estimate EST/DKN/0001' })).toBeVisible();
   await expect(page.locator('.print-doc')).toContainText('Vij Dental Care Kanpur');
   await expect(page.locator('.print-doc')).toContainText('₹10,720.00');
-  await page.goBack();
+  await page.getByRole('link', { name: '← Back to plan' }).click();
+  await expect(page.getByRole('heading', { name: 'Lower left RCT and crown' })).toBeVisible();
 
   await page.getByLabel('Done: Root canal treatment, tooth 36').check();
   await page.getByRole('button', { name: 'Mark ticked work done' }).click();
