@@ -144,5 +144,8 @@ test('team and price list fit a 390 px phone without sideways scrolling (QA 28 O
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, path).toBeLessThanOrEqual(1);
   }
-  await expect(page.getByRole('button', { name: /^Edit / }).first()).toBeInViewport();
+  // Sideways is what Q25 was about; the longer phone menu (Sprint 4–6) pushes it down, so scroll to it first.
+  const edit = page.getByRole('button', { name: /^Edit / }).first();
+  await edit.scrollIntoViewIfNeeded();
+  await expect(edit).toBeInViewport();
 });

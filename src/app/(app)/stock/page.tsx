@@ -1,6 +1,6 @@
 import { requireContext } from '@/lib/auth';
 import { displayDate } from '@/domain/dates';
-import { STOCK_KIND_LABEL, STOCK_KINDS, UNITS } from '@/domain/stock';
+import { STOCK_KIND_LABEL, STOCK_KINDS, UNITS, unitLabel } from '@/domain/stock';
 import { listCatalogue } from '@/services/catalogue';
 import { canAnywhere, canDo } from '@/services/context';
 import { listMedicines } from '@/services/rx';
@@ -67,7 +67,7 @@ export default async function StockPage() {
                           {r.name}
                           <div className="muted small">{r.reorderLevel > 0 ? `Reorder at ${r.reorderLevel}` : 'No reorder level'}{r.soldAs ? ` · sold as ${r.soldAs}` : ''}</div>
                         </td>
-                        <td data-label="On hand" className={`num strong${r.onHand < 0 ? ' due-text' : ''}`}>{r.onHand} {r.unit}{Math.abs(r.onHand) === 1 ? '' : 's'}</td>
+                        <td data-label="On hand" className={`num strong${r.onHand < 0 ? ' due-text' : ''}`}>{r.onHand} {unitLabel(r.unit, r.onHand)}</td>
                         <td data-label="Alerts">
                           {r.low ? <span className="pill due">Low</span> : null}{' '}
                           {r.expired ? <span className="pill credit">Expired {displayDate(r.mayExpireOn!)}</span> : r.expiring ? <span className="pill credit">May expire {displayDate(r.mayExpireOn!)}</span> : null}

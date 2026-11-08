@@ -49,7 +49,8 @@ export default async function TeamPage() {
       </Card>
       <details className="card role-table">
         <summary>What each role can do</summary>
-        <div className="tablewrap">
+        {/* Wide on a phone: focusable so keyboard users can scroll it (axe scrollable-region-focusable). */}
+        <div className="tablewrap" tabIndex={0} role="region" aria-label="Access table">
           <table>
             <thead>
               <tr>

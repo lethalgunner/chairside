@@ -1,8 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
-import { bookAppointmentAction, rescheduleAppointmentAction } from '@/app/actions/appointments';
+import { bookAppointmentAction, doctorDaysAction, rescheduleAppointmentAction } from '@/app/actions/appointments';
 import type { DoctorDay } from '@/services/appointments';
 import { useActionForm } from '@/lib/nav/use-action-form';
 import NotSent from '@/components/NotSent';
@@ -24,8 +23,15 @@ interface Props {
  * reloads the free slots from the server; "Other time" allows a booking off
  * the slot grid. The server is the judge of overlaps.
  */
-export default function BookingForm({ patientId, moveId, today, date, doctorId, time: initialTime, reason: initialReason, minutes: initialMinutes, doctors }: Props) {
-  const router = useRouter();
+export default function BookingForm({ patientId, moveId, today, date: serverDate, doctorId: serverDoctorId, time: initialTime, reason: initialReason, minutes: initialMinutes, doctors: serverDoctors }: Props) {
+  // Doctor, date and free slots live here. A new date asks the server for its
+  // slots directly, not by navigating (QA 8 Nov: a navigation could stall and
+  // leave the form on "Loading free times…", and two quick changes undid each other).
+  const [doctorId, setDoctorId] = useState(serverDoctorId);
+  const [date, setDate] = useState(serverDate);
+  const [doctors, setDoctors] = useState(serverDoctors);
+  const [loading, setLoading] = useState(false);
+  const asked = useRef(serverDate);
   const { busy, notSent, send, release, navigate } = useActionForm(moveId ? 'appointment.move' : 'appointment.book');
   const [time, setTime] = useState(initialTime);
   const [other, setOther] = useState(!!initialTime && !doctors.find((d) => d.providerId === doctorId)?.free.includes(initialTime));
@@ -37,12 +43,33 @@ export default function BookingForm({ patientId, moveId, today, date, doctorId, 
   const doc = doctors.find((d) => d.providerId === doctorId);
   const slot = minutes || doc?.slotMinutes || 15;
 
-  function reload(next: { date?: string; doctor?: string }) {
-    const p = new URLSearchParams({ patient: patientId, date: next.date ?? date, doctor: next.doctor ?? doctorId });
-    if (moveId) p.set('move', moveId);
+  function pickDoctor(id: string) {
+    setDoctorId(id);
     setTime('');
+    setOther(false);
     setErrors({});
-    router.replace(`/appointments/new?${p}`, { scroll: false });
+  }
+
+  function pickDate(d: string) {
+    if (!d) return;
+    setDate(d);
+    setTime('');
+    setOther(false);
+    setErrors({});
+    asked.current = d;
+    setLoading(true);
+    void (async () => {
+      try {
+        const res = await doctorDaysAction(d);
+        if (asked.current !== d) return; // a later date was picked meanwhile
+        if (res.ok) setDoctors(res.data);
+        else setError(res.error);
+      } catch {
+        if (asked.current === d) setError('Free times didn’t load. Check the internet and pick the date again.');
+      } finally {
+        if (asked.current === d) setLoading(false);
+      }
+    })();
   }
 
   function submit(e: React.FormEvent) {
@@ -73,7 +100,7 @@ export default function BookingForm({ patientId, moveId, today, date, doctorId, 
         <div className="field-grid">
           <div className="field">
             <label htmlFor="book-doctor">Doctor</label>
-            <select id="book-doctor" value={doctorId} onChange={(e) => reload({ doctor: e.target.value })} aria-invalid={!!errors.providerId}>
+            <select id="book-doctor" value={doctorId} onChange={(e) => pickDoctor(e.target.value)} aria-invalid={!!errors.providerId}>
               <option value="">Choose…</option>
               {doctors.map((d) => (
                 <option key={d.providerId} value={d.providerId}>{d.name}</option>
@@ -83,12 +110,13 @@ export default function BookingForm({ patientId, moveId, today, date, doctorId, 
           </div>
           <div className="field">
             <label htmlFor="book-date">Date</label>
-            <input id="book-date" type="date" min={today} value={date} onChange={(e) => e.target.value && reload({ date: e.target.value })} aria-invalid={!!errors.date} />
+            <input id="book-date" type="date" min={today} value={date} onChange={(e) => pickDate(e.target.value)} aria-invalid={!!errors.date} />
             {err('date')}
           </div>
         </div>
 
-        {doc ? (
+        {doc && loading ? <p className="muted small" role="status">Loading free times…</p> : null}
+        {doc && !loading ? (
           <fieldset className="field">
             <legend>Time {doc.hours ? <span className="muted small">({doc.name} works {doc.hours.startTime}–{doc.hours.endTime}, {doc.slotMinutes}-minute slots)</span> : <span className="muted small">({doc.name} doesn’t usually work this day)</span>}</legend>
             <div className="chips" role="radiogroup" aria-label="Free times" tabIndex={-1} ref={timeRef}>

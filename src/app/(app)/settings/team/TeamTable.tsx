@@ -97,23 +97,23 @@ export default function TeamTable({ rows, roles, branches }: { rows: TeamRow[]; 
                   {r.active ? (
                     adding === r.id ? (
                       <span className="inline-form">
-                        <label className="sr-only" htmlFor={`role-${r.id}`}>Role</label>
+                        <label className="sr-only" htmlFor={`role-${r.id}`}>New role for {r.fullName}</label>
                         <select id={`role-${r.id}`} value={newRole} onChange={(e) => setNewRole(e.target.value)}>
                           {roles.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
                         </select>
                         {newRole !== 'owner' ? (
                           <>
-                            <label className="sr-only" htmlFor={`branch-${r.id}`}>Branch</label>
+                            <label className="sr-only" htmlFor={`branch-${r.id}`}>At branch</label>
                             <select id={`branch-${r.id}`} value={newBranch} onChange={(e) => setNewBranch(e.target.value)}>
                               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                             </select>
                           </>
                         ) : null}
-                        <button type="button" className="secondary-btn" disabled={pending} onClick={() => act(async () => { const res = await addRoleAction(r.id, newRole, newRole === 'owner' ? null : newBranch); if (res.ok) setAdding(null); return res; })}>Add role</button>
+                        <button type="button" className="secondary-btn" disabled={pending} onClick={() => act(async () => { const res = await addRoleAction(r.id, newRole, newRole === 'owner' ? null : newBranch); if (res.ok) setAdding(null); return res; })}>Give access</button>
                         <button type="button" className="linkish small" onClick={() => setAdding(null)}>Cancel</button>
                       </span>
                     ) : (
-                      <button type="button" className="linkish small" onClick={() => setAdding(r.id)} aria-label={`Add a role for ${r.fullName}`}>+ Role</button>
+                      <button type="button" className="linkish small" onClick={() => setAdding(r.id)} aria-label={`Give ${r.fullName} more access`}>+ Access</button>
                     )
                   ) : null}
                 </td>

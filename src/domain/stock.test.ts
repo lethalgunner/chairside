@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkMovement, checkStockItem, mayExpireOn, stockFlags } from './stock';
+import { checkMovement, checkStockItem, mayExpireOn, stockFlags, unitLabel } from './stock';
 
 const today = '2026-11-08';
 const mv = { kind: 'received', quantity: '10', direction: 'in' as const, expiresOn: '', unitCost: '', reason: '' };
@@ -32,5 +32,8 @@ describe('stock-lite (LET-176)', () => {
     expect(stockFlags(2, 2, '2026-12-01', today)).toEqual({ low: true, expiring: true, expired: false });
     expect(stockFlags(5, 2, '2027-12-01', today)).toEqual({ low: false, expiring: false, expired: false });
     expect(stockFlags(0, 0, '2026-01-01', today)).toEqual({ low: true, expiring: false, expired: true });
+  });
+  it('says units properly', () => {
+    expect([unitLabel('box', 10), unitLabel('box', 1), unitLabel('strip', 3), unitLabel('ml', 50)]).toEqual(['boxes', 'box', 'strips', 'ml']);
   });
 });

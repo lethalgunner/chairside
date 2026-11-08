@@ -3,8 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getContext } from '@/lib/auth';
-import { bookAppointment, markArrived, rescheduleAppointment, setAppointmentStatus, type BookResult } from '@/services/appointments';
-import { ForbiddenError } from '@/services/context';
+import { bookAppointment, doctorDays, markArrived, rescheduleAppointment, setAppointmentStatus, type BookResult, type DoctorDay } from '@/services/appointments';
+import { canDo, ForbiddenError, requireActiveBranch } from '@/services/context';
 import { run, signedOut, type ActionResult } from './run';
 
 /** Appointments (Sprint 4, LET-167). Thin: parse, then the service checks capability, branch and overlap. */
@@ -63,4 +63,16 @@ export async function markArrivedAction(appointmentId: string): Promise<ActionRe
   const res = await run('appointment.arrived', () => markArrived(ctx, parse(id, appointmentId)));
   if (res.ok) refresh();
   return res;
+}
+
+/** Free slots for every doctor at the active branch on a date: the booking form asks for these when the date changes. */
+export async function doctorDaysAction(date: string): Promise<ActionResult<DoctorDay[]>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('appointment.slots');
+  return run('appointment.slots', async () => {
+    const branchId = requireActiveBranch(ctx);
+    if (!canDo(ctx, 'appointment.manage', branchId)) throw new ForbiddenError();
+    const d = parse(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), date);
+    return doctorDays(ctx, branchId, d);
+  });
 }

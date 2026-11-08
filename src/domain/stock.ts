@@ -107,3 +107,10 @@ export function stockFlags(onHand: number, reorderLevel: number, expiry: string 
     expiring: !!expiry && expiry >= today && expiry <= addDays(today, EXPIRY_WARN_DAYS),
   };
 }
+
+/** "1 box", "10 boxes", "5 ml". */
+export function unitLabel(unit: string, n: number): string {
+  if (unit === 'ml' || unit === 'g') return unit;
+  if (Math.abs(n) === 1) return unit;
+  return unit === 'box' ? 'boxes' : `${unit}s`;
+}

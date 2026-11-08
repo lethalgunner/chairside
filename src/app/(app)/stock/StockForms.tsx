@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { recordMovementAction, saveStockItemAction } from '@/app/actions/stock';
+import { unitLabel } from '@/domain/stock';
 import { useActionForm } from '@/lib/nav/use-action-form';
 import NotSent from '@/components/NotSent';
 
@@ -49,7 +50,7 @@ export function StockItemForm({ kinds, units, medicines, goods }: { kinds: { val
           ) : (
             <div className="field"><label htmlFor="st-name">Name</label><input id="st-name" value={d.name} onChange={set('name')} placeholder="Nitrile gloves (M)" autoFocus />{err('name')}</div>
           )}
-          <div className="field"><label htmlFor="st-unit">Counted in</label><select id="st-unit" value={d.unit} onChange={set('unit')}>{units.map((u) => <option key={u} value={u}>{u}s</option>)}</select>{err('unit')}</div>
+          <div className="field"><label htmlFor="st-unit">Counted in</label><select id="st-unit" value={d.unit} onChange={set('unit')}>{units.map((u) => <option key={u} value={u}>{unitLabel(u, 2)}</option>)}</select>{err('unit')}</div>
           <div className="field"><label htmlFor="st-reorder">Reorder when down to</label><input id="st-reorder" inputMode="numeric" value={d.reorderLevel} onChange={set('reorderLevel')} placeholder="0" />{err('reorderLevel')}</div>
           <div className="field">
             <label htmlFor="st-sold">Sold to patients as</label>
@@ -113,7 +114,7 @@ export function MovementForm({ itemId, name, unit, isMedicine }: { itemId: strin
           <option value="in">More than shown</option>
         </select>
       ) : null}
-      <label>{kind === 'received' ? 'How many came' : kind === 'used' ? 'How many used' : 'By how many'} <input className="tiny num" inputMode="numeric" value={d.quantity} onChange={(e) => setD({ ...d, quantity: e.target.value.replace(/\D/g, '').slice(0, 5) })} autoFocus /> {unit}s</label>
+      <label>{kind === 'received' ? 'How many came' : kind === 'used' ? 'How many used' : 'By how many'} <input className="tiny num" inputMode="numeric" value={d.quantity} onChange={(e) => setD({ ...d, quantity: e.target.value.replace(/\D/g, '').slice(0, 5) })} autoFocus /> {unitLabel(unit, 2)}</label>
       {kind === 'received' && isMedicine ? <label>Expires <input type="date" value={d.expiresOn} onChange={(e) => setD({ ...d, expiresOn: e.target.value })} /></label> : null}
       {kind === 'received' ? <label>Cost each ₹ <input className="small-in num" value={d.unitCost} onChange={(e) => setD({ ...d, unitCost: e.target.value })} placeholder="optional" /></label> : null}
       {kind !== 'received' ? <label>Why <input value={d.reason} onChange={(e) => setD({ ...d, reason: e.target.value })} placeholder={kind === 'used' ? 'Extraction trays' : 'Counted 2 short'} /></label> : null}
