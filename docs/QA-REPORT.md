@@ -1,5 +1,26 @@
 # QA report
 
+## Sprints 4–6 (LET-166…176) — 8 Nov 2026
+**Branch:** `v1/sprint4-visit-day` on `4f1206d` · **Result:** pass
+
+| Suite | Result |
+|---|---|
+| `npm test` | 335 / 335 |
+| `npm run test:db` | 160 / 160 (permissions, audit and other-org refusal for every new service; overlap refused by Postgres; plan done → procedure → bill at the agreed price; signed prescription append-only; stock on hand derived, bill sale and cancel move stock) |
+| `npm run test:e2e` | 86 / 86, two clean full runs (`14-sprints-4-6`: book, move, cancel, double booking refused, arrived → waiting room; doctor profile and calendar link; bill header; medicines and root canal template; plan → estimate → sitting done → billed → prescription from template; roles; stock. `15-phone`: six new screens fit 390 px). axe clean on every new screen |
+| Upgrade test | Old version's test data (65 bills, 75 procedures, 157 logins) migrated through 0007–0012: 50 providers created, no bill or procedure left pointing at a missing doctor |
+| `btree_gist` on Supabase | Available (not yet installed); migration 0008 installs it in `extensions` |
+
+**Defects found and fixed**
+| ID | Sev | Summary | Fix |
+|---|---|---|---|
+| S4-Q1 | S2 | Booking form: changing the date navigated the page; a stalled navigation left "Loading free times…" and two quick changes undid each other | The form asks the server for that day's free times itself |
+| S4-Q2 | S3 | Team page: two fields labelled "Role"; wide role table not keyboard-scrollable (axe) | "+ Access" wording; table is a focusable region |
+| S4-Q3 | S3 | Stock: "10 boxs" | Unit labels |
+| S4-Q4 | S4 | Appointments on a phone: doctor colour dot overlapped "Not working this day" | Header leaves room for the dot |
+
+**Watch in the parallel run:** booking at the edge of a doctor's hours; printing on the clinic's printer (A4 and A5); stock counts after a cancelled bill.
+
 ## "+ New item" on the bill (ADR-016) — 8 Nov 2026
 | Suite | Result |
 |---|---|
