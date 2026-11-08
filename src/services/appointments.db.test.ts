@@ -1,12 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { closeDb, getDb } from '@/db/client';
-import { appointments, auditLog, visits } from '@/db/schema';
+import { appointments, auditLog, recalls, visits } from '@/db/schema';
 import { addDays, businessDate } from '@/domain/dates';
 import { createFixture, type Fixture } from '@/test/fixtures';
 import { bookAppointment, calendarFeed, dayAppointments, doctorDays, markArrived, rescheduleAppointment, setAppointmentStatus, upcomingForPatient } from './appointments';
 import { ForbiddenError, UserFacingError } from './context';
 import { registerPatient } from './patients';
+import { setRecall } from './recalls';
 import { issueCalendarToken, revokeCalendarToken, setProviderActive } from './providers';
 
 let f: Fixture;
@@ -134,5 +135,20 @@ describe('appointments (LET-167)', () => {
     await setProviderActive(f.ctx('owner'), f.doctorId, true);
     await revokeCalendarToken(f.ctx('owner'), f.doctorId);
     expect(await calendarFeed(token)).toBeNull();
+  });
+});
+
+describe('booking answers a come-back reminder (QA 9 Nov)', () => {
+  it("closes the patient's open reminder at that branch, audited; other branches' stay open", async () => {
+    const pid = await patient();
+    const pune = await setRecall(f.ctx('desk'), pid, 'checkup', addDays(today, 30));
+    const kanpur = await setRecall(f.ctx('owner', f.kanpur.id), pid, 'cleaning', addDays(today, 30));
+    const res = await book('18:30', f.doctorId, pid);
+    expect(res.ok).toBe(true);
+    const rows = await getDb().select({ id: recalls.id, status: recalls.status }).from(recalls).where(eq(recalls.patientId, pid));
+    expect(rows.find((r) => r.id === pune.recallId)?.status).toBe('done');
+    expect(rows.find((r) => r.id === kanpur.recallId)?.status).toBe('open');
+    const audit = await getDb().select().from(auditLog).where(and(eq(auditLog.entityId, pune.recallId), eq(auditLog.action, 'recall.close')));
+    expect(audit).toHaveLength(1);
   });
 });

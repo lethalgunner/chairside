@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
+import { dueInWords } from '@/domain/visits';
 import { addToQueueAction, closeRecallAction, setRecallAction } from '@/app/actions/frontdesk';
 import { useActionForm } from '@/lib/nav/use-action-form';
 import NotSent from '@/components/NotSent';
@@ -38,7 +39,7 @@ export function AddToQueue({ patientId }: { patientId: string }) {
 }
 
 /** Set the next visit (T37): what for, and when. The date pre-fills from the kind. */
-export function RecallForm({ patientId, kinds, defaults, min, max }: { patientId: string; kinds: { v: string; label: string }[]; defaults: Record<string, string>; min: string; max: string }) {
+export function RecallForm({ patientId, kinds, defaults, min, max, today }: { patientId: string; kinds: { v: string; label: string }[]; defaults: Record<string, string>; min: string; max: string; today: string }) {
   const { busy, notSent, send, release, navigate } = useActionForm('recall.set');
   const [kind, setKind] = useState('checkup');
   const [dueOn, setDueOn] = useState(defaults.checkup ?? min);
@@ -63,7 +64,7 @@ export function RecallForm({ patientId, kinds, defaults, min, max }: { patientId
       }}
     >
       <fieldset className="field">
-        <legend>Next visit for</legend>
+        <legend>Remind them to come back for</legend>
         <div className="chips" role="group">
           {kinds.map((k) => (
             <button
@@ -82,10 +83,11 @@ export function RecallForm({ patientId, kinds, defaults, min, max }: { patientId
         </div>
       </fieldset>
       <div className="field">
-        <label htmlFor={dateId}>Due on</label>
-        <input id={dateId} type="date" value={dueOn} min={min} max={max} onChange={(e) => setDueOn(e.target.value)} aria-invalid={!!error} aria-describedby={error ? `${dateId}-err` : undefined} />
+        <label htmlFor={dateId}>Around</label>
+        <input id={dateId} type="date" value={dueOn} min={min} max={max} onChange={(e) => setDueOn(e.target.value)} aria-invalid={!!error} aria-describedby={error ? `${dateId}-err` : `${dateId}-hint`} />
+        <div className="hint" id={`${dateId}-hint`}>{dueOn ? `${dueInWords(today, dueOn)}. No time: this is a reminder, not a booking.` : ''}</div>
       </div>
-      <button className="secondary-btn" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Set next visit'}</button>
+      <button className="secondary-btn" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Set reminder'}</button>
       {error ? <div className="hint err-text" id={`${dateId}-err`} role="alert">{error}</div> : null}
       <NotSent message={notSent} />
     </form>

@@ -59,11 +59,14 @@ test('next visit: set on the patient page, listed under Recalls, reminded on Wha
   await context.route('https://wa.me/**', (r) => r.fulfill({ status: 200, body: 'stub' }));
   await login(page, 'kanpurDesk');
   const mobile = await register(page, 'Nisha Recalltest');
-  const card = page.getByRole('region', { name: 'Next visit' });
-  await expect(card).toContainText('No next visit set.');
+  const card = page.getByRole('region', { name: 'Remind to come back' });
+  await expect(card).toContainText('No reminder set.');
   await card.getByRole('button', { name: 'Continue treatment' }).click();
-  await card.getByRole('button', { name: 'Set next visit' }).click();
+  // The default explains itself (QA 9 Nov).
+  await expect(card).toContainText('in 1 week. No time: this is a reminder, not a booking.');
+  await card.getByRole('button', { name: 'Set reminder' }).click();
   await expect(card).toContainText('Continue treatment due');
+  await expect(card).toContainText('(in 1 week)');
   await axeClean(page, 'patient with next visit');
 
   await page.getByRole('link', { name: 'Recalls' }).click();

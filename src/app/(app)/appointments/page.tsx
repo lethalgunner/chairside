@@ -2,13 +2,15 @@ import Link from 'next/link';
 import { requireContext } from '@/lib/auth';
 import { APPOINTMENT_LABEL } from '@/domain/appointments';
 import { addDays, businessDate, isIsoDate, shortDay } from '@/domain/dates';
-import { dayAppointments, doctorDays } from '@/services/appointments';
+import { appointmentConfirmHref } from '@/domain/whatsapp';
+import { dayAppointments, doctorDays, type AppointmentRow } from '@/services/appointments';
+import { getPrintHeader } from '@/services/branches';
 import { canAnywhere, canDo, scopeBranchIds } from '@/services/context';
 import { Card, Empty, PageHead } from '@/components/ui';
 import AppointmentActions from './AppointmentActions';
 
 /** One clinic day by doctor (Sprint 4, LET-167): what's booked, and free slots to book. */
-export default async function AppointmentsPage({ searchParams }: { searchParams: Promise<{ date?: string | string[] }> }) {
+export default async function AppointmentsPage({ searchParams }: { searchParams: Promise<{ date?: string | string[]; booked?: string | string[] }> }) {
   const ctx = await requireContext();
   if (!canAnywhere(ctx, 'appointment.manage') && !canAnywhere(ctx, 'report.branch')) {
     return (
@@ -18,7 +20,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
       </>
     );
   }
-  const { date: raw } = await searchParams;
+  const { date: raw, booked } = await searchParams;
   const today = businessDate();
   const date = typeof raw === 'string' && isIsoDate(raw) ? raw : today;
   const branch = ctx.activeBranchId === 'all' ? null : ctx.activeBranchId;
@@ -28,6 +30,14 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
   const others = rows.filter((r) => !shown.has(r.providerId));
   const active = rows.filter((r) => r.status !== 'cancelled');
   const q = (d: string) => `/appointments?date=${d}`;
+  // WhatsApp confirmation (time and place only) for upcoming bookings at the active branch (QA 9 Nov).
+  const head = branch && canBook ? await getPrintHeader(ctx, branch) : null;
+  const confirmHref = (r: AppointmentRow) =>
+    head && r.branchId === branch && (r.status === 'booked' || r.status === 'confirmed') && date >= today
+      ? appointmentConfirmHref({ patientName: r.patientName, patientPhone: r.patientPhone, startsAt: r.startsAt, endsAt: r.endsAt }, head)
+      : null;
+  const justBooked = typeof booked === 'string' ? rows.find((r) => r.id === booked) : undefined;
+  const justBookedHref = justBooked ? confirmHref(justBooked) : null;
 
   return (
     <>
@@ -47,6 +57,13 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
           </nav>
         }
       />
+      {justBooked && justBookedHref ? (
+        <div className="callout good" role="status">
+          Booked {justBooked.patientName} at {justBooked.time} with {justBooked.providerName}.{' '}
+          <a className="link" href={justBookedHref} target="_blank" rel="noopener noreferrer">Send {justBooked.patientName} a WhatsApp confirmation</a>{' '}
+          <span className="muted small">(time, place and an add-to-calendar link; no treatment details). {justBooked.providerName} sees it in their calendar link.</span>
+        </div>
+      ) : null}
       {!branch ? <div className="callout">Showing every branch. Pick a branch in the branch menu to see free slots and book.</div> : null}
       {branch && docs.length === 0 ? <div className="callout warn">No doctors work at this branch yet. The owner sets this in Settings → Doctors.</div> : null}
 
@@ -68,6 +85,9 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                     </span>
                     <span className={`pill${r.status === 'no_show' || r.status === 'cancelled' ? ' credit' : r.status === 'arrived' || r.status === 'completed' ? ' paid' : ''}`}>{APPOINTMENT_LABEL[r.status]}</span>
                     {canDo(ctx, 'appointment.manage', r.branchId) ? <AppointmentActions id={r.id} status={r.status} isToday={date === today} label={`${r.time} ${r.patientName}`} /> : null}
+                    {confirmHref(r) ? (
+                      <a className="link small appt-wa" href={confirmHref(r)!} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp confirmation: ${r.time} ${r.patientName}`}>WhatsApp confirmation</a>
+                    ) : null}
                   </li>
                 ))}
               </ul>

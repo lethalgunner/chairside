@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildIcs, foldLine, icsText } from './ics';
+import { buildIcs, foldLine, googleCalendarLink, icsText } from './ics';
 
 describe('calendar feed (LET-170)', () => {
   it('escapes text', () => {
@@ -20,5 +20,16 @@ describe('calendar feed (LET-170)', () => {
     expect(ics.startsWith('BEGIN:VCALENDAR\r\n')).toBe(true);
     expect(ics.endsWith('END:VCALENDAR\r\n')).toBe(true);
     expect(ics.split('\r\n').every((l) => !l.includes('\n'))).toBe(true);
+  });
+});
+
+describe('Google Calendar add link', () => {
+  it('carries UTC times and the place, encoded', () => {
+    const url = new URL(googleCalendarLink({ title: 'Dental appointment, Vij Dental Care Pune', start: new Date('2026-11-09T05:30:00Z'), end: new Date('2026-11-09T05:45:00Z'), location: 'FC Road, Pune' }));
+    expect(url.origin + url.pathname).toBe('https://calendar.google.com/calendar/render');
+    expect(url.searchParams.get('action')).toBe('TEMPLATE');
+    expect(url.searchParams.get('dates')).toBe('20261109T053000Z/20261109T054500Z');
+    expect(url.searchParams.get('text')).toBe('Dental appointment, Vij Dental Care Pune');
+    expect(url.searchParams.get('location')).toBe('FC Road, Pune');
   });
 });

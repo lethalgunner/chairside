@@ -198,7 +198,7 @@ export const CAPABILITY_LABEL: Record<Capability, string> = {
   'branch.manage': 'Change branch details and bill header',
   'procedure.dismiss': 'Remove work marked as not done',
   'visit.manage': 'Run the waiting room',
-  'recall.manage': 'Set next visits',
+  'recall.manage': 'Set come-back reminders',
   'data.export': 'Export all data',
   'provider.manage': 'Change doctor profiles and hours',
   'appointment.manage': 'Book and change appointments',

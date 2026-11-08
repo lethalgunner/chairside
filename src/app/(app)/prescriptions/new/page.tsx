@@ -4,6 +4,9 @@ import { requireContext } from '@/lib/auth';
 import { getPatient } from '@/services/patients';
 import { getPrescription, listMedicines, listTemplates, patientAllergies, prescriberAt, suggestedTemplateIds } from '@/services/rx';
 import { PageHead } from '@/components/ui';
+import AddMeAsDoctor from '@/components/AddMeAsDoctor';
+import { canAnywhere } from '@/services/context';
+import { listProviders, myProvider } from '@/services/providers';
 import RxForm from './RxForm';
 
 /** Write (or correct) a prescription (Sprint 5, LET-173). Doctors with a profile at this branch only. */
@@ -15,12 +18,30 @@ export default async function NewPrescriptionPage({ searchParams }: { searchPara
   const branch = ctx.activeBranchId === 'all' ? null : ctx.activeBranchId;
   const doctor = branch ? await prescriberAt(ctx, branch) : null;
   if (!branch || !doctor) {
+    // Say exactly why, and offer the fix this person can make (QA 9 Nov: an owner saw no way in).
+    const owner = canAnywhere(ctx, 'provider.manage');
+    const [me, doctorsHere] = branch ? await Promise.all([myProvider(ctx), listProviders(ctx, branch)]) : [null, []];
+    const back = `/prescriptions/new?patient=${patient.id}`;
     return (
       <>
-        <PageHead title="Write prescription" />
-        <div className="callout warn">
-          {!branch ? 'Pick your branch in the branch menu first.' : 'Only a doctor can sign a prescription, and they need a doctor profile at this branch (the owner sets it in Settings → Doctors).'}
-        </div>
+        <PageHead title="Write prescription" sub={`For ${patient.fullName}`} />
+        {!branch ? (
+          <div className="callout warn">Pick your branch in the branch menu first.</div>
+        ) : owner && !me ? (
+          <div className="callout">
+            <strong>Prescriptions are signed by a doctor.</strong> If you also treat patients, add yourself as a doctor and you can write this one now. Fill in your registration number afterwards in Settings → Doctors; it prints on every prescription.
+            <AddMeAsDoctor label="Add me as a doctor and continue" then={back} />
+          </div>
+        ) : owner && me ? (
+          <div className="callout warn">
+            You&apos;re a doctor here, but not at this branch. Add this branch to your working hours in <Link className="link" href="/settings/doctors">Settings → Doctors</Link>.
+          </div>
+        ) : (
+          <div className="callout warn">
+            Prescriptions are signed by a doctor with a profile at this branch
+            {doctorsHere.length ? `: ${doctorsHere.map((d) => d.fullName).join(', ')}` : ''}. Ask one of them to sign in, or ask the owner to set you up in Settings → Doctors.
+          </div>
+        )}
         <Link className="secondary" href={`/patients/${patient.id}`}>Back to {patient.fullName}</Link>
       </>
     );

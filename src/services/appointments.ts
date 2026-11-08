@@ -1,6 +1,6 @@
 import { and, asc, eq, gt, gte, inArray, lt, ne } from 'drizzle-orm';
 import { getDb, type Tx } from '@/db/client';
-import { appointments, branches, patients, providerBranches, providers } from '@/db/schema';
+import { appointments, branches, patients, providerBranches, providers, recalls } from '@/db/schema';
 import {
   ACTIVE_STATUSES,
   canMoveAppointment,
@@ -100,6 +100,17 @@ export async function bookAppointment(ctx: TenantContext, input: BookInput): Pro
         .values({ orgId: ctx.orgId, branchId, patientId: p.id, doctorId: provider.id, startsAt: checked.value.startsAt, endsAt: checked.value.endsAt, reason: checked.value.reason, createdBy: ctx.userId })
         .returning({ id: appointments.id });
       await writeAudit(tx, ctx, { action: 'appointment.book', entityType: 'appointment', entityId: row!.id, branchId, after: { providerId: provider.id, startsAt: checked.value.startsAt, endsAt: checked.value.endsAt } });
+      // A booked time answers "come back for a check-up": close this patient's
+      // open reminders at this branch, so Recalls doesn't chase them (QA 9 Nov).
+      const open = await tx
+        .select({ id: recalls.id })
+        .from(recalls)
+        .where(and(eq(recalls.orgId, ctx.orgId), eq(recalls.branchId, branchId), eq(recalls.patientId, p.id), eq(recalls.status, 'open')))
+        .for('update');
+      for (const r of open) {
+        await tx.update(recalls).set({ status: 'done', closedBy: ctx.userId, closedAt: new Date() }).where(eq(recalls.id, r.id));
+        await writeAudit(tx, ctx, { action: 'recall.close', entityType: 'recall', entityId: r.id, branchId, before: { status: 'open' }, after: { status: 'done', byAppointment: row!.id } });
+      }
       return { ok: true as const, id: row!.id };
     });
   } catch (err) {

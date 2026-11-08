@@ -1,5 +1,18 @@
 # QA report
 
+## KS's 9 Nov test: owner-doctor, booking confirmation, reminder vs booking (ADR-018) — 9 Nov 2026
+| Suite | Result |
+|---|---|
+| `npm test` | 342 / 342 (+7: "in about 6 months" wording; Google Calendar link; confirmation text names no doctor or treatment) |
+| `npm run test:db` | 164 / 164 (+4: owner without a profile adds themselves and can prescribe at every branch; idempotent and audited; deactivated profile comes back; desk and manager refused; booking closes the reminder at that branch only) |
+| `npm run test:e2e` | 87 / 87 (+2 in `15-qa-nov9`: reminder → Book a time → booked → WhatsApp confirmation (number, IST time, calendar link, no doctor or reason) → reminder closed; desk sees no Write prescription; owner does). `12-sprint3` updated to the new wording. axe clean |
+
+| ID | Sev | Found by KS | Fix |
+|---|---|---|---|
+| N9-1 | S2 | "Next visit" box read as booking; no time; 9 May 2027 default unexplained | Renamed "Remind to come back", "in about 6 months" shown, links to booking, closes when booked |
+| N9-2 | S2 | Owner login saw no way to write a prescription | Button shown to anyone who can prescribe; the page explains and offers "Add me as a doctor and continue" |
+| N9-3 | S3 | Booking didn't reach the patient | WhatsApp confirmation with an add-to-calendar link after booking and on each upcoming row |
+
 ## Sprints 4–6 (LET-166…176) — 8 Nov 2026
 **Branch:** `v1/sprint4-visit-day` on `4f1206d` · **Result:** pass
 

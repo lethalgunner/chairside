@@ -86,3 +86,17 @@ export function recallReminderText(r: { firstName: string; branchName: string; b
   ];
   return lines.join('\n');
 }
+
+/**
+ * "in about 6 months", "in 1 week", "today": shown beside a recall's due date so
+ * a default like 9 May 2027 explains itself (QA 9 Nov: it looked arbitrary).
+ */
+export function dueInWords(today: string, dueOn: string): string {
+  const days = Math.round((Date.parse(`${dueOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  if (days <= 0) return days === 0 ? 'today' : 'overdue';
+  if (days === 1) return 'tomorrow';
+  if (days < 14) return days % 7 === 0 ? `in ${days / 7} week${days === 7 ? '' : 's'}` : `in ${days} days`;
+  if (days < 60) return `in about ${Math.round(days / 7)} weeks`;
+  const months = Math.round(days / 30.44);
+  return `in about ${months} month${months === 1 ? '' : 's'}`;
+}

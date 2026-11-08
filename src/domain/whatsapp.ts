@@ -10,7 +10,8 @@
  * doctor names or notes. A patient message has the first name, branch,
  * amount and how to pay; the owner's day summary has totals only.
  */
-import { businessDate } from './dates';
+import { businessDate, istTime, shortDay } from './dates';
+import { googleCalendarLink } from './ics';
 import { formatINR, type Paise } from './money';
 
 /** A 10-digit Indian mobile → the international digits wa.me wants (no +, no 0). */
@@ -107,4 +108,40 @@ export function remindedLabel(sentAt: Date, now: Date = new Date()): string {
   if (days <= 0) return 'Reminded today';
   if (days === 1) return 'Reminded yesterday';
   return `Reminded ${days} days ago`;
+}
+
+export interface AppointmentMessageInput {
+  patientName: string;
+  clinicName: string;
+  /** "Mon 9 Nov" */
+  day: string;
+  /** "11:00" */
+  time: string;
+  address: string | null;
+  branchPhone: string | null;
+  calendarLink: string;
+}
+
+/**
+ * The confirmation a front desk sends after booking. Time and place only: no
+ * doctor's name, treatment or reason (no clinical detail, CLAUDE.md), so the
+ * same rule as every other patient message holds.
+ */
+export function appointmentText(a: AppointmentMessageInput): string {
+  const lines = [
+    `Namaste ${firstName(a.patientName)},`,
+    `Your appointment at ${a.clinicName} is on ${a.day} at ${a.time}.`,
+  ];
+  if (a.address) lines.push(`Address: ${a.address}`);
+  lines.push(`Add it to your calendar: ${a.calendarLink}`);
+  lines.push(a.branchPhone ? `To change the time, call us on ${a.branchPhone}. Thank you!` : 'To change the time, reply to this message. Thank you!');
+  return lines.join('\n');
+}
+
+/** The wa.me link for a booked appointment: message plus a Google Calendar add link (time and place only). */
+export function appointmentConfirmHref(a: { patientName: string; patientPhone: string; startsAt: Date; endsAt: Date }, clinic: { name: string; addressLines: string[]; phone: string | null }): string {
+  const address = clinic.addressLines.join(', ') || null;
+  const calendarLink = googleCalendarLink({ title: `Dental appointment, ${clinic.name}`, start: a.startsAt, end: a.endsAt, location: address ?? clinic.name });
+  const text = appointmentText({ patientName: a.patientName, clinicName: clinic.name, day: shortDay(businessDate(a.startsAt)), time: istTime(a.startsAt), address, branchPhone: clinic.phone, calendarLink });
+  return waLink(text, a.patientPhone);
 }

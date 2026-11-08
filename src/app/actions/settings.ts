@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { getContext } from '@/lib/auth';
 import { savePrintHeader, updateBranchDetails, type SaveBranchResult } from '@/services/branches';
 import { addItemFromBill, createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type BillItemResult, type SaveItemResult } from '@/services/catalogue';
-import { issueCalendarToken, revokeCalendarToken, saveProvider, setProviderActive, setProviderHours, type SaveProviderResult } from '@/services/providers';
+import { addMeAsDoctor, issueCalendarToken, revokeCalendarToken, saveProvider, setProviderActive, setProviderHours, type SaveProviderResult } from '@/services/providers';
 import { previewCatalogueImport, saveCatalogueImport, type ImportPreview, type ImportSaveResult } from '@/services/catalogue-import';
 import { addRole, inviteStaff, passwordResetLink, reissueInvite, removeRole, setStaffActive, type InviteStaffResult } from '@/services/staff';
 import { requireActiveBranch, UserFacingError } from '@/services/context';
@@ -257,6 +257,15 @@ export async function removeRoleAction(membershipId: string): Promise<ActionResu
     await removeRole(ctx, parse(idInput, membershipId));
     return undefined;
   });
+  if (res.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+/** "I also see patients": the owner gets a doctor profile on their own login (QA 9 Nov). */
+export async function addMeAsDoctorAction(): Promise<ActionResult<{ providerId: string }>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('provider.self_add');
+  const res = await run('provider.self_add', () => addMeAsDoctor(ctx));
   if (res.ok) revalidatePath('/', 'layout');
   return res;
 }

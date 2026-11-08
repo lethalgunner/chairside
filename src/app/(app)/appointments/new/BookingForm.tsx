@@ -88,7 +88,8 @@ export default function BookingForm({ patientId, moveId, today, date: serverDate
       if (!res.ok || !res.data.ok) release();
       if (!res.ok) return setError(res.error);
       if (!res.data.ok) return setErrors(res.data.fieldErrors);
-      await navigate(`/appointments?date=${date}`);
+      // Land on the day with a nudge to send the patient a confirmation (new or moved).
+      await navigate(`/appointments?date=${date}&booked=${res.data.id}`);
     })();
   }
 

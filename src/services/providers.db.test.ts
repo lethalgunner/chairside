@@ -1,12 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { closeDb, getDb } from '@/db/client';
-import { auditLog, providers } from '@/db/schema';
+import { auditLog, memberships, providerBranches, providers, users } from '@/db/schema';
 import { createFixture, key, type Fixture } from '@/test/fixtures';
 import { ForbiddenError, UserFacingError } from './context';
 import { issueBill } from './invoices';
 import { registerPatient } from './patients';
-import { doctorsWithoutProvider, hashCalendarToken, issueCalendarToken, revokeCalendarToken, listProviders, listProvidersForSettings, saveProvider, setProviderActive, setProviderHours } from './providers';
+import { addMeAsDoctor, doctorsWithoutProvider, hashCalendarToken, issueCalendarToken, revokeCalendarToken, listProviders, listProvidersForSettings, saveProvider, setProviderActive, setProviderHours } from './providers';
+import { prescriberAt } from './rx';
 import { inviteStaff } from './staff';
 
 let f: Fixture;
@@ -120,5 +121,40 @@ describe('doctor profiles (LET-166, ADR-008)', () => {
     expect(p2!.calendarTokenHash).toBeNull();
     const audit = await getDb().select().from(auditLog).where(eq(auditLog.entityId, f.doctorId));
     expect(JSON.stringify(audit)).not.toContain(t2);
+  });
+});
+
+describe('owner who is also a doctor (QA 9 Nov)', () => {
+  it('a new owner with no profile adds themselves: linked to their login, every branch, can prescribe', async () => {
+    const db = getDb();
+    const [u] = await db.insert(users).values({ orgId: f.orgId, fullName: `Dr Second Owner ${tag}`, email: `owner2-${tag}@test.local` }).returning();
+    await db.insert(memberships).values({ orgId: f.orgId, userId: u!.id, branchId: null, role: 'owner' });
+    const ctx = { ...f.ctx('owner', f.pune.id), userId: u!.id, userName: 'owner2' };
+    expect(await prescriberAt(ctx, f.pune.id)).toBeNull();
+
+    const { providerId } = await addMeAsDoctor(ctx);
+    const [p] = await db.select().from(providers).where(eq(providers.id, providerId));
+    expect(p).toMatchObject({ userId: u!.id, engagementType: 'owner_partner', active: true, fullName: `Dr Second Owner ${tag}` });
+    const where = await db.select({ b: providerBranches.branchId }).from(providerBranches).where(eq(providerBranches.providerId, providerId));
+    expect(where.map((w) => w.b).sort()).toEqual([f.kanpur.id, f.pune.id].sort());
+    expect((await prescriberAt(ctx, f.pune.id))?.id).toBe(providerId);
+    expect((await listProviders(ctx, f.kanpur.id)).map((x) => x.id)).toContain(providerId);
+
+    // Pressing it again changes nothing.
+    expect((await addMeAsDoctor(ctx)).providerId).toBe(providerId);
+    const audit = await db.select().from(auditLog).where(and(eq(auditLog.entityId, providerId), eq(auditLog.action, 'provider.self_add')));
+    expect(audit).toHaveLength(2);
+  });
+
+  it('a deactivated owner profile comes back', async () => {
+    await setProviderActive(f.ctx('owner'), f.ownerProviderId, false);
+    expect(await prescriberAt(f.ctx('owner', f.pune.id), f.pune.id)).toBeNull();
+    expect((await addMeAsDoctor(f.ctx('owner'))).providerId).toBe(f.ownerProviderId);
+    expect((await prescriberAt(f.ctx('owner', f.pune.id), f.pune.id))?.id).toBe(f.ownerProviderId);
+  });
+
+  it('only an owner can do it', async () => {
+    await expect(addMeAsDoctor(f.ctx('desk'))).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(addMeAsDoctor(f.ctx('manager'))).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

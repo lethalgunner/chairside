@@ -70,3 +70,16 @@ export function buildIcs(calendarName: string, events: IcsEvent[], now: Date = n
   lines.push('END:VCALENDAR');
   return lines.map(foldLine).join('\r\n') + '\r\n';
 }
+
+/**
+ * A Google Calendar "add event" link (calendar.google.com/calendar/render,
+ * action=TEMPLATE). Opens a pre-filled event the person saves themselves:
+ * nothing is sent by Chairside, nothing stored at Google by us. Used in the
+ * patient's WhatsApp confirmation (LET-167 follow-up, 9 Nov).
+ */
+export function googleCalendarLink(e: { title: string; start: Date; end: Date; location?: string; details?: string }): string {
+  const p = new URLSearchParams({ action: 'TEMPLATE', text: e.title, dates: `${stamp(e.start)}/${stamp(e.end)}` });
+  if (e.location) p.set('location', e.location);
+  if (e.details) p.set('details', e.details);
+  return `https://calendar.google.com/calendar/render?${p.toString()}`;
+}

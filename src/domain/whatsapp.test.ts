@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { paise } from './money';
-import { daySummaryText, duesReminderText, firstName, remindedLabel, waLink, waNumber } from './whatsapp';
+import { appointmentConfirmHref, appointmentText, daySummaryText, duesReminderText, firstName, remindedLabel, waLink, waNumber } from './whatsapp';
 
 describe('wa.me links (T32, T33)', () => {
   it('prefixes 91 to a 10-digit mobile and encodes the text', () => {
@@ -98,5 +98,38 @@ describe('remindedLabel (T32)', () => {
     expect(remindedLabel(new Date('2026-10-29T00:30:00+05:30'), now)).toBe('Reminded today');
     expect(remindedLabel(new Date('2026-10-28T23:30:00+05:30'), now)).toBe('Reminded yesterday');
     expect(remindedLabel(new Date('2026-10-25T12:00:00+05:30'), now)).toBe('Reminded 4 days ago');
+  });
+});
+
+describe('appointment confirmation', () => {
+  const base = { patientName: 'Mr. Rahul Malhotra', clinicName: 'Vij Dental Care Pune', day: 'Mon 9 Nov', time: '11:00', address: 'FC Road, Pune', branchPhone: '020 1234 5678', calendarLink: 'https://calendar.google.com/x' };
+  it('says when and where, with the calendar link', () => {
+    const t = appointmentText(base);
+    expect(t).toContain('Namaste Rahul,');
+    expect(t).toContain('on Mon 9 Nov at 11:00');
+    expect(t).toContain('Address: FC Road, Pune');
+    expect(t).toContain('Add it to your calendar: https://calendar.google.com/x');
+    expect(t).toContain('call us on 020 1234 5678');
+  });
+  it('never names the doctor or the reason', () => {
+    const t = appointmentText(base);
+    expect(t).not.toMatch(/Dr\.?\s/);
+    expect(t).not.toMatch(/RCT|root canal|crown/i);
+  });
+  it('works without an address or phone', () => {
+    const t = appointmentText({ ...base, address: null, branchPhone: null });
+    expect(t).not.toContain('Address');
+    expect(t).toContain('reply to this message');
+  });
+});
+
+describe('appointment confirmation link', () => {
+  it('opens a chat with the patient, in IST, with a calendar link', () => {
+    const href = appointmentConfirmHref({ patientName: 'Rahul Malhotra', patientPhone: '9876543210', startsAt: new Date('2026-11-09T05:30:00Z'), endsAt: new Date('2026-11-09T05:45:00Z') }, { name: 'Vij Dental Care Pune', addressLines: ['FC Road', 'Pune'], phone: null });
+    expect(href.startsWith('https://wa.me/919876543210?text=')).toBe(true);
+    const text = decodeURIComponent(href.split('text=')[1]!);
+    expect(text).toContain('on Mon 9 Nov at 11:00');
+    expect(text).toContain('Address: FC Road, Pune');
+    expect(text).toContain('calendar.google.com');
   });
 });

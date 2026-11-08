@@ -19,7 +19,7 @@ import { listPrescriptions, patientAllergies, prescriberAt } from '@/services/rx
 import { PLAN_LABEL } from '@/domain/plans';
 import { APPOINTMENT_LABEL } from '@/domain/appointments';
 import { addDays, businessDate, shortDay } from '@/domain/dates';
-import { defaultDueOn, RECALL_KINDS, RECALL_LABEL, VISIT_LABEL } from '@/domain/visits';
+import { defaultDueOn, dueInWords, RECALL_KINDS, RECALL_LABEL, VISIT_LABEL } from '@/domain/visits';
 import { AddToQueue, CloseRecall, RecallForm } from './FrontDesk';
 import RemindButton from '@/components/RemindButton';
 import { Card, Empty, MODE_LABEL, PageHead, StatusPill } from '@/components/ui';
@@ -90,7 +90,8 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
                 Record payment
               </Link>
             ) : null}
-            {prescriber ? (
+            {/* Shown to anyone who could prescribe (owner, doctors), even before their profile exists: the page says how (QA 9 Nov). */}
+            {prescriber || (branch && canDo(ctx, 'rx.write', branch)) ? (
               <Link className="cta secondary-cta" href={`/prescriptions/new?patient=${patient.id}`}>
                 Write prescription
               </Link>
@@ -207,20 +208,32 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
       ) : null}
 
       {canRecall || nextVisits.length > 0 ? (
-        <Card title="Next visit">
+        <Card title="Remind to come back">
+          {/* Not a booking: a reminder for months ahead, no time. Booking at a time is "Book appointment" (QA 9 Nov). */}
+          <p className="muted small">
+            For a check-up or cleaning weeks or months from now; the Recalls list reminds you when it&apos;s due.
+            {canBook ? (
+              <>
+                {' '}To see them at a set time, <Link className="link" href={`/appointments/new?patient=${patient.id}`}>book an appointment</Link>.
+              </>
+            ) : null}
+          </p>
           {nextVisits.length > 0 ? (
             <ul className="plain">
               {nextVisits.map((r) => (
                 <li key={r.id}>
-                  <strong>{RECALL_LABEL[r.kind]}</strong> due {displayDate(r.dueOn)}
+                  <strong>{RECALL_LABEL[r.kind]}</strong> due {displayDate(r.dueOn)} <span className="muted small">({dueInWords(today, r.dueOn)})</span>
                   {nextVisits.length > 1 || r.branchId !== branch ? ` at ${r.branchName}` : ''}
                   {r.bucket === 'overdue' ? <span className="pill credit"> Overdue</span> : null}{' '}
+                  {canDo(ctx, 'appointment.manage', r.branchId) && r.branchId === branch ? (
+                    <Link className="link" href={`/appointments/new?patient=${patient.id}&date=${r.dueOn < today ? today : r.dueOn}`}>Book a time</Link>
+                  ) : null}{' '}
                   {canDo(ctx, 'recall.manage', r.branchId) ? <CloseRecall recallId={r.id} label={`${RECALL_LABEL[r.kind]} for ${patient.fullName}`} /> : null}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="muted small">No next visit set.</p>
+            <p className="muted small">No reminder set.</p>
           )}
           {canRecall ? (
             <RecallForm
@@ -229,6 +242,7 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
               defaults={Object.fromEntries(RECALL_KINDS.map((k) => [k, defaultDueOn(k, today)]))}
               min={today}
               max={addDays(today, MAX_RECALL_DAYS)}
+              today={today}
             />
           ) : null}
         </Card>

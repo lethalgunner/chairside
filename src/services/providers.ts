@@ -106,6 +106,23 @@ export async function ensureProvider(
   return p!.id;
 }
 
+/**
+ * "I also see patients" (QA 9 Nov): an owner who is a dentist gets a doctor
+ * profile linked to their own login at every branch, so they appear in the
+ * doctor lists and can sign prescriptions (owners already hold rx.write).
+ * Idempotent; a deactivated profile comes back. Owner only (provider.manage).
+ */
+export async function addMeAsDoctor(ctx: TenantContext): Promise<{ providerId: string }> {
+  if (!canAnywhere(ctx, 'provider.manage')) throw new ForbiddenError();
+  return getDb().transaction(async (tx) => {
+    const [existing] = await tx.select({ id: providers.id, active: providers.active }).from(providers).where(and(eq(providers.userId, ctx.userId), eq(providers.orgId, ctx.orgId))).for('update');
+    if (existing && !existing.active) await tx.update(providers).set({ active: true }).where(and(eq(providers.id, existing.id), eq(providers.orgId, ctx.orgId)));
+    const providerId = await ensureProvider(tx, ctx.orgId, ctx.userId, null, 'owner_partner');
+    await writeAudit(tx, ctx, { action: 'provider.self_add', entityType: 'provider', entityId: providerId, after: { userId: ctx.userId, reactivated: !!existing && !existing.active, created: !existing } });
+    return { providerId };
+  });
+}
+
 function assertManager(ctx: TenantContext) {
   if (!canAnywhere(ctx, 'provider.manage')) throw new ForbiddenError();
 }

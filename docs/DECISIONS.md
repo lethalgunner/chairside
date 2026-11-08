@@ -465,3 +465,22 @@ providers ids different from users so mixing the two fails a test.
 **Invariant (ADR-008):** granting `doctor` or `associate_doctor` (invite, command line, seed) creates or
 extends the provider for that branch. Settings → Doctors (owner only, `provider.manage`) edits profiles,
 adds visiting doctors without a login, sets hours per branch, deactivates, and issues the calendar link.
+
+## ADR-018 — After KS's 9 Nov test: owner-doctors, booking confirmations, reminders vs bookings (9 Nov 2026)
+
+**Owner who is also a doctor.** An owner presses "Add me as a doctor" (Settings → Doctors, or the
+prescription page): a provider linked to their own login at every branch, engagement `owner_partner`.
+Owners already hold `rx.write`; the profile is what makes them a prescriber. Idempotent, audited
+(`provider.self_add`), and it reactivates a deactivated profile.
+
+**Booking reaches the patient by WhatsApp, not email.** After booking or moving, the day page offers
+"Send … a WhatsApp confirmation": click-to-send (ADR-014), time, place and a Google Calendar
+"add event" link; no doctor name, treatment or reason (CLAUDE.md). The doctor's side stays the private
+one-way calendar feed (LET-170). **Not built: emailed calendar invites** — they need an email provider
+(a paid account and a secret), patients' email addresses (we don't collect them) and consent ⚖️.
+Revisit with the WhatsApp API in Q1 2027 (LET-177).
+
+**A reminder is not a booking.** The patient-page box is "Remind to come back" (date only, with "in
+about 6 months" beside it) and links to booking. Booking an appointment closes that patient's open
+reminders at that branch (`recall.close`, audited), so Recalls stops chasing someone already booked.
+A later cancellation does not reopen the reminder (support playbook: set it again).
