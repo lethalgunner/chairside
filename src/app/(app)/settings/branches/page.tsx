@@ -5,6 +5,7 @@ import { listBranchSettings } from '@/services/branches';
 import { settingsAccess } from '@/services/settings';
 import { Empty, PageHead } from '@/components/ui';
 import BranchForm from './BranchForm';
+import NewBranchForm from './NewBranchForm';
 
 export default async function BranchesPage() {
   const ctx = await requireContext();
@@ -20,6 +21,7 @@ export default async function BranchesPage() {
   return (
     <>
       <PageHead eyebrow="Settings" title="Branches" sub="Bills already issued keep the GST status and GSTIN they were issued under." />
+      <NewBranchForm states={[...STATES]} />
       {branches.map((b) => (
         <BranchForm
           key={b.id}

@@ -148,3 +148,14 @@ export function checkBranchDetails(input: BranchDetailsInput): Checked<BranchDet
   if (Object.keys(fieldErrors).length > 0 || dayCloseTolerancePaise === null || defaultFloatPaise === null) return { ok: false, fieldErrors };
   return { ok: true, value: { name, addressLine, city, state, phone, gstRegistered, gstin, dayCloseTolerancePaise, defaultFloatPaise, ...(upi ?? {}) } };
 }
+
+/**
+ * A new branch's code (Sprint 7, "Add branch"). Exactly 3 letters or digits,
+ * as bill numbering requires (ADR-010, `isValidBranchCode`): it's in every
+ * bill number and can never change. Lower case is accepted and upper-cased.
+ */
+export function checkBranchCode(raw: string): { ok: true; code: string } | { ok: false; error: string } {
+  const code = raw.trim().toUpperCase();
+  if (!/^[A-Z0-9]{3}$/.test(code)) return { ok: false, error: 'Use exactly 3 letters or digits, like PUN or KN2. It goes in every bill number and can’t change later.' };
+  return { ok: true, code };
+}

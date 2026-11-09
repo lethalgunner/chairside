@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getContext } from '@/lib/auth';
-import { savePrintHeader, updateBranchDetails, type SaveBranchResult } from '@/services/branches';
+import { createBranch, savePrintHeader, updateBranchDetails, type CreateBranchResult, type SaveBranchResult } from '@/services/branches';
 import { addItemFromBill, createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type BillItemResult, type SaveItemResult } from '@/services/catalogue';
 import { addMeAsDoctor, issueCalendarToken, revokeCalendarToken, saveProvider, setProviderActive, setProviderHours, type SaveProviderResult } from '@/services/providers';
 import { previewCatalogueImport, saveCatalogueImport, type ImportPreview, type ImportSaveResult } from '@/services/catalogue-import';
@@ -150,6 +150,15 @@ export async function saveBranchAction(branchId: string, input: z.input<typeof b
   const ctx = await getContext();
   if (!ctx) return signedOut('branch.update');
   const res = await run('branch.update', () => updateBranchDetails(ctx, parse(idInput, branchId), parse(branchInput, input)));
+  if (res.ok && res.data.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+/** Add a branch (Sprint 7). The owner's view switches to it once created. */
+export async function createBranchAction(input: z.input<typeof branchInput> & { code: string }): Promise<ActionResult<CreateBranchResult>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('branch.create');
+  const res = await run('branch.create', () => createBranch(ctx, { ...parse(branchInput, input), code: parse(z.string().max(10), input.code) }));
   if (res.ok && res.data.ok) revalidatePath('/', 'layout');
   return res;
 }

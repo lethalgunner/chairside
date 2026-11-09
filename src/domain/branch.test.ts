@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkBranchDetails, GST_STATE_CODES, gstinProblem, STATES, type BranchDetailsInput } from './branch';
+import { checkBranchCode, checkBranchDetails, GST_STATE_CODES, gstinProblem, STATES, type BranchDetailsInput } from './branch';
 import { can, ROLE_CAPABILITIES, ROLES } from './permissions';
 
 describe('branch.manage (T16)', () => {
@@ -85,5 +85,15 @@ describe('branch details validation', () => {
 
   it('allows empty optional fields', () => {
     expect(checkBranchDetails({ ...base, addressLine: '', city: ' ', phone: '' })).toMatchObject({ ok: true, value: { addressLine: null, city: null, phone: null } });
+  });
+});
+
+describe('new branch code (Sprint 7)', () => {
+  it('accepts 3 letters or digits, upper-cased', () => {
+    expect(checkBranchCode(' pun ')).toEqual({ ok: true, code: 'PUN' });
+    expect(checkBranchCode('KN2')).toEqual({ ok: true, code: 'KN2' });
+  });
+  it('refuses anything that would break bill numbers', () => {
+    for (const bad of ['', 'PU', 'PUNE', 'P-1', 'पुण']) expect(checkBranchCode(bad).ok).toBe(false);
   });
 });

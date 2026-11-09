@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { closeDb, getDb } from '@/db/client';
 import { auditLog, branches } from '@/db/schema';
 import type { BranchDetailsInput } from '@/domain/branch';
 import { createFixture, key, type Fixture } from '@/test/fixtures';
-import { listBranchSettings, updateBranchDetails } from './branches';
+import { createBranch, listBranchSettings, updateBranchDetails } from './branches';
 import { ForbiddenError } from './context';
 import { getInvoice, issueBill } from './invoices';
 import { registerPatient } from './patients';
@@ -91,5 +91,28 @@ describe('branch settings (T16)', () => {
     await expect(listBranchSettings(f.ctx('manager'))).rejects.toThrow(ForbiddenError);
     await expect(updateBranchDetails(f.ctx('owner'), other.kanpur.id, kanpur())).rejects.toThrow(ForbiddenError);
     expect((await listBranchSettings(f.ctx('owner'))).map((b) => b.id).sort()).toEqual([f.kanpur.id, f.pune.id].sort());
+  });
+});
+
+describe('add a branch (Sprint 7)', () => {
+  const base = { name: 'Nashik', addressLine: '', city: 'Nashik', state: 'Maharashtra', phone: '', gstRegistered: false, gstin: '', dayCloseTolerance: '100', defaultFloat: '0' };
+  it('owner adds a branch: audited, visible to org-wide grants, numbering starts at 1', async () => {
+    const res = await createBranch(f.ctx('owner'), { ...base, code: 'nsk' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const [b] = await getDb().select().from(branches).where(eq(branches.id, res.id));
+    expect(b).toMatchObject({ code: 'NSK', name: 'Nashik', orgId: f.orgId, gstRegistered: false, dayCloseTolerancePaise: 10_000 });
+    const audit = await getDb().select().from(auditLog).where(and(eq(auditLog.entityId, res.id), eq(auditLog.action, 'branch.create')));
+    expect(audit).toHaveLength(1);
+  });
+  it('the same code twice, a bad code, or bad details come back per field', async () => {
+    const dup = await createBranch(f.ctx('owner'), { ...base, code: 'NSK' });
+    expect(dup.ok ? null : dup.fieldErrors.code).toContain('already used');
+    const bad = await createBranch(f.ctx('owner'), { ...base, code: 'NASHIK', state: '' });
+    expect(bad.ok ? [] : Object.keys(bad.fieldErrors).sort()).toEqual(['code', 'state']);
+  });
+  it('only the owner can add one', async () => {
+    await expect(createBranch(f.ctx('manager'), { ...base, code: 'MGR' })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(createBranch(f.ctx('desk'), { ...base, code: 'DSK' })).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

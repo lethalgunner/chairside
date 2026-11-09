@@ -1,11 +1,12 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { getDb, type DB, type Tx } from '@/db/client';
 import { branches } from '@/db/schema';
-import { checkBranchDetails, type BranchDetailsInput } from '@/domain/branch';
+import { checkBranchCode, checkBranchDetails, type BranchDetailsInput } from '@/domain/branch';
 import type { Paise } from '@/domain/money';
 import type { FieldErrors } from '@/domain/staff';
 import { writeAudit } from './audit';
-import { canDo, ForbiddenError, type TenantContext } from './context';
+import { canAnywhere, canDo, ForbiddenError, type TenantContext } from './context';
+import { isUniqueViolation } from './util';
 import { checkPrintHeader, type PrintHeaderInput } from '@/domain/print';
 
 export interface BranchInfo {
@@ -173,3 +174,38 @@ export async function savePrintHeader(ctx: TenantContext, branchId: string, inpu
 }
 
 const isUuidLike = (v: string) => /^[0-9a-f-]{36}$/i.test(v);
+
+// ---------------------------------------------------------------------------
+// Add a branch (Sprint 7, self-serve). Owner only (branch.manage). The new
+// branch's bill series starts at 1 when its first bill is issued, as every
+// branch's does. Org-wide grants (the owner) see it at once; staff are given
+// it on the Team page; doctors add it to their hours in Settings → Doctors.
+// ---------------------------------------------------------------------------
+
+export type CreateBranchResult = { ok: true; id: string } | { ok: false; fieldErrors: FieldErrors };
+
+/** Inserts and audits; shared with sign-up, which has no session yet. */
+export async function insertBranch(tx: Tx, orgId: string, code: string, details: ReturnType<typeof checkBranchDetails> & { ok: true }) {
+  const [row] = await tx.insert(branches).values({ orgId, code, ...details.value }).returning({ id: branches.id });
+  return row!.id;
+}
+
+export async function createBranch(ctx: TenantContext, input: BranchDetailsInput & { code: string }): Promise<CreateBranchResult> {
+  if (!canAnywhere(ctx, 'branch.manage')) throw new ForbiddenError();
+  const fieldErrors: FieldErrors = {};
+  const code = checkBranchCode(input.code);
+  if (!code.ok) fieldErrors.code = code.error;
+  const details = checkBranchDetails(input);
+  if (!details.ok) Object.assign(fieldErrors, details.fieldErrors);
+  if (!code.ok || !details.ok) return { ok: false, fieldErrors };
+  try {
+    return await getDb().transaction(async (tx) => {
+      const id = await insertBranch(tx, ctx.orgId, code.code, details);
+      await writeAudit(tx, ctx, { action: 'branch.create', entityType: 'branch', entityId: id, branchId: id, after: { code: code.code, ...details.value } });
+      return { ok: true as const, id };
+    });
+  } catch (err) {
+    if (isUniqueViolation(err, 'branches_org_code_unique')) return { ok: false, fieldErrors: { code: `Code ${code.code} is already used by another branch.` } };
+    throw err;
+  }
+}
