@@ -1,5 +1,25 @@
 # QA report
 
+## Sprints 7–9: set it up yourself, reminders your way, switch in a day — 10 Nov 2026
+**Branch:** `v1/s9-switch` (contains S7, S8, S9) on top of `main` `520a849` · **Result:** pass. KS's rule for these sprints: no change to existing workflows; every earlier test must pass unchanged.
+
+| Suite | Result |
+|---|---|
+| `npm test` | 395 / 395 (+53: branch codes, sign-up checks, email sender, leave, discount limits, reminder wording, timing, quiet hours, planner (moved, cancelled, imported, max 6, booked-too-late), import parsing (header names, day-first dates, am/pm), help) |
+| `npm run test:db` | 218 / 218 (+54: add branch, clinic settings, forgot password, sign-up, RLS for every `org_id` table across two clinics (now 44 policies), "₹ due", per-treatment length and come-back, doctor leave (every branch, booking and moving refused, to-move list), discount limits (old behaviour without limits, refused before a number is taken, owner never capped), reminders (owner only, suggested set, max 6, wording must fit, `{doctor}` switch, queue with a fixed clock, send once, STOP, move re-plans, cancel drops, dues, paused rule, other clinic), come-back gaps, import (dry run writes nothing, any problem blocks all, changed-since-Check refused, skip existing, appointments matched by mobile and doctor name, clashes, leave), split payment (two receipts, idempotent resend, advance, same mode twice refused, all or nothing)) |
+| `npm run test:e2e` | 100 / 100 in one full run (`16-self-serve`, `17-sprint8`, `18-sprint9` new; specs 01–15 untouched). axe clean on every new screen; new screens fit 390 px with no sideways scroll |
+| Upgrade test | Data written by `main` `520a849`'s own suite (39 clinics, 68 bills, 25 receipts, 108 ledger rows, 372 audit rows) migrated 13 → 21: every count and money total identical; new settings at old-behaviour defaults; no appointment marked imported |
+| Import timing | 1,000 patients: Check 34 ms, Import 1.6 s locally (~5,000 queries); est. 5–10 s on Vercel → Supabase Mumbai; route allowed 60 s |
+
+**Regressions caught before merge (both fixed without touching old tests)**
+| ID | Sev | Summary | Fix |
+|---|---|---|---|
+| S8-Q1 | S3 | Settings → Clinic gained "Save limits" and "Save gaps"; the Sprint 7 test's "Save" matched three buttons | New buttons are "Update discount limits" and "Update come-back gaps" |
+| S9-Q1 | S2 | "Paid more than one way (part cash, part UPI)?" contained "UPI": the golden path's UPI chip lookup matched two buttons, and every spec that builds on the golden path failed after it | Renamed "Paid more than one way? Split the payment" |
+| S9-Q2 | test | Split-payment spec billed at Demo Pune, whose day the golden path closes in a full run | Spec runs at Demo Kanpur, like 06, 10 and 13 |
+
+**Not run:** RLS step 2 (app on the `chairside_app` login): needs KS to create the login in Supabase and set it in Vercel. Real email sending (no provider account yet). Hindi wording read by a native speaker.
+
 ## KS's 9 Nov test: owner-doctor, booking confirmation, reminder vs booking (ADR-018) — 9 Nov 2026
 | Suite | Result |
 |---|---|
