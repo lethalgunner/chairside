@@ -1,3 +1,4 @@
+import { getClinicSettings } from '@/services/clinic';
 import Link from 'next/link';
 import { requireContext } from '@/lib/auth';
 import { businessDate, displayDate } from '@/domain/dates';
@@ -34,7 +35,7 @@ export default async function ReceivablesPage() {
     }),
   );
   const showRemind = targets.size > 0;
-  const confirmOldSystem = testSeriesEnabled();
+  const confirmOldSystem = testSeriesEnabled() && (await getClinicSettings(ctx)).parallelRun;
   return (
     <>
       <PageHead title="Receivables" sub="Open bills, oldest first: the order to follow up." />

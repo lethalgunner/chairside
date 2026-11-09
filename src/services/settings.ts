@@ -14,6 +14,8 @@ export interface SettingsAccess {
   print: boolean;
   /** Medicines and prescription templates (Sprint 5, LET-172). */
   medicines: boolean;
+  /** Clinic name and the parallel-run switch (Sprint 7). Owner only. */
+  clinic: boolean;
 }
 
 export function settingsAccess(ctx: TenantContext): SettingsAccess {
@@ -25,6 +27,7 @@ export function settingsAccess(ctx: TenantContext): SettingsAccess {
     doctors: canAnywhere(ctx, 'provider.manage'),
     print: canAnywhere(ctx, 'branch.manage'),
     medicines: canAnywhere(ctx, 'medicine.manage'),
+    clinic: canOrgWide(ctx.grants, 'staff.manage'),
   };
 }
 

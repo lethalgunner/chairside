@@ -1,3 +1,4 @@
+import { getClinicSettings } from '@/services/clinic';
 import Link from 'next/link';
 import { requireContext } from '@/lib/auth';
 import { businessDate, displayDate, resolveViewDate, shortDay } from '@/domain/dates';
@@ -25,7 +26,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     isToday ? closeStreaks(ctx, scopeBranchIds(ctx), today) : Promise.resolve(new Map<string, number>()),
     isToday ? queueFor(ctx, scopeBranchIds(ctx), today) : Promise.resolve([]),
   ]);
-  const appts = await appointmentCounts(ctx, scopeBranchIds(ctx), date);
+  const [appts, clinic] = await Promise.all([appointmentCounts(ctx, scopeBranchIds(ctx), date), getClinicSettings(ctx)]);
   const stockBranch = ctx.activeBranchId !== 'all' ? ctx.activeBranchId : null;
   const stock = isToday && stockBranch && canDo(ctx, 'stock.manage', stockBranch) ? (await listStock(ctx, stockBranch)).filter((r) => r.active) : [];
   const stockLow = stock.filter((r) => r.low).length;
@@ -97,7 +98,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                     <th scope="col" className="num">Billed</th>
                     <th scope="col">Collected by mode</th>
                     <th scope="col" className="num">Collected</th>
-                    <th scope="col" className="num">Old system bills</th>
+                    {clinic.parallelRun ? <th scope="col" className="num">Old system bills</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -122,6 +123,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                               .join(' · ')}
                       </td>
                       <td data-label="Collected" className="num strong">{formatINR(r.collectedPaise)}</td>
+                      {clinic.parallelRun ? (
                       <td data-label="Old system bills" className="num">
                         {r.legacyBillCount === null ? (
                           <span className="muted">at close</span>
@@ -131,6 +133,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                           </span>
                         )}
                       </td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
@@ -138,7 +141,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             </div>
           </Card>
 
-          {pilot.length > 0 ? (
+          {clinic.parallelRun && pilot.length > 0 ? (
             <Card title="Parallel run" note={`${isToday ? 'Last 7 days' : `7 days to ${shortDay(date)}`} · old system vs Chairside`} flush>
               <div className="tablewrap">
                 <table className="stack-table">

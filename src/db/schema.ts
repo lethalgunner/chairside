@@ -135,6 +135,13 @@ export const organisations = pgTable('organisations', {
   name: text('name').notNull(),
   /** Financial year start month, 4 = April, as Indian practice requires. */
   fyStartMonth: integer('fy_start_month').notNull().default(4),
+  /**
+   * Running alongside the old software (Pilot 0, Sprint 7 switch). On: day close
+   * asks for the old system's figures, the dashboard compares them, the pilot
+   * scorecard shows, and dues reminders ask "I checked ₹X in our old software".
+   * Existing clinics start on (no change); a clinic that signs up starts off.
+   */
+  parallelRun: boolean('parallel_run').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

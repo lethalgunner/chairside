@@ -1,3 +1,4 @@
+import { getClinicSettings } from '@/services/clinic';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireContext } from '@/lib/auth';
@@ -54,7 +55,7 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
     dueByBranch.set(b.branchId, { name: b.branchName, due: add(cur?.due ?? ZERO, b.duePaise) });
   }
   const today = businessDate();
-  const [visit, nextVisits, appts] = await Promise.all([openVisitFor(ctx, id), openRecalls(ctx, { branchIds: ctx.branchIds, patientId: id, today }), upcomingForPatient(ctx, id)]);
+  const [visit, nextVisits, appts, clinic] = await Promise.all([openVisitFor(ctx, id), openRecalls(ctx, { branchIds: ctx.branchIds, patientId: id, today }), upcomingForPatient(ctx, id), getClinicSettings(ctx)]);
   const canBook = branch ? canDo(ctx, 'appointment.manage', branch) : false;
   const canPlan = branch ? canDo(ctx, 'plan.manage', branch) : false;
   const [plans, work, rxs, allergies, prescriber] = await Promise.all([listPlans(ctx, { patientId: id }), patientWork(ctx, id), listPrescriptions(ctx, id), patientAllergies(ctx, id), branch ? prescriberAt(ctx, branch) : Promise.resolve(null)]);
@@ -142,7 +143,7 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
                 href={r.href}
                 amountLabel={formatINR(r.amountPaise)}
                 lastLabel={r.lastSentAt ? remindedLabel(r.lastSentAt) : null}
-                confirmOldSystem={testSeriesEnabled()}
+                confirmOldSystem={testSeriesEnabled() && clinic.parallelRun}
               />
             </div>
           ))}

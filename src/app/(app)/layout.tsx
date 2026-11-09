@@ -2,6 +2,7 @@ import { requireContext } from '@/lib/auth';
 import { listBranches } from '@/services/branches';
 import { canAnywhere } from '@/services/context';
 import { hasAnySettings, settingsAccess } from '@/services/settings';
+import { getClinicSettings } from '@/services/clinic';
 import Sidebar from '@/components/Sidebar';
 import GlobalSearch from '@/components/GlobalSearch';
 import { RENDER_KEY_ID } from '@/lib/nav/after-action';
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireContext();
-  const branches = await listBranches(ctx);
+  const [branches, clinic] = await Promise.all([listBranches(ctx), getClinicSettings(ctx)]);
   const active = ctx.activeBranchId === 'all' ? null : branches.find((b) => b.id === ctx.activeBranchId) ?? null;
   return (
     <div className="shell">
@@ -28,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           bill: canAnywhere(ctx, 'invoice.issue'),
           dayClose: canAnywhere(ctx, 'day.close'),
           reports: canAnywhere(ctx, 'report.branch'),
+          scorecard: canAnywhere(ctx, 'report.branch') && clinic.parallelRun,
           gst: canAnywhere(ctx, 'report.gst'),
           settings: hasAnySettings(settingsAccess(ctx)),
           stock: canAnywhere(ctx, 'stock.manage'),

@@ -4,6 +4,7 @@ import { hasAnySettings, settingsAccess } from '@/services/settings';
 import { Empty, PageHead } from '@/components/ui';
 
 const SECTIONS = [
+  { key: 'clinic', href: '/settings/clinic', title: 'Clinic', sub: 'Clinic name, and whether you are still running alongside your old software.' },
   { key: 'team', href: '/settings/team', title: 'Team', sub: 'Invite staff, send a new link, deactivate someone who has left.' },
   { key: 'doctors', href: '/settings/doctors', title: 'Doctors', sub: 'Profiles, registration numbers, where and when each doctor works, slot length and calendar links.' },
   { key: 'medicines', href: '/settings/medicines', title: 'Medicines and templates', sub: 'The medicine list for prescriptions, and ready sets of medicines per treatment (e.g. root canal).' },

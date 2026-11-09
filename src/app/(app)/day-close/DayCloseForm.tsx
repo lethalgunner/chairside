@@ -15,11 +15,13 @@ interface Props {
   billCount: number;
   collectedPaise: Paise;
   canCashOut: boolean;
+  /** Clinic still runs the old software too (Settings → Clinic, Sprint 7). Default on: unchanged. */
+  parallelRun?: boolean;
 }
 
 const COINS = new Set([1, 2, 5, 10, 20]);
 
-export default function DayCloseForm({ denominations, expectedCashPaise, tolerancePaise, billCount, collectedPaise, canCashOut }: Props) {
+export default function DayCloseForm({ denominations, expectedCashPaise, tolerancePaise, billCount, collectedPaise, canCashOut, parallelRun = true }: Props) {
   const closing = useActionForm('day.close');
   const cashOut = useActionForm('cash.out');
   const pending = closing.busy || cashOut.busy;
@@ -127,6 +129,7 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
             </div>
           ) : null}
 
+          {parallelRun ? (
           <fieldset className="tally">
             <legend>Check against the old system (pilot)</legend>
             <div className="field-grid">
@@ -145,6 +148,7 @@ export default function DayCloseForm({ denominations, expectedCashPaise, toleran
               <p className="small muted">Add the missing bills before closing if you can.</p>
             ) : null}
           </fieldset>
+          ) : null}
 
           {error ? <div className="callout warn" role="alert">{error}</div> : null}
           <NotSent message={closing.notSent} />

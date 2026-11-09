@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getContext } from '@/lib/auth';
+import { saveClinicSettings, type SaveClinicResult } from '@/services/clinic';
 import { createBranch, savePrintHeader, updateBranchDetails, type CreateBranchResult, type SaveBranchResult } from '@/services/branches';
 import { addItemFromBill, createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type BillItemResult, type SaveItemResult } from '@/services/catalogue';
 import { addMeAsDoctor, issueCalendarToken, revokeCalendarToken, saveProvider, setProviderActive, setProviderHours, type SaveProviderResult } from '@/services/providers';
@@ -276,5 +277,14 @@ export async function addMeAsDoctorAction(): Promise<ActionResult<{ providerId: 
   if (!ctx) return signedOut('provider.self_add');
   const res = await run('provider.self_add', () => addMeAsDoctor(ctx));
   if (res.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+/** Clinic name and the parallel-run switch (Sprint 7). */
+export async function saveClinicAction(input: { name: string; parallelRun: boolean }): Promise<ActionResult<SaveClinicResult>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('clinic.update');
+  const res = await run('clinic.update', () => saveClinicSettings(ctx, parse(z.object({ name: z.string().max(200), parallelRun: z.boolean() }), input)));
+  if (res.ok && res.data.ok) revalidatePath('/', 'layout');
   return res;
 }

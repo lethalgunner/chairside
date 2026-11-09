@@ -1,0 +1,1 @@
+ALTER TABLE "organisations" ADD COLUMN "parallel_run" boolean DEFAULT true NOT NULL;

@@ -14,6 +14,7 @@ import DayCloseForm from './DayCloseForm';
 import LegacyCompare from '@/components/LegacyCompare';
 import { compareWithLegacy } from '@/domain/parallel';
 import ReopenForm from './ReopenForm';
+import { getClinicSettings } from '@/services/clinic';
 import DayNav from '@/components/DayNav';
 
 export default async function DayClosePage({ searchParams }: { searchParams: Promise<{ date?: string | string[] }> }) {
@@ -39,7 +40,7 @@ export default async function DayClosePage({ searchParams }: { searchParams: Pro
   // A past day only shows what happened (Q19, T27): no close, cash out or reopen.
   // Every write below stays tied to today on the server whatever the URL says.
   const { date, isToday } = resolveViewDate((await searchParams).date, today);
-  const s = await getDaySummary(ctx, branchId, date);
+  const [s, clinic] = await Promise.all([getDaySummary(ctx, branchId, date), getClinicSettings(ctx)]);
   const canReopen = isToday && canDo(ctx, 'day.reopen', branchId);
   const comparison = s.closed
     ? compareWithLegacy({ legacyBillCount: s.closed.legacyBillCount, legacyCollectedPaise: s.closed.legacyCollectedPaise, billCount: s.billCount, collectedPaise: s.totalCollectedPaise })
@@ -125,7 +126,7 @@ export default async function DayClosePage({ searchParams }: { searchParams: Pro
             <dd className={s.closed.variancePaise === 0 ? 'variance-ok' : 'variance-bad'}>{formatINR(s.closed.variancePaise)}</dd>
             {s.closed.varianceReason ? (<><dt>Reason</dt><dd>{s.closed.varianceReason}</dd></>) : null}
           </dl>
-          {comparison ? <LegacyCompare c={comparison} /> : <p className="muted small">No old-system figures were entered at close.</p>}
+          {comparison && (clinic.parallelRun || comparison.bills.old !== null || comparison.collected.old !== null) ? <LegacyCompare c={comparison} /> : clinic.parallelRun ? <p className="muted small">No old-system figures were entered at close.</p> : null}
           {summaryHref ? <DaySummaryButton href={summaryHref} branchId={branchId} /> : null}
           {!isToday ? null : canReopen ? <ReopenForm branchId={branchId} date={today} /> : <p className="muted small">Only the owner can reopen a closed day.</p>}
         </Card>
@@ -143,6 +144,7 @@ export default async function DayClosePage({ searchParams }: { searchParams: Pro
           billCount={s.billCount}
           collectedPaise={s.totalCollectedPaise}
           canCashOut={canDo(ctx, 'expense.record_cash', branchId)}
+          parallelRun={clinic.parallelRun}
         />
       )}
     </>
