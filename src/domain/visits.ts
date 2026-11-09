@@ -55,11 +55,23 @@ export const RECALL_LABEL: Record<RecallKind, string> = {
   review: 'Review',
 };
 
-/** The usual gap, used to pre-fill the date. Staff can change it. */
-const DEFAULT_DAYS: Record<RecallKind, number> = { checkup: 182, cleaning: 182, continue: 7, review: 30 };
+/** The usual gap, used to pre-fill the date. Staff can change it; the owner can change the gaps in Settings → Clinic (Sprint 8). */
+export const DEFAULT_RECALL_DAYS: Record<RecallKind, number> = { checkup: 182, cleaning: 182, continue: 7, review: 30 };
 
-export function defaultDueOn(kind: RecallKind, today: string): string {
-  return addDays(today, DEFAULT_DAYS[kind]);
+export function defaultDueOn(kind: RecallKind, today: string, days: Record<RecallKind, number> = DEFAULT_RECALL_DAYS): string {
+  return addDays(today, days[kind]);
+}
+
+/** Settings form: whole days, 1 to 1,095 (3 years, the longest a come-back can be). */
+export function checkRecallDays(raw: Record<string, string>): { ok: true; value: Record<RecallKind, number> } | { ok: false; fieldErrors: Record<string, string> } {
+  const value = { ...DEFAULT_RECALL_DAYS };
+  const errors: Record<string, string> = {};
+  for (const k of RECALL_KINDS) {
+    const v = (raw[k] ?? '').trim();
+    if (!/^\d{1,4}$/.test(v) || Number(v) < 1 || Number(v) > 1095) errors[k] = `${RECALL_LABEL[k]}: 1 to 1,095 days.`;
+    else value[k] = Number(v);
+  }
+  return Object.keys(errors).length ? { ok: false, fieldErrors: errors } : { ok: true, value };
 }
 
 export function isRecallKind(v: string): v is RecallKind {

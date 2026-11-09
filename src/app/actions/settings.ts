@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getContext } from '@/lib/auth';
-import { saveClinicSettings, type SaveClinicResult } from '@/services/clinic';
+import { saveClinicSettings, saveRecallDays, type SaveClinicResult } from '@/services/clinic';
 import { saveDiscountCaps } from '@/services/discounts';
 import { createBranch, savePrintHeader, updateBranchDetails, type CreateBranchResult, type SaveBranchResult } from '@/services/branches';
 import { addItemFromBill, createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type BillItemResult, type SaveItemResult } from '@/services/catalogue';
@@ -298,6 +298,15 @@ export async function saveDiscountCapsAction(input: Record<string, string>): Pro
   const ctx = await getContext();
   if (!ctx) return signedOut('clinic.discount_caps');
   const res = await run('clinic.discount_caps', () => saveDiscountCaps(ctx, parse(z.record(z.string().max(40), z.string().max(10)), input)));
+  if (res.ok && res.data.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+/** Come-back gaps (Sprint 8). Owner only; the service checks. */
+export async function saveRecallDaysAction(input: Record<string, string>): Promise<ActionResult<SaveClinicResult>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('clinic.recall_days');
+  const res = await run('clinic.recall_days', () => saveRecallDays(ctx, parse(z.record(z.string().max(20), z.string().max(10)), input)));
   if (res.ok && res.data.ok) revalidatePath('/', 'layout');
   return res;
 }

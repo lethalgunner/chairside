@@ -23,7 +23,7 @@ describe('clinic settings and the parallel-run switch (Sprint 7)', () => {
   it('the owner renames the clinic and switches the parallel run off; audited; other clinics untouched', async () => {
     const res = await saveClinicSettings(f.ctx('owner'), { name: '  Vij   Dental Care ', parallelRun: false });
     expect(res.ok).toBe(true);
-    expect(await getClinicSettings(f.ctx('desk'))).toEqual({ name: 'Vij Dental Care', parallelRun: false });
+    expect(await getClinicSettings(f.ctx('desk'))).toMatchObject({ name: 'Vij Dental Care', parallelRun: false });
     expect((await getClinicSettings(other.ctx('desk'))).parallelRun).toBe(true);
     const audit = await getDb().select().from(auditLog).where(and(eq(auditLog.entityId, f.orgId), eq(auditLog.action, 'clinic.update')));
     expect(audit).toHaveLength(1);

@@ -16,6 +16,8 @@ export interface SettingsAccess {
   medicines: boolean;
   /** Clinic name and the parallel-run switch (Sprint 7). Owner only. */
   clinic: boolean;
+  /** Reminder rules and wording (Sprint 8). Owner only. */
+  reminders: boolean;
 }
 
 export function settingsAccess(ctx: TenantContext): SettingsAccess {
@@ -28,6 +30,7 @@ export function settingsAccess(ctx: TenantContext): SettingsAccess {
     print: canAnywhere(ctx, 'branch.manage'),
     medicines: canAnywhere(ctx, 'medicine.manage'),
     clinic: canOrgWide(ctx.grants, 'staff.manage'),
+    reminders: canOrgWide(ctx.grants, 'staff.manage'),
   };
 }
 

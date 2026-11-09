@@ -11,6 +11,7 @@ import { recordDashboardView } from '@/services/usage';
 import { queueFor } from '@/services/visits';
 import { appointmentCounts } from '@/services/appointments';
 import { listStock } from '@/services/stock';
+import { remindersConfigured, todaysMessages } from '@/services/messages';
 import { Card, Empty, MODE_LABEL, PageHead, StatusPill, Tile } from '@/components/ui';
 import DayNav from '@/components/DayNav';
 
@@ -31,6 +32,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const setupLeft = setup.filter((s) => !s.done && REQUIRED_STEPS.includes(s.key)).length;
   const stockBranch = ctx.activeBranchId !== 'all' ? ctx.activeBranchId : null;
   const stock = isToday && stockBranch && canDo(ctx, 'stock.manage', stockBranch) ? (await listStock(ctx, stockBranch)).filter((r) => r.active) : [];
+  const msgs = isToday && stockBranch && canDo(ctx, 'patient.remind', stockBranch) && (await remindersConfigured(ctx)) ? await todaysMessages(ctx, stockBranch) : null;
   const stockLow = stock.filter((r) => r.low).length;
   const stockExpiring = stock.filter((r) => r.expiring || r.expired).length;
   const waitingNow = queue.filter((v) => v.status === 'waiting').length;
@@ -191,6 +193,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   {stockLow > 0 ? <span className="due-text strong">{stockLow} low</span> : null}
                   {stockLow > 0 && stockExpiring > 0 ? ' · ' : null}
                   {stockExpiring > 0 ? <span className="strong">{stockExpiring} may expire within 60 days</span> : null}
+                </p>
+              </Card>
+            ) : null}
+            {msgs && msgs.dueNow.length > 0 ? (
+              <Card title="Messages" action={<Link className="link" href="/messages">Send →</Link>}>
+                <p>
+                  <strong>{msgs.dueNow.length}</strong> reminder{msgs.dueNow.length === 1 ? '' : 's'} to send now{msgs.laterToday.length ? ` · ${msgs.laterToday.length} later today` : ''}
                 </p>
               </Card>
             ) : null}

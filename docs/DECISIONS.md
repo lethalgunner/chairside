@@ -499,3 +499,39 @@ no policy.
 Vercel as `DATABASE_URL`; every request's queries run in a transaction that sets `app.org_id` (auth paths
 set `app.auth_lookup`); the whole db and browser suites pass under that role before the switch.
 **Sign-up (`SIGNUP_ENABLED=1`) stays off until step 2 is live.**
+
+## ADR-020 — Reminders your way: rules, wording, Today's messages (Sprint 8, 10 Nov 2026)
+
+**Why.** KS: one clinic wants "1 hour before", another five reminders, a third its own words; that
+must not be a support ticket. **What.** Owner-only Settings → Reminders: rules (right after booking;
+N minutes/hours/days before; after a missed appointment; after a visit; when a come-back is due; money
+owed every N days up to M times), optional per branch, each pointing at a wording (`message_templates`,
+English or Hindi) with variables `{first_name} {clinic} {branch} {date} {time} {address} {phone}
+{calendar_link} {amount_due} {upi_id}` and `{doctor}` only when the owner switches it on (off by
+default, ADR-018's no-clinical-detail rule holds: there is no treatment or reason variable). A line whose
+details are all missing is dropped.
+
+**Mode 1 (now, ₹0):** "Today's messages" lists what is due at the active branch; the desk taps Send
+(WhatsApp click-to-send from the clinic's own number, ADR-014) or Skip. **Mode 2** (automatic, WhatsApp
+Business API with approved templates) is Q1 2027 and reuses the same planner.
+
+**How (amends the CTO brief).** The brief proposed a `message_jobs` outbox recomputed on every booking
+change. We plan **on read** instead: pure functions in `src/domain/messages.ts` turn appointments,
+visits, open come-backs and dues into due messages each time the queue is read, and `message_sends`
+records what was sent or skipped under a unique key (`rule:appointment:start` and similar). So a moved
+appointment re-plans itself (new start, new key), a cancelled one drops its reminders, and nothing can
+go stale. Mode 2's cron calls the same planner and writes the same log. **Guardrails:** at most 6 per
+appointment (rule save and planner), quiet hours (default 21:00–08:00; before an early appointment the
+reminder goes the evening before), no reminder due before the booking was made, only the latest due
+reminder per appointment is shown (a missed one is replaced, not sent late), a patient's STOP is honoured
+under every rule (`patients.messages_stopped_at`; the manual buttons are unchanged).
+
+**No change for existing clinics.** No rules → the queue is empty, the sidebar shows no Messages link,
+the patient page shows no STOP line, and the planner runs no queries. New tables have RLS policies and
+grants for `chairside_app` (ADR-019).
+
+**Also Sprint 8, same principle (owner setting, default = old behaviour):** doctor leave
+(`provider_leave`; refuses booking/moving into it, lists bookings to move, never cancels them);
+discount limit per role (`role_discount_caps`; none by default, owner never capped, checked only when a
+line has a discount); per-treatment appointment length and come-back gap on price-list items; per-clinic
+come-back gaps (defaults 182/182/7/30 days, as before).

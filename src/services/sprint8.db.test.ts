@@ -4,6 +4,7 @@ import { createFixture, key, type Fixture } from '@/test/fixtures';
 import { issueBill, listInvoices } from './invoices';
 import { getDiscountCaps, myDiscountCapBp, saveDiscountCaps } from './discounts';
 import { ForbiddenError } from './context';
+import { getClinicSettings, saveRecallDays } from './clinic';
 import { registerPatient } from './patients';
 import { recordReceipt } from './receipts';
 import { duesFor } from './reports';
@@ -102,5 +103,19 @@ describe('discount limits per role (Sprint 8)', () => {
   it('clearing the limit restores the old behaviour', async () => {
     await saveDiscountCaps(f.ctx('owner'), { front_desk: '' });
     expect((await bill('desk', 300_000, await patient())).kind).toBe('issued');
+  });
+});
+
+describe('come-back gaps per clinic (Sprint 8)', () => {
+  it('start at the old fixed gaps, so nothing changes until the owner edits them', async () => {
+    expect((await getClinicSettings(f.ctx('desk'))).recallDays).toEqual({ checkup: 182, cleaning: 182, continue: 7, review: 30 });
+  });
+  it('owner changes them; bad values are refused per kind; other clinics keep theirs', async () => {
+    expect(await saveRecallDays(f.ctx('owner'), { checkup: '365', cleaning: '120', continue: '10', review: '14' })).toEqual({ ok: true });
+    expect((await getClinicSettings(f.ctx('desk'))).recallDays).toEqual({ checkup: 365, cleaning: 120, continue: 10, review: 14 });
+    const bad = await saveRecallDays(f.ctx('owner'), { checkup: '0', cleaning: '2000', continue: 'x', review: '14' });
+    expect(bad.ok ? [] : Object.keys(bad.fieldErrors).sort()).toEqual(['checkup', 'cleaning', 'continue']);
+    await expect(saveRecallDays(f.ctx('desk'), { checkup: '1', cleaning: '1', continue: '1', review: '1' })).rejects.toBeInstanceOf(ForbiddenError);
+    expect((await getClinicSettings(other.ctx('desk'))).recallDays.checkup).toBe(182);
   });
 });

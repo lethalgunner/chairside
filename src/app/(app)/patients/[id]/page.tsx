@@ -1,5 +1,7 @@
 import { getClinicSettings } from '@/services/clinic';
 import Link from 'next/link';
+import { messagesStopped, remindersConfigured } from '@/services/messages';
+import StopReminders from './StopReminders';
 import { notFound } from 'next/navigation';
 import { requireContext } from '@/lib/auth';
 import { displayDate } from '@/domain/dates';
@@ -61,6 +63,8 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
   const [plans, work, rxs, allergies, prescriber] = await Promise.all([listPlans(ctx, { patientId: id }), patientWork(ctx, id), listPrescriptions(ctx, id), patientAllergies(ctx, id), branch ? prescriberAt(ctx, branch) : Promise.resolve(null)]);
   const canQueue = branch ? canDo(ctx, 'visit.manage', branch) : false;
   const canRecall = branch ? canDo(ctx, 'recall.manage', branch) : false;
+  // Reminders (Sprint 8): only once the clinic has switched some on.
+  const stopInfo = canAnywhere(ctx, 'patient.remind') && (await remindersConfigured(ctx)) ? { stopped: await messagesStopped(ctx, id) } : null;
   const reminders = [...(await reminderTargets(ctx, [...dueByBranch].map(([branchId, v]) => ({ patientId: id, branchId, amountPaise: v.due })))).values()];
 
   return (
@@ -116,6 +120,7 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
           </>
         }
       />
+      {stopInfo ? <StopReminders patientId={patient.id} stopped={stopInfo.stopped} /> : null}
       {!branch ? <div className="callout">Pick a branch in the branch menu to bill this patient or take a payment.</div> : null}
 
       <div className="tiles four">
@@ -240,7 +245,7 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
             <RecallForm
               patientId={patient.id}
               kinds={RECALL_KINDS.map((k) => ({ v: k, label: RECALL_LABEL[k] }))}
-              defaults={Object.fromEntries(RECALL_KINDS.map((k) => [k, defaultDueOn(k, today)]))}
+              defaults={Object.fromEntries(RECALL_KINDS.map((k) => [k, defaultDueOn(k, today, clinic.recallDays)]))}
               min={today}
               max={addDays(today, MAX_RECALL_DAYS)}
               today={today}

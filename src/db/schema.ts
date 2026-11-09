@@ -147,6 +147,11 @@ export const organisations = pgTable('organisations', {
   messagesQuietEnd: text('messages_quiet_end').notNull().default('08:00'),
   /** Off by default: the doctor's name may appear in patient messages only if the owner allows it (ADR-020). */
   messagesDoctorName: boolean('messages_doctor_name').notNull().default(false),
+  /** Come-back gaps in days that pre-fill the date (Sprint 8). Defaults are the old hard-coded ones. */
+  recallCheckupDays: integer('recall_checkup_days').notNull().default(182),
+  recallCleaningDays: integer('recall_cleaning_days').notNull().default(182),
+  recallContinueDays: integer('recall_continue_days').notNull().default(7),
+  recallReviewDays: integer('recall_review_days').notNull().default(30),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

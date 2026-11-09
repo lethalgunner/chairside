@@ -4,6 +4,8 @@ import { settingsAccess } from '@/services/settings';
 import { Empty, PageHead } from '@/components/ui';
 import ClinicForm from './ClinicForm';
 import DiscountCapsForm from './DiscountCapsForm';
+import RecallDaysForm from './RecallDaysForm';
+import { RECALL_KINDS, RECALL_LABEL } from '@/domain/visits';
 import { getDiscountCaps } from '@/services/discounts';
 import { CAPPABLE_ROLES } from '@/domain/discounts';
 import { ROLE_LABELS } from '@/domain/permissions';
@@ -27,6 +29,7 @@ export default async function ClinicSettingsPage() {
         roles={CAPPABLE_ROLES.map((r) => ({ role: r, label: ROLE_LABELS[r] }))}
         initial={Object.fromEntries(Object.entries(caps).map(([r, bp]) => [r, String(bp! / 100)]))}
       />
+      <RecallDaysForm kinds={RECALL_KINDS.map((k) => ({ kind: k, label: RECALL_LABEL[k] }))} initial={clinic.recallDays} />
     </>
   );
 }

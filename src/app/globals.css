@@ -1544,3 +1544,20 @@ input.filter { width: 100%; max-width: 320px; margin: 6px 0; }
 .leave-list .linkish { margin-left: auto; min-height: 24px; }
 .input-suffix { display: flex; align-items: center; gap: 6px; }
 .input-suffix input { width: 7em; }
+
+/* Reminders (Sprint 8) */
+.subcard { border: 1px dashed var(--line-strong); border-radius: 8px; padding: 14px; margin-top: 14px; }
+.subcard h3 { margin: 0 0 10px; font-size: 15px; }
+.tpl-list > li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.tpl-list > li:last-child { border-bottom: 0; }
+.tpl-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.tpl-head .row-actions { margin-left: auto; display: inline-flex; gap: 12px; }
+.tpl-body { white-space: pre-wrap; font: inherit; font-size: 13px; margin: 6px 0 0; padding: 8px 10px; border-left: 3px solid var(--line-strong); color: var(--ink-2, inherit); }
+.tpl-body.preview { border-left-color: var(--jade); }
+.var-chips { margin-top: 8px; }
+.var-chips .chip { padding: 4px 8px; font-size: 12px; min-height: 24px; font-family: var(--mono, ui-monospace, monospace); }
+.msg-list > li { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.msg-list > li:last-child { border-bottom: 0; }
+.msg-list .msg-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.msg-list details { grid-column: 1 / -1; }
+@media (max-width: 640px) { .msg-list > li { grid-template-columns: 1fr; } .msg-list .msg-actions { justify-content: flex-start; } }

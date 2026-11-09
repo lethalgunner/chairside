@@ -468,3 +468,9 @@ export async function messagesStopped(ctx: TenantContext, patientId: string): Pr
   const [p] = await getDb().select({ s: patients.messagesStoppedAt }).from(patients).where(and(eq(patients.id, patientId), eq(patients.orgId, ctx.orgId)));
   return !!p?.s;
 }
+
+/** For the sidebar: does this clinic have any reminder switched on? One cheap lookup. */
+export async function remindersConfigured(ctx: TenantContext): Promise<boolean> {
+  const [r] = await getDb().select({ id: messageRules.id }).from(messageRules).where(and(eq(messageRules.orgId, ctx.orgId), eq(messageRules.active, true), isNull(messageRules.removedAt))).limit(1);
+  return !!r;
+}
