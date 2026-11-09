@@ -129,7 +129,7 @@ export default function BookingForm({ patientId, moveId, today, date: serverDate
         {doc && loading ? <p className="muted small" role="status">Loading free times…</p> : null}
         {doc && !loading ? (
           <fieldset className="field">
-            <legend>Time {doc.hours ? <span className="muted small">({doc.name} works {doc.hours.startTime}–{doc.hours.endTime}, {doc.slotMinutes}-minute slots)</span> : <span className="muted small">({doc.name} doesn’t usually work this day)</span>}</legend>
+            <legend>Time {doc.leave ? <span className="muted small">({doc.name} is on leave this day)</span> : doc.hours ? <span className="muted small">({doc.name} works {doc.hours.startTime}–{doc.hours.endTime}, {doc.slotMinutes}-minute slots)</span> : <span className="muted small">({doc.name} doesn’t usually work this day)</span>}</legend>
             <div className="chips" role="radiogroup" aria-label="Free times" tabIndex={-1} ref={timeRef}>
               {doc.free.map((t) => (
                 <button key={t} type="button" role="radio" aria-checked={!other && time === t} className={`chip${!other && time === t ? ' on' : ''}`} onClick={() => { setOther(false); setTime(t); }}>
@@ -138,7 +138,7 @@ export default function BookingForm({ patientId, moveId, today, date: serverDate
               ))}
               <button type="button" role="radio" aria-checked={other} className={`chip${other ? ' on' : ''}`} onClick={() => { setOther(true); }}>Other time</button>
             </div>
-            {doc.free.length === 0 ? <div className="hint">No free slot left this day. Use Other time, or pick another day.</div> : null}
+            {doc.leave ? <div className="hint err-text">{doc.name} is away. Pick another day or doctor.</div> : doc.free.length === 0 ? <div className="hint">No free slot left this day. Use Other time, or pick another day.</div> : null}
             {other ? (
               <div className="field narrow">
                 <label htmlFor="book-time">Other time</label>

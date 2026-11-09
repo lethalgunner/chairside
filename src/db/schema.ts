@@ -342,6 +342,37 @@ export const providerBranches = pgTable(
   }),
 );
 
+/**
+ * A doctor away for whole days (Sprint 8, Argon idea). Applies at every
+ * branch: no free slots and no new bookings on those days. Removing a leave
+ * stamps removed_at; rows are never deleted, so the audit reads cleanly.
+ */
+export const providerLeave = pgTable(
+  'provider_leave',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    providerId: uuid('provider_id')
+      .notNull()
+      .references(() => providers.id),
+    startsOn: date('starts_on').notNull(),
+    endsOn: date('ends_on').notNull(),
+    note: text('note'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+    removedBy: uuid('removed_by').references(() => users.id),
+  },
+  (t) => ({
+    rangeCheck: check('provider_leave_range_check', sql`${t.endsOn} >= ${t.startsOn}`),
+    providerIdx: index('provider_leave_provider_idx').on(t.orgId, t.providerId, t.startsOn),
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // Patients
 // ---------------------------------------------------------------------------

@@ -16,7 +16,9 @@ import { minutesOf } from '@/domain/providers';
 import type { FieldErrors } from '@/domain/staff';
 import { writeAudit } from './audit';
 import { canDo, ForbiddenError, requireActiveBranch, UserFacingError, type TenantContext } from './context';
+import { leaveBlocks, leavesFor } from './leave';
 import { hashCalendarToken, providerAtBranch } from './providers';
+import { leaveOn, type Leave } from '@/domain/leave';
 import { isUuid } from './util';
 import { addToQueue } from './visits';
 
@@ -91,6 +93,8 @@ export async function bookAppointment(ctx: TenantContext, input: BookInput): Pro
   if (!provider) return { ok: false, fieldErrors: { providerId: 'Pick a doctor who works at this branch.' } };
   const checked = checkBooking({ ...input, minutes: input.minutes || provider.slotMinutes }, businessDate());
   if (!checked.ok) return checked;
+  const away = await leaveBlocks(db, ctx, provider.id, checked.value.startsAt, provider.fullName);
+  if (away) return { ok: false, fieldErrors: { date: away } };
   const [p] = await db.select({ id: patients.id }).from(patients).where(and(eq(patients.id, input.patientId), eq(patients.orgId, ctx.orgId))).limit(1);
   if (!p) throw new ForbiddenError();
   try {
@@ -138,6 +142,8 @@ export async function rescheduleAppointment(ctx: TenantContext, id: string, inpu
       if (!provider) return { ok: false as const, fieldErrors: { providerId: 'Pick a doctor who works at this branch.' } };
       const checked = checkBooking({ ...input, minutes: input.minutes || provider.slotMinutes }, businessDate());
       if (!checked.ok) return checked;
+      const away = await leaveBlocks(tx, ctx, provider.id, checked.value.startsAt, provider.fullName);
+      if (away) return { ok: false as const, fieldErrors: { date: away } };
       await tx
         .update(appointments)
         .set({ doctorId: provider.id, startsAt: checked.value.startsAt, endsAt: checked.value.endsAt, reason: checked.value.reason, status: 'booked', updatedAt: new Date() })
@@ -268,6 +274,8 @@ export interface DoctorDay {
   slotMinutes: number;
   /** Null when the doctor doesn't work at this branch that weekday. */
   hours: { startTime: string; endTime: string } | null;
+  /** Away all day (Sprint 8): no free slots, and booking is refused. */
+  leave: Leave | null;
   free: string[];
 }
 
@@ -287,6 +295,7 @@ export async function doctorDays(ctx: TenantContext, branchId: string, date: str
     .select({ providerId: appointments.doctorId, startsAt: appointments.startsAt, endsAt: appointments.endsAt })
     .from(appointments)
     .where(and(eq(appointments.orgId, ctx.orgId), inArray(appointments.doctorId, docs.map((d) => d.id)), inArray(appointments.status, [...ACTIVE_STATUSES]), gt(appointments.endsAt, istInstant(date, '00:00')), lt(appointments.startsAt, istInstant(addDays(date, 1), '00:00'))));
+  const leaves = await leavesFor(db, ctx.orgId, docs.map((d) => d.id), date, date);
   const weekday = isoWeekday(date);
   const today = businessDate();
   const nowMin = date === today ? (minutesOf(istTime(new Date())) ?? 0) : undefined;
@@ -297,6 +306,7 @@ export async function doctorDays(ctx: TenantContext, branchId: string, date: str
     return minutesOf(istTime(d)) ?? 0;
   };
   return docs.map((d) => {
+    const leave = leaveOn(leaves.filter((l) => l.providerId === d.id), date);
     const works = (d.days as number[]).includes(weekday);
     const busy = booked.filter((b) => b.providerId === d.id).map((b) => ({ start: minutesIn(b.startsAt), end: minutesIn(b.endsAt) }));
     return {
@@ -305,7 +315,8 @@ export async function doctorDays(ctx: TenantContext, branchId: string, date: str
       colour: d.colour,
       slotMinutes: d.slotMinutes,
       hours: works ? { startTime: d.startTime, endTime: d.endTime } : null,
-      free: works && date >= today ? freeSlots({ startTime: d.startTime, endTime: d.endTime, slotMinutes: d.slotMinutes, busy, after: nowMin }) : [],
+      leave: leave ? { startsOn: leave.startsOn, endsOn: leave.endsOn, note: leave.note } : null,
+      free: works && !leave && date >= today ? freeSlots({ startTime: d.startTime, endTime: d.endTime, slotMinutes: d.slotMinutes, busy, after: nowMin }) : [],
     };
   });
 }

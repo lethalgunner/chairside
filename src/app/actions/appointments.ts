@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { getContext } from '@/lib/auth';
 import { bookAppointment, doctorDays, markArrived, rescheduleAppointment, setAppointmentStatus, type BookResult, type DoctorDay } from '@/services/appointments';
 import { canDo, ForbiddenError, requireActiveBranch } from '@/services/context';
+import { addLeave, removeLeave, type AddLeaveResult } from '@/services/leave';
 import { run, signedOut, type ActionResult } from './run';
 
 /** Appointments (Sprint 4, LET-167). Thin: parse, then the service checks capability, branch and overlap. */
@@ -75,4 +76,26 @@ export async function doctorDaysAction(date: string): Promise<ActionResult<Docto
     const d = parse(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), date);
     return doctorDays(ctx, branchId, d);
   });
+}
+
+const leaveInput = z.object({ from: z.string().max(10), to: z.string().max(10), note: z.string().max(400) });
+
+/** Doctor leave (Sprint 8). The service checks who may record it. */
+export async function addLeaveAction(providerId: string, input: z.input<typeof leaveInput>): Promise<ActionResult<AddLeaveResult>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('provider.leave_add');
+  const res = await run('provider.leave_add', () => addLeave(ctx, parse(id, providerId), parse(leaveInput, input)));
+  if (res.ok && res.data.ok) refresh();
+  return res;
+}
+
+export async function removeLeaveAction(leaveId: string): Promise<ActionResult> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('provider.leave_remove');
+  const res = await run('provider.leave_remove', async () => {
+    await removeLeave(ctx, parse(id, leaveId));
+    return undefined;
+  });
+  if (res.ok) refresh();
+  return res;
 }

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { leaveWords } from '@/domain/leave';
 import { requireContext } from '@/lib/auth';
 import { APPOINTMENT_LABEL } from '@/domain/appointments';
 import { addDays, businessDate, isIsoDate, shortDay } from '@/domain/dates';
@@ -67,6 +68,9 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
           <span className="muted small">(time, place and an add-to-calendar link; no treatment details). {justBooked.providerName} sees it in their calendar link.</span>
         </div>
       ) : null}
+      {canBook ? (
+        <p className="muted small"><Link className="link" href="/appointments/leave">Doctor leave</Link>: mark days a doctor is away.</p>
+      ) : null}
       {!branch ? <div className="callout">Showing every branch. Pick a branch in the branch menu to see free slots and book.</div> : null}
       {branch && docs.length === 0 ? <div className="callout warn">No doctors work at this branch yet. The owner sets this in Settings → Doctors.</div> : null}
 
@@ -74,7 +78,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
         {docs.map((d) => {
           const mine = rows.filter((r) => r.providerId === d.providerId);
           return (
-            <Card key={d.providerId} title={d.name} note={d.hours ? `${d.hours.startTime}–${d.hours.endTime} · ${d.slotMinutes} min` : 'Not working this day'}>
+            <Card key={d.providerId} title={d.name} note={d.leave ? `On leave${d.leave.note ? ` · ${d.leave.note}` : ''}` : d.hours ? `${d.hours.startTime}–${d.hours.endTime} · ${d.slotMinutes} min` : 'Not working this day'}>
               <span className="doc-dot" style={{ background: d.colour ?? 'var(--line-strong)' }} aria-hidden="true" />
               {mine.length === 0 ? <p className="muted small">Nothing booked.</p> : null}
               <ul className="plain appt-list">
@@ -104,6 +108,8 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                     ))}
                   </div>
                 </div>
+              ) : canBook && d.leave ? (
+                <p className="muted small">On leave {leaveWords(d.leave)}.{mine.some((r) => r.status === 'booked' || r.status === 'confirmed') ? <> <Link className="link" href="/appointments/leave">Move these →</Link></> : null}</p>
               ) : canBook && d.hours && date >= today ? (
                 <p className="muted small">Fully booked.</p>
               ) : null}

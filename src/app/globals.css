@@ -1536,3 +1536,9 @@ input.filter { width: 100%; max-width: 320px; margin: 6px 0; }
 .setup-list { display: grid; gap: 10px; }
 .setup-step.done { border-style: dashed; }
 .login-card.wide { max-width: 560px; }
+
+/* Doctor leave (Sprint 8) */
+.leave-list { padding: 4px 16px 12px; }
+.leave-list li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.leave-list li:last-child { border-bottom: 0; }
+.leave-list .linkish { margin-left: auto; min-height: 24px; }
