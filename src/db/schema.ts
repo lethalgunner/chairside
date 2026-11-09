@@ -343,6 +343,27 @@ export const providerBranches = pgTable(
 );
 
 /**
+ * Discount limit per role (Sprint 8): up to max_bp of a line's value. No row
+ * for a role means no limit, which is how every clinic starts.
+ */
+export const roleDiscountCaps = pgTable(
+  'role_discount_caps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    role: text('role').notNull(),
+    maxBp: integer('max_bp').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    bpCheck: check('role_discount_caps_bp_check', sql`${t.maxBp} between 0 and 10000`),
+    roleUnique: uniqueIndex('role_discount_caps_org_role_unique').on(t.orgId, t.role),
+  }),
+);
+
+/**
  * A doctor away for whole days (Sprint 8, Argon idea). Applies at every
  * branch: no free slots and no new bookings on those days. Removing a leave
  * stamps removed_at; rows are never deleted, so the audit reads cleanly.

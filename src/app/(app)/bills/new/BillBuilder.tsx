@@ -8,6 +8,7 @@ import { parseQuantity as parseQty } from '@/domain/input';
 import { computeInvoice, type LineInput } from '@/domain/tax';
 import type { CatalogueEntry, DoctorOption } from '@/services/catalogue';
 import { TaxPill } from '@/components/ui';
+import { overCap, percentWords } from '@/domain/discounts';
 import { useActionForm } from '@/lib/nav/use-action-form';
 import NotSent from '@/components/NotSent';
 import NewItemForm, { type NewItemOptions } from './NewItemForm';
@@ -41,6 +42,8 @@ interface Props {
   newItem: NewItemOptions | null;
   /** Business date (IST), for the come-back suggestion after billing (Sprint 8). */
   today?: string;
+  /** This person's discount limit in basis points (Sprint 8); null = none. */
+  discountCapBp?: number | null;
 }
 
 function parseDiscount(s: string): Paise | null {
@@ -55,7 +58,7 @@ function parseDiscount(s: string): Paise | null {
  * Totals are computed live by the same domain function the server uses, so
  * the preview and the issued bill cannot disagree.
  */
-export default function BillBuilder({ patient, branch, catalogue: listed, doctors, unbilled, newItem, today }: Props) {
+export default function BillBuilder({ patient, branch, catalogue: listed, doctors, unbilled, newItem, today, discountCapBp = null }: Props) {
   // Items added with "+ New item" during this bill, until the page next loads.
   const [added, setAdded] = useState<CatalogueEntry[]>([]);
   const catalogue = useMemo(() => [...listed, ...added.filter((a) => !listed.some((c) => c.id === a.id))], [listed, added]);
@@ -139,6 +142,8 @@ export default function BillBuilder({ patient, branch, catalogue: listed, doctor
       const gross = multiply(l.unitPricePaise, q);
       if (d > gross) return { computed: null, problem: `Discount on ${l.name} is more than its price (${formatINR(gross, { paise: gross % 100 !== 0 })}).` };
       if (d > 0 && l.discountReason.trim().length < 3) return { computed: null, problem: `Give a reason for the discount on “${l.name}”.` };
+      const capProblem = overCap([{ description: l.name, grossPaise: gross, discountPaise: d }], discountCapBp);
+      if (capProblem) return { computed: null, problem: capProblem };
       inputs.push({ description: l.name, quantity: q, unitPricePaise: l.unitPricePaise, discountPaise: d, taxCategory: l.taxCategory, hsnSacCode: l.hsnSacCode, gstRateBp: l.gstRateBp });
     }
     try {
@@ -146,7 +151,7 @@ export default function BillBuilder({ patient, branch, catalogue: listed, doctor
     } catch (e) {
       return { computed: null, problem: (e as Error).message };
     }
-  }, [lines, branch]);
+  }, [lines, branch, discountCapBp]);
 
   function submit(mode: 'issue' | 'unbilled') {
     setError(null);
@@ -297,7 +302,7 @@ export default function BillBuilder({ patient, branch, catalogue: listed, doctor
                     <th scope="col">Tooth</th>
                     <th scope="col" className="num">Qty</th>
                     <th scope="col" className="num">Price</th>
-                    <th scope="col">Discount (₹) and reason</th>
+                    <th scope="col">Discount (₹) and reason{discountCapBp !== null ? <span className="muted small"> {discountCapBp === 0 ? '(owner only)' : `(up to ${percentWords(discountCapBp)} a line)`}</span> : null}</th>
                     <th scope="col" className="num">Line total</th>
                     <th scope="col"><span className="sr-only">Remove</span></th>
                   </tr>

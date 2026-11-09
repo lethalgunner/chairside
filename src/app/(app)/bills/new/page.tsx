@@ -13,6 +13,7 @@ import { unbilledProcedures } from '@/services/reports';
 import { PageHead } from '@/components/ui';
 import { formatIndianMobile } from '@/domain/phone';
 import BillBuilder from './BillBuilder';
+import { myDiscountCapBp } from '@/services/discounts';
 
 export default async function NewBillPage({ searchParams }: { searchParams: Promise<{ patient?: string }> }) {
   const ctx = await requireContext();
@@ -29,11 +30,12 @@ export default async function NewBillPage({ searchParams }: { searchParams: Prom
     );
   }
   const branchId = ctx.activeBranchId;
-  const [branch, catalogue, doctors, unbilled] = await Promise.all([
+  const [branch, catalogue, doctors, unbilled, discountCapBp] = await Promise.all([
     getBranch(ctx, branchId),
     listCatalogue(ctx, branchId),
     listDoctors(ctx, branchId),
     unbilledProcedures(ctx, [branchId]),
+    myDiscountCapBp(ctx, branchId),
   ]);
   const pending = unbilled.filter((u) => u.patientId === patient.id);
   // Owner only: "+ New item" adds to the price list from here (catalogue.manage, same as Settings → Price list).
@@ -53,6 +55,7 @@ export default async function NewBillPage({ searchParams }: { searchParams: Prom
           doctors={doctors}
           newItem={canAddItems ? { taxCategories: TAX_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_DEFAULTS[c].label, hsnSacCode: CATEGORY_DEFAULTS[c].hsnSacCode, gstRateBp: CATEGORY_DEFAULTS[c].gstRateBp })), rates: [...GST_RATES_BP] } : null}
           today={businessDate()}
+          discountCapBp={discountCapBp}
           unbilled={pending.map((u) => ({ procedureId: u.procedureId, name: u.itemName, doctorName: u.doctorName, valuePaise: u.valuePaise }))}
         />
       )}

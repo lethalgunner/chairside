@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getContext } from '@/lib/auth';
 import { saveClinicSettings, type SaveClinicResult } from '@/services/clinic';
+import { saveDiscountCaps } from '@/services/discounts';
 import { createBranch, savePrintHeader, updateBranchDetails, type CreateBranchResult, type SaveBranchResult } from '@/services/branches';
 import { addItemFromBill, createCatalogueItem, setCatalogueItemActive, updateCatalogueItem, type BillItemResult, type SaveItemResult } from '@/services/catalogue';
 import { addMeAsDoctor, issueCalendarToken, revokeCalendarToken, saveProvider, setProviderActive, setProviderHours, type SaveProviderResult } from '@/services/providers';
@@ -288,6 +289,15 @@ export async function saveClinicAction(input: { name: string; parallelRun: boole
   const ctx = await getContext();
   if (!ctx) return signedOut('clinic.update');
   const res = await run('clinic.update', () => saveClinicSettings(ctx, parse(z.object({ name: z.string().max(200), parallelRun: z.boolean() }), input)));
+  if (res.ok && res.data.ok) revalidatePath('/', 'layout');
+  return res;
+}
+
+/** Discount limits per role (Sprint 8). Owner only; the service checks. */
+export async function saveDiscountCapsAction(input: Record<string, string>): Promise<ActionResult<{ ok: true } | { ok: false; fieldErrors: Record<string, string> }>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('clinic.discount_caps');
+  const res = await run('clinic.discount_caps', () => saveDiscountCaps(ctx, parse(z.record(z.string().max(40), z.string().max(10)), input)));
   if (res.ok && res.data.ok) revalidatePath('/', 'layout');
   return res;
 }

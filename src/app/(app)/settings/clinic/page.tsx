@@ -3,6 +3,10 @@ import { getClinicSettings } from '@/services/clinic';
 import { settingsAccess } from '@/services/settings';
 import { Empty, PageHead } from '@/components/ui';
 import ClinicForm from './ClinicForm';
+import DiscountCapsForm from './DiscountCapsForm';
+import { getDiscountCaps } from '@/services/discounts';
+import { CAPPABLE_ROLES } from '@/domain/discounts';
+import { ROLE_LABELS } from '@/domain/permissions';
 
 export default async function ClinicSettingsPage() {
   const ctx = await requireContext();
@@ -14,11 +18,15 @@ export default async function ClinicSettingsPage() {
       </>
     );
   }
-  const clinic = await getClinicSettings(ctx);
+  const [clinic, caps] = await Promise.all([getClinicSettings(ctx), getDiscountCaps(ctx)]);
   return (
     <>
       <PageHead eyebrow="Settings" title="Clinic" />
       <ClinicForm clinic={clinic} />
+      <DiscountCapsForm
+        roles={CAPPABLE_ROLES.map((r) => ({ role: r, label: ROLE_LABELS[r] }))}
+        initial={Object.fromEntries(Object.entries(caps).map(([r, bp]) => [r, String(bp! / 100)]))}
+      />
     </>
   );
 }

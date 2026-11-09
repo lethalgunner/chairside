@@ -24,6 +24,8 @@ import { getBranch } from './branches';
 import { listCatalogue } from './catalogue';
 import { assertCan, canDo, ForbiddenError, requireActiveBranch, UserFacingError, type TenantContext } from './context';
 import { writeAudit } from './audit';
+import { myDiscountCapBp } from './discounts';
+import { overCap } from '@/domain/discounts';
 import { reopenPlanItems } from './plan-links';
 import { returnSoldStock, takeSoldStock } from './stock';
 import { providerAtBranch } from './providers';
@@ -163,6 +165,15 @@ export async function issueBill(ctx: TenantContext, raw: IssueBillInput): Promis
         catalogueItemId: l.catalogueItemId,
         procedureId: l.procedureId,
       }));
+      // Discount limit per role (Sprint 8). Only looked up when a line has a
+      // discount, so bills without one take exactly the old path.
+      if (lineInputs.some((l) => (l.discountPaise ?? 0) > 0)) {
+        const over = overCap(
+          lineInputs.map((l) => ({ description: l.description, grossPaise: (l.unitPricePaise * l.quantity) as Paise, discountPaise: (l.discountPaise ?? 0) as Paise })),
+          await myDiscountCapBp(ctx, branchId, tx),
+        );
+        if (over) throw new UserFacingError(over);
+      }
       let computed;
       try {
         computed = computeInvoice(lineInputs, { gstRegistered: branch.gstRegistered, gstin: branch.gstin, placeOfSupplyState: branch.state }, branch.state);

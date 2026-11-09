@@ -1542,3 +1542,5 @@ input.filter { width: 100%; max-width: 320px; margin: 6px 0; }
 .leave-list li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .leave-list li:last-child { border-bottom: 0; }
 .leave-list .linkish { margin-left: auto; min-height: 24px; }
+.input-suffix { display: flex; align-items: center; gap: 6px; }
+.input-suffix input { width: 7em; }
