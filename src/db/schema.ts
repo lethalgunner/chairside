@@ -142,6 +142,11 @@ export const organisations = pgTable('organisations', {
    * Existing clinics start on (no change); a clinic that signs up starts off.
    */
   parallelRun: boolean('parallel_run').notNull().default(true),
+  /** Reminders (Sprint 8): no patient messages planned in these hours (IST); due ones wait for the end. */
+  messagesQuietStart: text('messages_quiet_start').notNull().default('21:00'),
+  messagesQuietEnd: text('messages_quiet_end').notNull().default('08:00'),
+  /** Off by default: the doctor's name may appear in patient messages only if the owner allows it (ADR-020). */
+  messagesDoctorName: boolean('messages_doctor_name').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -342,6 +347,87 @@ export const providerBranches = pgTable(
   }),
 );
 
+/** Reminder wording a clinic writes (Sprint 8, ADR-020). Variables like {first_name}; never clinical detail. */
+export const messageTemplates = pgTable(
+  'message_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    name: text('name').notNull(),
+    language: text('language').notNull().default('en'),
+    body: text('body').notNull(),
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    languageCheck: check('message_templates_language_check', sql`${t.language} in ('en', 'hi')`),
+    orgIdx: index('message_templates_org_idx').on(t.orgId),
+  }),
+);
+
+/** When a reminder goes (Sprint 8). branch_id null = every branch. Removed rules keep their row for the sends log. */
+export const messageRules = pgTable(
+  'message_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    branchId: uuid('branch_id').references(() => branches.id),
+    trigger: text('trigger').notNull(),
+    offsetMinutes: integer('offset_minutes').notNull().default(0),
+    everyDays: integer('every_days'),
+    maxTimes: integer('max_times'),
+    templateId: uuid('template_id')
+      .notNull()
+      .references(() => messageTemplates.id),
+    active: boolean('active').notNull().default(true),
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    triggerCheck: check('message_rules_trigger_check', sql`${t.trigger} in ('booked', 'before_appointment', 'no_show', 'after_visit', 'recall_due', 'dues')`),
+    offsetCheck: check('message_rules_offset_check', sql`${t.offsetMinutes} between 0 and 86400`),
+    orgIdx: index('message_rules_org_idx').on(t.orgId),
+  }),
+);
+
+/**
+ * Each planned message the desk sent or skipped (Sprint 8). The unique key is
+ * what stops a reminder going twice. The text itself is not stored.
+ */
+export const messageSends = pgTable(
+  'message_sends',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id),
+    ruleId: uuid('rule_id')
+      .notNull()
+      .references(() => messageRules.id),
+    key: text('key').notNull(),
+    outcome: text('outcome').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    by: uuid('by')
+      .notNull()
+      .references(() => users.id),
+  },
+  (t) => ({
+    outcomeCheck: check('message_sends_outcome_check', sql`${t.outcome} in ('sent', 'skipped')`),
+    keyUnique: uniqueIndex('message_sends_org_key_unique').on(t.orgId, t.key),
+    branchIdx: index('message_sends_branch_idx').on(t.orgId, t.branchId, t.at),
+  }),
+);
+
 /**
  * Discount limit per role (Sprint 8): up to max_bp of a line's value. No row
  * for a role means no limit, which is how every clinic starts.
@@ -428,6 +514,8 @@ export const patients = pgTable(
     /** Known allergies, written by a doctor on the prescription screen (Sprint 5, LET-173). Health data. */
     allergies: text('allergies'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** The patient said STOP (Sprint 8): no planned reminders, under any rule. Manual buttons are unchanged. */
+    messagesStoppedAt: timestamp('messages_stopped_at', { withTimezone: true }),
     mergedIntoId: uuid('merged_into_id'),
   },
   (t) => ({
