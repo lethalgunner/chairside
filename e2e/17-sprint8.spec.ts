@@ -162,7 +162,7 @@ test('discount limit: the owner sets 10% for the desk; the desk sees it live; cl
   const caps = owner.getByRole('form', { name: 'Discount limits' });
   await axeClean(owner, 'discount limits');
   await caps.getByLabel('Front desk').fill('10');
-  await caps.getByRole('button', { name: 'Save limits' }).click();
+  await caps.getByRole('button', { name: 'Update discount limits' }).click();
   await expect(caps.getByRole('status')).toContainText('saved');
 
   const deskCtx = await browser.newContext();
@@ -184,12 +184,25 @@ test('discount limit: the owner sets 10% for the desk; the desk sees it live; cl
 
   // Put it back.
   await caps.getByLabel('Front desk').fill('');
-  await caps.getByRole('button', { name: 'Save limits' }).click();
-  await expect(caps.getByRole('button', { name: 'Save limits' })).toBeEnabled();
+  await caps.getByRole('button', { name: 'Update discount limits' }).click();
+  await expect(caps.getByRole('button', { name: 'Update discount limits' })).toBeEnabled();
   await owner.reload();
   await expect(owner.getByRole('form', { name: 'Discount limits' }).getByLabel('Front desk')).toHaveValue('');
   await ownerCtx.close();
   await deskCtx.close();
+});
+
+test('phone width: the new screens fit without sideways scrolling', async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await ctx.newPage();
+  await login(page, 'owner');
+  for (const path of ['/settings/reminders', '/messages', '/appointments/leave', '/settings/clinic']) {
+    await page.goto(path);
+    await expect(page.locator('h1')).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow, path).toBeLessThanOrEqual(1);
+  }
+  await ctx.close();
 });
 
 test('clean-up: the owner removes every reminder and the Messages link goes away', async ({ page }) => {
