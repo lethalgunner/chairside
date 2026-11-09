@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb, type DB, type Tx } from '@/db/client';
 import { branches, dayBooks, invoices, ledgerEntries, patients, receiptAllocations, receipts } from '@/db/schema';
@@ -109,60 +109,8 @@ export async function recordReceipt(ctx: TenantContext, raw: RecordReceiptInput)
       if (!patient) throw new ForbiddenError();
 
       // Lock this patient's open invoices at the branch so two desks can't over-allocate.
-      await tx.execute(sql`select id from invoices where org_id = ${ctx.orgId} and branch_id = ${branchId} and patient_id = ${patient.id} and status = 'issued' for update`);
-      const open = await outstandingInvoices(tx, ctx.orgId, branchId, patient.id);
-      const allocation = allocateReceipt(input.amountPaise as Paise, open);
-
-      const { number } = await nextDocumentNumber(tx, {
-        orgId: ctx.orgId,
-        branchId,
-        branchCode: branch.code,
-        documentType: 'receipt',
-        businessDate: date,
-      });
-      const [rec] = await tx
-        .insert(receipts)
-        .values({
-          orgId: ctx.orgId,
-          branchId,
-          patientId: patient.id,
-          number,
-          receivedOn: date,
-          mode: input.mode,
-          reference: input.reference || null,
-          amountPaise: input.amountPaise,
-          idempotencyKey: input.idempotencyKey,
-          createdBy: ctx.userId,
-        })
-        .returning({ id: receipts.id });
-      for (const a of allocation.allocations) {
-        await tx.insert(receiptAllocations).values({ orgId: ctx.orgId, receiptId: rec!.id, invoiceId: a.invoiceId, amountPaise: a.amountPaise });
-      }
-      await tx.insert(ledgerEntries).values({
-        orgId: ctx.orgId,
-        branchId,
-        patientId: patient.id,
-        entryType: 'receipt',
-        amountPaise: negate(input.amountPaise as Paise),
-        occurredOn: date,
-        receiptId: rec!.id,
-        narration: `${number} · ${input.mode.replace('_', ' ')}${input.reference ? ` · ${input.reference}` : ''}`,
-        createdBy: ctx.userId,
-      });
-      await writeAudit(tx, ctx, {
-        action: 'receipt.record',
-        entityType: 'receipt',
-        entityId: rec!.id,
-        branchId,
-        after: { number, amountPaise: input.amountPaise, mode: input.mode },
-      });
-      return {
-        receiptId: rec!.id,
-        number,
-        allocations: allocation.allocations,
-        advancePaise: allocation.unallocatedPaise,
-        duplicate: false,
-      };
+      await lockOpenInvoices(tx, ctx.orgId, branchId, patient.id);
+      return writeReceipt(tx, ctx, { branchId, branchCode: branch.code, date, patientId: patient.id }, input);
     });
   } catch (err) {
     if (isUniqueViolation(err, 'receipts_idempotency_unique')) {
@@ -171,6 +119,158 @@ export async function recordReceipt(ctx: TenantContext, raw: RecordReceiptInput)
     }
     throw err;
   }
+}
+
+export const splitReceiptInput = z.object({
+  patientId: z.string().uuid(),
+  parts: z
+    .array(
+      z.object({
+        amountPaise: z.number().int().positive('Enter each amount.').max(Number.MAX_SAFE_INTEGER),
+        mode: z.enum(PAYMENT_MODES),
+        reference: z.string().trim().max(80).optional(),
+      }),
+    )
+    .min(2, 'A split payment has at least two parts.')
+    .max(4, 'Up to four ways in one payment.'),
+  idempotencyKey: z.string().min(8).max(90),
+});
+export type SplitReceiptInput = z.input<typeof splitReceiptInput>;
+
+export interface SplitReceiptResult {
+  receipts: { receiptId: string; number: string; mode: string; amountPaise: Paise }[];
+  allocatedPaise: Paise;
+  advancePaise: Paise;
+  duplicate: boolean;
+}
+
+/**
+ * Split payment (Sprint 9): one payment made several ways (₹2,000 cash and
+ * ₹2,500 UPI). One receipt per way, so day close counts each mode as it
+ * always has, all in one transaction: every part is saved or none is. Each
+ * part has its own idempotency key (`key:1`, `key:2`…), so pressing Save
+ * again after a dropped connection returns the same receipts.
+ */
+export async function recordSplitReceipt(ctx: TenantContext, raw: SplitReceiptInput): Promise<SplitReceiptResult> {
+  const branchId = requireActiveBranch(ctx);
+  assertCan(ctx, 'receipt.record', branchId);
+  const parsed = splitReceiptInput.safeParse(raw);
+  if (!parsed.success) throw new UserFacingError(parsed.error.issues[0]?.message ?? 'Check the payment.');
+  const input = parsed.data;
+  const modes = input.parts.map((p) => p.mode);
+  if (new Set(modes).size !== modes.length) throw new UserFacingError('Each way of paying once: add the amounts for the same way together.');
+  const keyOf = (i: number) => `${input.idempotencyKey}:${i + 1}`;
+  const replay = async (): Promise<SplitReceiptResult | null> => {
+    const found = await Promise.all(input.parts.map((_, i) => byKey(ctx.orgId, keyOf(i))));
+    if (!found[0]) return null;
+    const recs = found.filter((r): r is RecordReceiptResult => !!r);
+    const rows = await getDb().select({ id: receipts.id, mode: receipts.mode, amountPaise: receipts.amountPaise }).from(receipts).where(and(eq(receipts.orgId, ctx.orgId), inArray(receipts.id, recs.map((r) => r.receiptId))));
+    return {
+      receipts: recs.map((r) => {
+        const row = rows.find((x) => x.id === r.receiptId)!;
+        return { receiptId: r.receiptId, number: r.number, mode: row.mode, amountPaise: row.amountPaise as Paise };
+      }),
+      allocatedPaise: recs.reduce((s, r) => s + r.allocations.reduce((t, a) => t + a.amountPaise, 0), 0) as Paise,
+      advancePaise: recs.reduce((s, r) => s + r.advancePaise, 0) as Paise,
+      duplicate: true,
+    };
+  };
+  const existing = await replay();
+  if (existing) return existing;
+  const branch = await getBranch(ctx, branchId);
+  const date = businessDate();
+  try {
+    return await getDb().transaction(async (tx) => {
+      await ensureDayOpen(tx, { orgId: ctx.orgId, branchId, branchName: branch.name, date, defaultFloatPaise: branch.defaultFloatPaise });
+      const [patient] = await tx.select({ id: patients.id }).from(patients).where(and(eq(patients.id, input.patientId), eq(patients.orgId, ctx.orgId))).limit(1);
+      if (!patient) throw new ForbiddenError();
+      await lockOpenInvoices(tx, ctx.orgId, branchId, patient.id);
+      const out: SplitReceiptResult = { receipts: [], allocatedPaise: 0 as Paise, advancePaise: 0 as Paise, duplicate: false };
+      for (const [i, part] of input.parts.entries()) {
+        const r = await writeReceipt(tx, ctx, { branchId, branchCode: branch.code, date, patientId: patient.id }, { ...part, idempotencyKey: keyOf(i) });
+        out.receipts.push({ receiptId: r.receiptId, number: r.number, mode: part.mode, amountPaise: part.amountPaise as Paise });
+        out.allocatedPaise = (out.allocatedPaise + r.allocations.reduce((t, a) => t + a.amountPaise, 0)) as Paise;
+        out.advancePaise = (out.advancePaise + r.advancePaise) as Paise;
+      }
+      return out;
+    });
+  } catch (err) {
+    if (isUniqueViolation(err, 'receipts_idempotency_unique')) {
+      const again = await replay();
+      if (again) return again;
+    }
+    throw err;
+  }
+}
+
+async function lockOpenInvoices(tx: Tx, orgId: string, branchId: string, patientId: string) {
+  await tx.execute(sql`select id from invoices where org_id = ${orgId} and branch_id = ${branchId} and patient_id = ${patientId} and status = 'issued' for update`);
+}
+
+/**
+ * One receipt: number, allocation oldest bill first, ledger entry, audit.
+ * The caller holds the transaction, the open-day row and the invoice locks.
+ * Shared by a single payment and each part of a split payment (Sprint 9).
+ */
+async function writeReceipt(
+  tx: Tx,
+  ctx: TenantContext,
+  at: { branchId: string; branchCode: string; date: string; patientId: string },
+  input: { amountPaise: number; mode: (typeof PAYMENT_MODES)[number]; reference?: string; idempotencyKey: string },
+): Promise<RecordReceiptResult> {
+  const { branchId, date } = at;
+  const open = await outstandingInvoices(tx, ctx.orgId, branchId, at.patientId);
+  const allocation = allocateReceipt(input.amountPaise as Paise, open);
+  const { number } = await nextDocumentNumber(tx, {
+    orgId: ctx.orgId,
+    branchId,
+    branchCode: at.branchCode,
+    documentType: 'receipt',
+    businessDate: date,
+  });
+  const [rec] = await tx
+    .insert(receipts)
+    .values({
+      orgId: ctx.orgId,
+      branchId,
+      patientId: at.patientId,
+      number,
+      receivedOn: date,
+      mode: input.mode,
+      reference: input.reference || null,
+      amountPaise: input.amountPaise,
+      idempotencyKey: input.idempotencyKey,
+      createdBy: ctx.userId,
+    })
+    .returning({ id: receipts.id });
+  for (const a of allocation.allocations) {
+    await tx.insert(receiptAllocations).values({ orgId: ctx.orgId, receiptId: rec!.id, invoiceId: a.invoiceId, amountPaise: a.amountPaise });
+  }
+  await tx.insert(ledgerEntries).values({
+    orgId: ctx.orgId,
+    branchId,
+    patientId: at.patientId,
+    entryType: 'receipt',
+    amountPaise: negate(input.amountPaise as Paise),
+    occurredOn: date,
+    receiptId: rec!.id,
+    narration: `${number} · ${input.mode.replace('_', ' ')}${input.reference ? ` · ${input.reference}` : ''}`,
+    createdBy: ctx.userId,
+  });
+  await writeAudit(tx, ctx, {
+    action: 'receipt.record',
+    entityType: 'receipt',
+    entityId: rec!.id,
+    branchId,
+    after: { number, amountPaise: input.amountPaise, mode: input.mode },
+  });
+  return {
+    receiptId: rec!.id,
+    number,
+    allocations: allocation.allocations,
+    advancePaise: allocation.unallocatedPaise,
+    duplicate: false,
+  };
 }
 
 async function byKey(orgId: string, key: string): Promise<RecordReceiptResult | null> {

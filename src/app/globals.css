@@ -1567,3 +1567,5 @@ input.filter { width: 100%; max-width: 320px; margin: 6px 0; }
 .tabs .tab { padding: 8px 14px; min-height: 24px; text-decoration: none; color: var(--ink-2); border-bottom: 3px solid transparent; margin-bottom: -1px; }
 .tabs .tab.on { color: var(--ink); border-bottom-color: var(--jade); font-weight: 600; }
 .tabs .tab:focus-visible { outline: 2px solid var(--jade); outline-offset: 2px; }
+.split-part { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 0 0 10px; }
+.split-part legend { padding: 0 6px; font-weight: 600; }

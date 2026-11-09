@@ -6,7 +6,7 @@ import { getContext } from '@/lib/auth';
 import { parseRupeesInput, type Paise } from '@/domain/money';
 import { closeDay, recordCashOut, reopenDay, type CloseDayInput } from '@/services/daybook';
 import { issueBill, voidInvoice, type IssueBillInput, type IssueBillResult } from '@/services/invoices';
-import { cancelReceipt, recordReceipt, type RecordReceiptInput, type RecordReceiptResult } from '@/services/receipts';
+import { cancelReceipt, recordReceipt, recordSplitReceipt, type RecordReceiptInput, type RecordReceiptResult, type SplitReceiptInput, type SplitReceiptResult } from '@/services/receipts';
 import { dismissProcedure } from '@/services/procedures';
 import { UserFacingError } from '@/services/context';
 import { run, signedOut, type ActionResult } from './run';
@@ -32,6 +32,15 @@ export async function recordReceiptAction(input: RecordReceiptInput): Promise<Ac
   const ctx = await getContext();
   if (!ctx) return signedOut('receipt.record');
   const res = await run('receipt.record', () => recordReceipt(ctx, input));
+  if (res.ok) refresh();
+  return res;
+}
+
+/** Split payment (Sprint 9): one receipt per way, in one transaction. */
+export async function recordSplitReceiptAction(input: SplitReceiptInput): Promise<ActionResult<SplitReceiptResult>> {
+  const ctx = await getContext();
+  if (!ctx) return signedOut('receipt.record_split');
+  const res = await run('receipt.record_split', () => recordSplitReceipt(ctx, input));
   if (res.ok) refresh();
   return res;
 }

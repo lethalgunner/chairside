@@ -6,7 +6,10 @@ import { getDiscountCaps, myDiscountCapBp, saveDiscountCaps } from './discounts'
 import { ForbiddenError } from './context';
 import { getClinicSettings, saveRecallDays } from './clinic';
 import { registerPatient } from './patients';
-import { recordReceipt } from './receipts';
+import { recordReceipt, recordSplitReceipt } from './receipts';
+import { and, eq } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { receipts } from '@/db/schema';
 import { duesFor } from './reports';
 import { createCatalogueItem, listCatalogue, listCatalogueForSettings, updateCatalogueItem } from './catalogue';
 
@@ -117,5 +120,47 @@ describe('come-back gaps per clinic (Sprint 8)', () => {
     expect(bad.ok ? [] : Object.keys(bad.fieldErrors).sort()).toEqual(['checkup', 'cleaning', 'continue']);
     await expect(saveRecallDays(f.ctx('desk'), { checkup: '1', cleaning: '1', continue: '1', review: '1' })).rejects.toBeInstanceOf(ForbiddenError);
     expect((await getClinicSettings(other.ctx('desk'))).recallDays.checkup).toBe(182);
+  });
+});
+
+describe('split payment (Sprint 9)', () => {
+  it('₹2,000 cash + ₹2,500 UPI against a ₹4,500 bill: two receipts, bill paid, each mode counted', async () => {
+    const pid = await patient();
+    await issueBill(f.ctx('desk'), { patientId: pid, doctorId: f.doctorId, idempotencyKey: key(), mode: 'issue', lines: [{ catalogueItemId: f.items.rct, quantity: 1 }] });
+    const k = key();
+    const r = await recordSplitReceipt(f.ctx('desk'), { patientId: pid, idempotencyKey: k, parts: [{ mode: 'cash', amountPaise: 200_000 }, { mode: 'upi', amountPaise: 250_000, reference: 'UPI-778' }] });
+    expect(r.receipts.map((x) => [x.mode, x.amountPaise])).toEqual([['cash', 200_000], ['upi', 250_000]]);
+    expect(r.receipts[0]!.number).not.toBe(r.receipts[1]!.number);
+    expect([r.allocatedPaise, r.advancePaise, r.duplicate]).toEqual([450_000, 0, false]);
+    expect((await duesFor(f.ctx('desk'), [f.pune.id], [pid])).has(pid)).toBe(false);
+    // Pressing Save again (dropped connection) returns the same receipts, nothing new.
+    const again = await recordSplitReceipt(f.ctx('desk'), { patientId: pid, idempotencyKey: k, parts: [{ mode: 'cash', amountPaise: 200_000 }, { mode: 'upi', amountPaise: 250_000 }] });
+    expect(again.duplicate).toBe(true);
+    expect(again.receipts.map((x) => x.receiptId)).toEqual(r.receipts.map((x) => x.receiptId));
+  });
+
+  it('paying more than owed leaves the rest as an advance; the same way twice is refused', async () => {
+    const pid = await patient();
+    await issueBill(f.ctx('desk'), { patientId: pid, doctorId: f.doctorId, idempotencyKey: key(), mode: 'issue', lines: [{ catalogueItemId: f.items.rct, quantity: 1 }] });
+    const r = await recordSplitReceipt(f.ctx('desk'), { patientId: pid, idempotencyKey: key(), parts: [{ mode: 'card', amountPaise: 300_000 }, { mode: 'cash', amountPaise: 200_000 }] });
+    expect([r.allocatedPaise, r.advancePaise]).toEqual([450_000, 50_000]);
+    await expect(recordSplitReceipt(f.ctx('desk'), { patientId: pid, idempotencyKey: key(), parts: [{ mode: 'cash', amountPaise: 100 }, { mode: 'cash', amountPaise: 200 }] })).rejects.toThrow(/Each way of paying once/);
+    await expect(recordSplitReceipt(f.ctx('desk'), { patientId: pid, idempotencyKey: key(), parts: [{ mode: 'cash', amountPaise: 100 }] })).rejects.toThrow(/at least two parts/);
+  });
+
+  it('all or nothing: if one part can’t be saved, the other isn’t either', async () => {
+    const pid = await patient();
+    const k = key();
+    // Something already holds part 2's key, so part 2 fails after part 1 was written in the same transaction.
+    await recordReceipt(f.ctx('desk'), { patientId: pid, mode: 'cash', amountPaise: 100, idempotencyKey: `${k}:2` });
+    await expect(recordSplitReceipt(f.ctx('desk'), { patientId: pid, idempotencyKey: k, parts: [{ mode: 'cash', amountPaise: 1_000 }, { mode: 'upi', amountPaise: 2_000 }] })).rejects.toThrow();
+    const rows = await getDb().select().from(receipts).where(and(eq(receipts.orgId, f.orgId), eq(receipts.idempotencyKey, `${k}:1`)));
+    expect(rows).toEqual([]);
+  });
+
+  it('the accountant can’t take money; another clinic can’t touch this patient', async () => {
+    const pid = await patient();
+    await expect(recordSplitReceipt(f.ctx('accountant', f.pune.id), { patientId: pid, idempotencyKey: key(), parts: [{ mode: 'cash', amountPaise: 100 }, { mode: 'upi', amountPaise: 100 }] })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(recordSplitReceipt(other.ctx('desk'), { patientId: pid, idempotencyKey: key(), parts: [{ mode: 'cash', amountPaise: 100 }, { mode: 'upi', amountPaise: 100 }] })).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

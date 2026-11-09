@@ -10,7 +10,7 @@ import { add, ZERO } from '@/domain/money';
 import { outstandingOf } from '@/domain/ledger';
 import { PageHead } from '@/components/ui';
 import PayQr from '@/components/PayQr';
-import ReceiptForm from './ReceiptForm';
+import PaymentChooser from './PaymentChooser';
 
 export default async function NewReceiptPage({ searchParams }: { searchParams: Promise<{ patient?: string; amount?: string; again?: string }> }) {
   const ctx = await requireContext();
@@ -33,7 +33,7 @@ export default async function NewReceiptPage({ searchParams }: { searchParams: P
   return (
     <>
       <PageHead eyebrow={branch.name} title={`Payment from ${patient.fullName}`} sub={patient.fileNumbers.join(', ')} />
-      <ReceiptForm key={`${patient.id}:${again}`} initialAmount={initialAmount} patient={{ id: patient.id, name: patient.fullName }} branchName={branch.name} open={open} balancePaise={account.balancePaise} />
+      <PaymentChooser key={`${patient.id}:${again}`} initialAmount={initialAmount} patient={{ id: patient.id, name: patient.fullName }} branchName={branch.name} open={open} balancePaise={account.balancePaise} />
       <PayQr
         upiId={branch.upiId}
         payee={branch.upiPayee}
