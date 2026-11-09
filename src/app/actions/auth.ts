@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { acceptInvite, getContext, setActiveBranch, signIn, signOut } from '@/lib/auth';
 import { signedOut, type SignedOut } from './run';
+import { appBaseUrl } from '@/lib/nav/base-url';
+import { emailConfigured, sendEmail } from '@/lib/email';
+import { requestPasswordReset } from '@/services/password-reset';
 
 /** Returns ok instead of redirecting, so the client can navigate with the T18 fallback. */
 export async function signInAction(_prev: { error?: string; ok?: boolean } | null, form: FormData): Promise<{ error?: string; ok?: boolean }> {
@@ -32,4 +35,15 @@ export async function acceptInviteAction(_prev: { error?: string } | null, form:
   const res = await acceptInvite(String(form.get('token') ?? ''), String(form.get('password') ?? ''), String(form.get('confirm') ?? ''));
   if (!res.ok) return { error: res.error };
   redirect('/');
+}
+
+/** "Forgot password?" (Sprint 7). Always the same answer, whether or not the address exists. */
+export async function forgotPasswordAction(_prev: { done?: boolean; error?: string } | null, form: FormData): Promise<{ done?: boolean; error?: string }> {
+  if (!emailConfigured()) return { error: 'Password emails aren’t set up. Ask your clinic owner for a reset link.' };
+  try {
+    await requestPasswordReset(String(form.get('email') ?? ''), await appBaseUrl(), sendEmail);
+  } catch {
+    console.error('[action] auth.forgot: unexpected error');
+  }
+  return { done: true };
 }

@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { getContext } from '@/lib/auth';
 import { EXPIRED_REASON, safeNext, SIGNED_OUT_MESSAGE } from '@/lib/nav/safe-next';
 import LoginForm from './LoginForm';
+import Link from 'next/link';
+import { emailConfigured } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +28,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         ) : null}
         <p className="muted">Accounts are created by your clinic administrator.</p>
         <LoginForm next={next} />
+        {emailConfigured() ? <p className="small"><Link className="link" href="/forgot">Forgot password?</Link></p> : null}
         <p className="pilot-note">Pilot test. Your clinic’s existing software remains the official record.</p>
       </div>
     </div>
