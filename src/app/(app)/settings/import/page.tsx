@@ -26,6 +26,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
         title="Bring your data"
         sub="Move patients and coming appointments from your old software. Export them to Excel or CSV there, then paste or pick the file here. Check shows what will happen; nothing is saved until you press Import."
       />
+      <p className="small"><Link className="link" href="/help#import">How importing works</Link></p>
       <nav className="tabs" aria-label="What to import">
         <Link className={kind === 'patients' ? 'tab on' : 'tab'} aria-current={kind === 'patients' ? 'page' : undefined} href="/settings/import?kind=patients">1. Patients</Link>
         <Link className={kind === 'appointments' ? 'tab on' : 'tab'} aria-current={kind === 'appointments' ? 'page' : undefined} href="/settings/import?kind=appointments">2. Coming appointments</Link>

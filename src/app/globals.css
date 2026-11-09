@@ -1569,3 +1569,13 @@ input.filter { width: 100%; max-width: 320px; margin: 6px 0; }
 .tabs .tab:focus-visible { outline: 2px solid var(--jade); outline-offset: 2px; }
 .split-part { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 0 0 10px; }
 .split-part legend { padding: 0 6px; font-weight: 600; }
+
+/* Help (Sprint 9) */
+.help-toc ul { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 14px; }
+.help-topic { scroll-margin-top: 72px; }
+.help-topic ol, .release ul { margin: 0; padding-left: 20px; }
+.help-topic li, .release li { margin: 4px 0; }
+.release + .release { margin-top: 12px; }
+.release h3 { font-size: 14px; margin: 0 0 4px; }
+.sidebar-foot { flex-wrap: wrap; }
+.sidebar-foot .help-link { order: 3; flex-basis: 100%; min-height: 24px; display: inline-flex; align-items: center; }

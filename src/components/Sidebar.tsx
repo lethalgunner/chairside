@@ -90,6 +90,7 @@ export default function Sidebar({ userName, branches, activeBranchId, can }: Pro
 
       <div className="sidebar-foot">
         <div className="who">{userName}</div>
+        <Link href="/help" className="linkish small help-link">Help and what’s new</Link>
         <form action={signOutAction}>
           <button type="submit" className="linkish">
             Sign out

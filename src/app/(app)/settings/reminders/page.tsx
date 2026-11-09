@@ -26,6 +26,7 @@ export default async function RemindersSettingsPage() {
         sub="When patients get a WhatsApp message and what it says. Chairside lists each one in Today’s messages when it’s due; the desk taps Send and it goes from the clinic’s own WhatsApp."
         right={<Link className="secondary" href="/messages">Today’s messages</Link>}
       />
+      <p className="small"><Link className="link" href="/help#reminders">How reminders work</Link></p>
       <RemindersEditor settings={settings} branches={branches.map((b) => ({ id: b.id, name: b.name }))} />
     </>
   );
