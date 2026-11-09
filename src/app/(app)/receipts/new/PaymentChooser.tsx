@@ -14,7 +14,7 @@ export default function PaymentChooser(props: { patient: { id: string; name: str
     <>
       <ReceiptForm {...props} />
       <p className="small">
-        <button type="button" className="linkish" onClick={() => setSplit(true)}>Paid more than one way (part cash, part UPI)? Split it</button>
+        <button type="button" className="linkish" onClick={() => setSplit(true)}>Paid more than one way? Split the payment</button>
       </p>
     </>
   );

@@ -60,7 +60,8 @@ test('owner imports a coming appointment for an imported patient; it shows on th
 });
 
 test('desk splits a payment: ₹2,000 cash + the rest on UPI settles a ₹4,500 bill', async ({ page }) => {
-  await login(page, 'desk');
+  // Kanpur: Demo Pune's day is closed by the golden path earlier in a full run.
+  await login(page, 'kanpurDesk');
   await page.goto('/patients/new');
   await page.getByLabel('Mobile').fill(phone());
   await page.getByLabel('Full name').fill('Vani Splitpay');
@@ -70,7 +71,7 @@ test('desk splits a payment: ₹2,000 cash + the rest on UPI settles a ₹4,500 
   await expect(page.getByRole('heading', { name: 'Vani Splitpay', exact: true })).toBeVisible();
   const patientUrl = page.url();
   await page.getByRole('link', { name: 'New bill' }).click();
-  await page.getByLabel('Doctor').selectOption({ label: 'Dr. Demo Associate' });
+  await page.getByLabel('Doctor').selectOption({ label: 'Dr. Demo Owner' });
   await page.getByLabel('Add treatment or item').fill('root canal');
   await page.getByLabel('Add treatment or item').press('Enter');
   await page.getByRole('button', { name: 'Issue bill' }).click();
@@ -86,7 +87,7 @@ test('desk splits a payment: ₹2,000 cash + the rest on UPI settles a ₹4,500 
   await expect(form.getByLabel('Amount (₹)').nth(1)).toHaveValue('2500');
   await axeClean(page, 'split payment');
   await form.getByRole('button', { name: 'Record ₹4,500.00 in 2 ways' }).click();
-  await expect(page.getByRole('status')).toContainText('₹4,500.00 recorded at Demo Pune in 2 ways');
+  await expect(page.getByRole('status')).toContainText('₹4,500.00 recorded at Demo Kanpur in 2 ways');
   await page.getByRole('link', { name: 'Back to Vani Splitpay' }).click();
   await expect(page.getByText('Nothing owed')).toBeVisible();
 });

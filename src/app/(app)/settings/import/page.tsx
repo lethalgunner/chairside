@@ -5,6 +5,13 @@ import { settingsAccess } from '@/services/settings';
 import { Empty, PageHead } from '@/components/ui';
 import DataImport from './DataImport';
 
+/**
+ * A 1,000-row import is a few thousand small queries in one transaction:
+ * allow up to 60 s (Vercel's default is lower). The actions on this page run
+ * in this route's function, so this covers Check and Import.
+ */
+export const maxDuration = 60;
+
 /** Settings → Bring your data (Sprint 9): patients and coming appointments from the old software. */
 export default async function ImportPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
   const ctx = await requireContext();
