@@ -90,3 +90,44 @@ export function suggestItemCode(name: string, taken: ReadonlySet<string>): strin
   }
   throw new Error('No free item code');
 }
+
+/** Sprint 8: per-treatment booking length and come-back suggestion, as typed in the price list. */
+export interface ItemSchedulingInput {
+  /** Minutes as typed, '' for "use the doctor's slot". */
+  minutes: string;
+  /** Days as typed, '' for none. */
+  recallDays: string;
+  recallKind: string;
+}
+
+export interface ItemScheduling {
+  defaultMinutes: number | null;
+  recallDays: number | null;
+  recallKind: 'checkup' | 'cleaning' | 'continue' | 'review' | null;
+}
+
+const RECALL_KIND_VALUES = ['checkup', 'cleaning', 'continue', 'review'] as const;
+
+export function checkItemScheduling(input: ItemSchedulingInput): Checked<ItemScheduling> {
+  const fieldErrors: FieldErrors = {};
+  const m = input.minutes.trim();
+  let defaultMinutes: number | null = null;
+  if (m) {
+    const n = Number(m);
+    if (!Number.isInteger(n) || n < 5 || n > 240 || n % 5 !== 0) fieldErrors.minutes = 'Length is 5 to 240 minutes, in 5-minute steps, or empty.';
+    else defaultMinutes = n;
+  }
+  const r = input.recallDays.trim();
+  let recallDays: number | null = null;
+  let recallKind: ItemScheduling['recallKind'] = null;
+  if (r) {
+    const n = Number(r);
+    if (!Number.isInteger(n) || n < 1 || n > 1095) fieldErrors.recallDays = 'Come back after 1 to 1,095 days (3 years), or empty.';
+    else recallDays = n;
+    const k = RECALL_KIND_VALUES.find((x) => x === input.recallKind);
+    if (!k) fieldErrors.recallKind = 'Pick what they come back for.';
+    else recallKind = k;
+  }
+  if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors };
+  return { ok: true, value: { defaultMinutes, recallDays, recallKind } };
+}

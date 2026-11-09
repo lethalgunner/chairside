@@ -1,0 +1,5 @@
+ALTER TABLE "catalogue_items" ADD COLUMN "default_minutes" integer;--> statement-breakpoint
+ALTER TABLE "catalogue_items" ADD COLUMN "recall_days" integer;--> statement-breakpoint
+ALTER TABLE "catalogue_items" ADD COLUMN "recall_kind" text;--> statement-breakpoint
+ALTER TABLE "catalogue_items" ADD CONSTRAINT "catalogue_default_minutes_check" CHECK ("catalogue_items"."default_minutes" is null or ("catalogue_items"."default_minutes" between 5 and 240 and "catalogue_items"."default_minutes" % 5 = 0));--> statement-breakpoint
+ALTER TABLE "catalogue_items" ADD CONSTRAINT "catalogue_recall_check" CHECK (("catalogue_items"."recall_days" is null and "catalogue_items"."recall_kind" is null) or ("catalogue_items"."recall_days" between 1 and 1095 and "catalogue_items"."recall_kind" in ('checkup', 'cleaning', 'continue', 'review')));

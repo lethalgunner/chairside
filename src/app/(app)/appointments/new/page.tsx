@@ -3,6 +3,7 @@ import { requireContext } from '@/lib/auth';
 import { businessDate, isIsoDate, shortDay } from '@/domain/dates';
 import { formatIndianMobile } from '@/domain/phone';
 import { doctorDays, getAppointment } from '@/services/appointments';
+import { listCatalogue } from '@/services/catalogue';
 import { canDo } from '@/services/context';
 import { getPatient, searchPatients } from '@/services/patients';
 import { Card, Empty, PageHead } from '@/components/ui';
@@ -86,6 +87,7 @@ export default async function NewAppointmentPage({ searchParams }: { searchParam
           reason={moving?.reason ?? ''}
           minutes={moving?.minutes ?? 0}
           doctors={docs}
+          treatments={(await listCatalogue(ctx, branch)).filter((c) => c.defaultMinutes).map((c) => ({ id: c.id, name: c.name, minutes: c.defaultMinutes! }))}
         />
       )}
     </>

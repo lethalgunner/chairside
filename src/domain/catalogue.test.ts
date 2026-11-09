@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkCatalogueItem, GST_RATES_BP, isGoodsCategory, suggestItemCode, type CatalogueItemInput } from './catalogue';
+import { checkCatalogueItem, checkItemScheduling, GST_RATES_BP, isGoodsCategory, suggestItemCode, type CatalogueItemInput } from './catalogue';
 
 const base: CatalogueItemInput = {
   code: ' ngd ',
@@ -83,5 +83,20 @@ describe('code for an item added from the bill', () => {
         expect(r.ok, code).toBe(true);
       }
     }
+  });
+});
+
+describe('per-treatment length and come-back (Sprint 8)', () => {
+  it('empty means none', () => {
+    expect(checkItemScheduling({ minutes: '', recallDays: '', recallKind: '' })).toEqual({ ok: true, value: { defaultMinutes: null, recallDays: null, recallKind: null } });
+  });
+  it('accepts a 45-minute RCT and a 6-month cleaning', () => {
+    expect(checkItemScheduling({ minutes: '45', recallDays: '182', recallKind: 'cleaning' })).toEqual({ ok: true, value: { defaultMinutes: 45, recallDays: 182, recallKind: 'cleaning' } });
+  });
+  it('refuses odd lengths and missing kinds', () => {
+    const r = checkItemScheduling({ minutes: '7', recallDays: '2000', recallKind: '' });
+    expect(r.ok ? [] : Object.keys(r.fieldErrors).sort()).toEqual(['minutes', 'recallDays', 'recallKind']);
+    const k = checkItemScheduling({ minutes: '', recallDays: '30', recallKind: 'nope' });
+    expect(k.ok ? [] : Object.keys(k.fieldErrors)).toEqual(['recallKind']);
   });
 });

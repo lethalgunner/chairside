@@ -20,6 +20,9 @@ interface Item {
   hsnSacCode: string;
   gstRateBp: number;
   active: boolean;
+  defaultMinutes?: number | null;
+  recallDays?: number | null;
+  recallKind?: string | null;
 }
 
 interface Props {
@@ -30,6 +33,10 @@ interface Props {
 
 type Draft = { code: string; name: string; category: string; price: string; taxCategory: string; hsnSacCode: string; gstRateBp: number };
 const EMPTY: Draft = { code: '', name: '', category: '', price: '', taxCategory: 'exempt_healthcare', hsnSacCode: '9993', gstRateBp: 0 };
+/** Sprint 8: booking length and come-back suggestion, sent beside the item. */
+type Sched = { minutes: string; recallDays: string; recallKind: string };
+const NO_SCHED: Sched = { minutes: '', recallDays: '', recallKind: 'checkup' };
+const RECALL_CHOICES = [{ v: 'checkup', l: 'Check-up' }, { v: 'cleaning', l: 'Cleaning' }, { v: 'continue', l: 'Continue treatment' }, { v: 'review', l: 'Review' }];
 
 export default function CatalogueEditor({ items, taxCategories, rates }: Props) {
   const { busy: pending, notSent, send, release, navigate } = useActionForm('catalogue.save');
@@ -40,6 +47,7 @@ export default function CatalogueEditor({ items, taxCategories, rates }: Props) 
   const [saved, setSaved] = useState<string | null>(null);
   const [pasting, setPasting] = useState(false);
   const exempt = draft.taxCategory === 'exempt_healthcare';
+  const [sched, setSched] = useState<Sched>(NO_SCHED);
 
   function open(item: Item | null) {
     setErrors({});
@@ -48,6 +56,7 @@ export default function CatalogueEditor({ items, taxCategories, rates }: Props) 
     setPasting(false);
     setEditing(item ? item.id : 'new');
     setDraft(item ? { code: item.code, name: item.name, category: item.category ?? '', price: item.price, taxCategory: item.taxCategory, hsnSacCode: item.hsnSacCode, gstRateBp: item.gstRateBp } : EMPTY);
+    setSched(item ? { minutes: item.defaultMinutes ? String(item.defaultMinutes) : '', recallDays: item.recallDays ? String(item.recallDays) : '', recallKind: item.recallKind ?? 'checkup' } : NO_SCHED);
   }
 
   function pickCategory(value: string) {
@@ -60,7 +69,7 @@ export default function CatalogueEditor({ items, taxCategories, rates }: Props) 
     e.preventDefault();
     setError(null);
     void (async () => {
-      const res = await send(() => saveCatalogueItemAction(editing === 'new' ? null : editing, { ...draft, gstRateBp: exempt ? 0 : draft.gstRateBp }));
+      const res = await send(() => saveCatalogueItemAction(editing === 'new' ? null : editing, { ...draft, gstRateBp: exempt ? 0 : draft.gstRateBp }, sched));
       if (!res) return;
       if (!res.ok || !res.data.ok) release();
       if (!res.ok) return setError(res.error);
@@ -142,6 +151,27 @@ export default function CatalogueEditor({ items, taxCategories, rates }: Props) 
                 </select>
                 {errors.gstRateBp ? err('gstRateBp') : exempt ? <div className="hint">Exempt healthcare is always 0%.</div> : null}
               </div>
+              <div className="field">
+                <label htmlFor="item-minutes">Appointment length (min)</label>
+                <input id="item-minutes" inputMode="numeric" value={sched.minutes} onChange={(e) => setSched((x) => ({ ...x, minutes: e.target.value.replace(/\D/g, '').slice(0, 3) }))} placeholder="Doctor’s slot" autoComplete="off" {...aria('minutes')} />
+                {errors.minutes ? err('minutes') : <div className="hint">Booking this treatment uses this length, e.g. 45 for an RCT sitting.</div>}
+              </div>
+              <div className="field">
+                <label htmlFor="item-recall">Suggest coming back after (days)</label>
+                <input id="item-recall" inputMode="numeric" value={sched.recallDays} onChange={(e) => setSched((x) => ({ ...x, recallDays: e.target.value.replace(/\D/g, '').slice(0, 4) }))} placeholder="None" autoComplete="off" {...aria('recallDays')} />
+                {errors.recallDays ? err('recallDays') : <div className="hint">After it&apos;s billed, offer a reminder, e.g. 182 for scaling.</div>}
+              </div>
+              {sched.recallDays ? (
+                <div className="field">
+                  <label htmlFor="item-recall-kind">Coming back for</label>
+                  <select id="item-recall-kind" value={sched.recallKind} onChange={(e) => setSched((x) => ({ ...x, recallKind: e.target.value }))} {...aria('recallKind')}>
+                    {RECALL_CHOICES.map((c) => (
+                      <option key={c.v} value={c.v}>{c.l}</option>
+                    ))}
+                  </select>
+                  {err('recallKind')}
+                </div>
+              ) : null}
             </div>
             <div className="actions">
               <button className="primary" type="submit" disabled={pending}>{pending ? 'Saving…' : editing === 'new' ? 'Add item' : 'Save changes'}</button>

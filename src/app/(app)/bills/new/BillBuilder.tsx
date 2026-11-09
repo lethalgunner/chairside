@@ -11,6 +11,9 @@ import { TaxPill } from '@/components/ui';
 import { useActionForm } from '@/lib/nav/use-action-form';
 import NotSent from '@/components/NotSent';
 import NewItemForm, { type NewItemOptions } from './NewItemForm';
+import RecallSuggestion from './RecallSuggestion';
+import { addDays } from '@/domain/dates';
+import { isRecallKind } from '@/domain/visits';
 
 interface Line {
   key: string;
@@ -36,6 +39,8 @@ interface Props {
   unbilled: { procedureId: string; name: string; doctorName: string; valuePaise: Paise }[];
   /** Owner only: lets "+ New item" add to the price list from the bill. Null for everyone else. */
   newItem: NewItemOptions | null;
+  /** Business date (IST), for the come-back suggestion after billing (Sprint 8). */
+  today?: string;
 }
 
 function parseDiscount(s: string): Paise | null {
@@ -50,7 +55,7 @@ function parseDiscount(s: string): Paise | null {
  * Totals are computed live by the same domain function the server uses, so
  * the preview and the issued bill cannot disagree.
  */
-export default function BillBuilder({ patient, branch, catalogue: listed, doctors, unbilled, newItem }: Props) {
+export default function BillBuilder({ patient, branch, catalogue: listed, doctors, unbilled, newItem, today }: Props) {
   // Items added with "+ New item" during this bill, until the page next loads.
   const [added, setAdded] = useState<CatalogueEntry[]>([]);
   const catalogue = useMemo(() => [...listed, ...added.filter((a) => !listed.some((c) => c.id === a.id))], [listed, added]);
@@ -183,6 +188,11 @@ export default function BillBuilder({ patient, branch, catalogue: listed, doctor
           <div className="callout good" role="status">
             Bill <strong className="mono">{done.number}</strong> issued to {patient.name} at {branch.name} for <strong>{formatINR(done.totalPaise)}</strong>.
           </div>
+          {(() => {
+            // Sprint 8: the first billed treatment that suggests a come-back reminder.
+            const item = today ? lines.map((l) => catalogue.find((c) => c.id === l.catalogueItemId || c.name === l.name)).find((c) => c?.recallDays && c.recallKind && isRecallKind(c.recallKind)) : undefined;
+            return item && today ? <RecallSuggestion patientId={patient.id} patientName={patient.name} itemName={item.name} kind={item.recallKind as Parameters<typeof RecallSuggestion>[0]['kind']} dueOn={addDays(today, item.recallDays!)} today={today} /> : null;
+          })()}
           <div className="actions">
             <Link className="primary-link" href={`/receipts/new?patient=${patient.id}`}>Record payment</Link>
             <Link className="secondary" href={`/invoices/${done.invoiceId}`}>View bill</Link>

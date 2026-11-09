@@ -81,12 +81,15 @@ const itemInput = z.object({
 });
 
 /** Create when id is null, otherwise edit. */
-export async function saveCatalogueItemAction(id: string | null, input: z.input<typeof itemInput>): Promise<ActionResult<SaveItemResult>> {
+const schedulingInput = z.object({ minutes: z.string().max(10), recallDays: z.string().max(10), recallKind: z.string().max(20) });
+
+export async function saveCatalogueItemAction(id: string | null, input: z.input<typeof itemInput>, scheduling?: z.input<typeof schedulingInput>): Promise<ActionResult<SaveItemResult>> {
   const ctx = await getContext();
   if (!ctx) return signedOut(id ? 'catalogue.update' : 'catalogue.create');
   const res = await run(id ? 'catalogue.update' : 'catalogue.create', () => {
     const data = parse(itemInput, input);
-    return id ? updateCatalogueItem(ctx, parse(idInput, id), data) : createCatalogueItem(ctx, data);
+    const sched = scheduling === undefined ? undefined : parse(schedulingInput, scheduling);
+    return id ? updateCatalogueItem(ctx, parse(idInput, id), data, sched) : createCatalogueItem(ctx, data, sched);
   });
   if (res.ok && res.data.ok) revalidatePath('/', 'layout');
   return res;

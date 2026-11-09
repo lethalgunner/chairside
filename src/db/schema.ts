@@ -444,8 +444,19 @@ export const catalogueItems = pgTable(
     isGoods: boolean('is_goods').notNull().default(false),
 
     active: boolean('active').notNull().default(true),
+
+    /** Sprint 8: how long a booking for this treatment usually takes (minutes); null = the doctor's slot. */
+    defaultMinutes: integer('default_minutes'),
+    /** Sprint 8: suggest a come-back reminder this many days after it's billed (e.g. scaling: 182); null = none. */
+    recallDays: integer('recall_days'),
+    /** Which come-back reminder to suggest (checkup, cleaning, continue, review). */
+    recallKind: text('recall_kind'),
   },
-  (t) => ({ orgCodeUnique: uniqueIndex('catalogue_org_code_unique').on(t.orgId, t.code) }),
+  (t) => ({
+    orgCodeUnique: uniqueIndex('catalogue_org_code_unique').on(t.orgId, t.code),
+    minutesCheck: check('catalogue_default_minutes_check', sql`${t.defaultMinutes} is null or (${t.defaultMinutes} between 5 and 240 and ${t.defaultMinutes} % 5 = 0)`),
+    recallCheck: check('catalogue_recall_check', sql`(${t.recallDays} is null and ${t.recallKind} is null) or (${t.recallDays} between 1 and 1095 and ${t.recallKind} in ('checkup', 'cleaning', 'continue', 'review'))`),
+  }),
 );
 
 export const priceListEntries = pgTable(

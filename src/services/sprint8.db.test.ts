@@ -5,6 +5,7 @@ import { issueBill } from './invoices';
 import { registerPatient } from './patients';
 import { recordReceipt } from './receipts';
 import { duesFor } from './reports';
+import { createCatalogueItem, listCatalogue, listCatalogueForSettings, updateCatalogueItem } from './catalogue';
 
 let f: Fixture;
 let other: Fixture;
@@ -38,5 +39,27 @@ describe('"₹ due" badge (Sprint 8)', () => {
     expect(dues.has(none)).toBe(false);
     expect((await duesFor(other.ctx('desk'), [other.pune.id], [owes])).size).toBe(0);
     expect((await duesFor(f.ctx('desk'), [f.pune.id], [])).size).toBe(0);
+  });
+});
+
+describe('per-treatment length and come-back (Sprint 8)', () => {
+  const base = { code: 'SCL8', name: 'Scaling deluxe', category: 'Perio', price: '1500', taxCategory: 'exempt_healthcare', hsnSacCode: '9993', gstRateBp: 0 };
+  it('saved with the item, shown in the lists, kept when an edit (or paste) does not send them', async () => {
+    const res = await createCatalogueItem(f.ctx('owner'), base, { minutes: '45', recallDays: '182', recallKind: 'cleaning' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const listed = (await listCatalogue(f.ctx('desk'), f.pune.id)).find((c) => c.id === res.id)!;
+    expect(listed).toMatchObject({ defaultMinutes: 45, recallDays: 182, recallKind: 'cleaning' });
+    await updateCatalogueItem(f.ctx('owner'), res.id, { ...base, price: '1600' });
+    const after = (await listCatalogueForSettings(f.ctx('owner'))).find((c) => c.id === res.id)!;
+    expect(after).toMatchObject({ pricePaise: 160_000, defaultMinutes: 45, recallDays: 182, recallKind: 'cleaning' });
+    await updateCatalogueItem(f.ctx('owner'), res.id, base, { minutes: '', recallDays: '', recallKind: 'checkup' });
+    const cleared = (await listCatalogueForSettings(f.ctx('owner'))).find((c) => c.id === res.id)!;
+    expect(cleared).toMatchObject({ defaultMinutes: null, recallDays: null, recallKind: null });
+  });
+  it('bad values come back on their fields and nothing is saved', async () => {
+    const res = await createCatalogueItem(f.ctx('owner'), { ...base, code: 'SCL9' }, { minutes: '7', recallDays: '30', recallKind: 'nope' });
+    expect(res.ok ? [] : Object.keys(res.fieldErrors).sort()).toEqual(['minutes', 'recallKind']);
+    expect((await listCatalogueForSettings(f.ctx('owner'))).some((c) => c.code === 'SCL9')).toBe(false);
   });
 });

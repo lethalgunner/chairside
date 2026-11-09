@@ -16,6 +16,8 @@ interface Props {
   reason: string;
   minutes: number;
   doctors: DoctorDay[];
+  /** Sprint 8: treatments with a usual length; picking one sets the length (and the reason, if empty). */
+  treatments?: { id: string; name: string; minutes: number }[];
 }
 
 /**
@@ -23,7 +25,7 @@ interface Props {
  * reloads the free slots from the server; "Other time" allows a booking off
  * the slot grid. The server is the judge of overlaps.
  */
-export default function BookingForm({ patientId, moveId, today, date: serverDate, doctorId: serverDoctorId, time: initialTime, reason: initialReason, minutes: initialMinutes, doctors: serverDoctors }: Props) {
+export default function BookingForm({ patientId, moveId, today, date: serverDate, doctorId: serverDoctorId, time: initialTime, reason: initialReason, minutes: initialMinutes, doctors: serverDoctors, treatments = [] }: Props) {
   // Doctor, date and free slots live here. A new date asks the server for its
   // slots directly, not by navigating (QA 8 Nov: a navigation could stall and
   // leave the form on "Loading free times…", and two quick changes undid each other).
@@ -37,6 +39,14 @@ export default function BookingForm({ patientId, moveId, today, date: serverDate
   const [other, setOther] = useState(!!initialTime && !doctors.find((d) => d.providerId === doctorId)?.free.includes(initialTime));
   const [reason, setReason] = useState(initialReason);
   const [minutes, setMinutes] = useState(initialMinutes);
+  const [treatment, setTreatment] = useState('');
+  function pickTreatment(id: string) {
+    setTreatment(id);
+    const t = treatments.find((x) => x.id === id);
+    if (!t) return;
+    setMinutes(t.minutes);
+    setReason((r) => (r.trim() === '' || treatments.some((x) => x.name === r) ? t.name : r));
+  }
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const timeRef = useRef<HTMLDivElement>(null);
@@ -140,11 +150,22 @@ export default function BookingForm({ patientId, moveId, today, date: serverDate
         ) : null}
 
         <div className="field-grid">
+          {treatments.length > 0 ? (
+            <div className="field">
+              <label htmlFor="book-treatment">Treatment <span className="muted small">(optional)</span></label>
+              <select id="book-treatment" value={treatment} onChange={(e) => pickTreatment(e.target.value)}>
+                <option value="">—</option>
+                {treatments.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name} ({t.minutes} min)</option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <div className="field">
             <label htmlFor="book-minutes">Length</label>
             <select id="book-minutes" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
               <option value={0}>{doc ? `${doc.slotMinutes} minutes (usual)` : 'Usual slot'}</option>
-              {[15, 20, 30, 45, 60, 90, 120].filter((m) => m !== doc?.slotMinutes).map((m) => (
+              {[...new Set([15, 20, 30, 45, 60, 90, 120, ...(minutes ? [minutes] : [])])].sort((a, b) => a - b).filter((m) => m !== doc?.slotMinutes).map((m) => (
                 <option key={m} value={m}>{m} minutes</option>
               ))}
             </select>

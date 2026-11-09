@@ -1,3 +1,4 @@
+import { businessDate } from '@/domain/dates';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireContext } from '@/lib/auth';
@@ -51,6 +52,7 @@ export default async function NewBillPage({ searchParams }: { searchParams: Prom
           catalogue={catalogue}
           doctors={doctors}
           newItem={canAddItems ? { taxCategories: TAX_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_DEFAULTS[c].label, hsnSacCode: CATEGORY_DEFAULTS[c].hsnSacCode, gstRateBp: CATEGORY_DEFAULTS[c].gstRateBp })), rates: [...GST_RATES_BP] } : null}
+          today={businessDate()}
           unbilled={pending.map((u) => ({ procedureId: u.procedureId, name: u.itemName, doctorName: u.doctorName, valuePaise: u.valuePaise }))}
         />
       )}

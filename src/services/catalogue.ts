@@ -2,7 +2,7 @@ import { and, asc, desc, eq, inArray, isNull, lte, or } from 'drizzle-orm';
 import { getDb, type DB, type Tx } from '@/db/client';
 import { catalogueItems, memberships, priceListEntries, users } from '@/db/schema';
 import { businessDate } from '@/domain/dates';
-import { checkCatalogueItem, suggestItemCode, type CatalogueItemInput } from '@/domain/catalogue';
+import { checkCatalogueItem, checkItemScheduling, suggestItemCode, type CatalogueItemInput, type ItemScheduling, type ItemSchedulingInput } from '@/domain/catalogue';
 import type { Paise } from '@/domain/money';
 import type { FieldErrors } from '@/domain/staff';
 import type { TaxCategory } from '@/domain/tax';
@@ -20,6 +20,10 @@ export interface CatalogueEntry {
   taxCategory: TaxCategory;
   hsnSacCode: string;
   gstRateBp: number;
+  /** Sprint 8 (optional for callers that build entries by hand). */
+  defaultMinutes?: number | null;
+  recallDays?: number | null;
+  recallKind?: string | null;
 }
 
 /** Active items with the price that applies at this branch today (branch override, else default). */
@@ -64,6 +68,9 @@ export async function listCatalogue(
     taxCategory: i.taxCategory as TaxCategory,
     hsnSacCode: i.hsnSacCode,
     gstRateBp: i.gstRateBp,
+    defaultMinutes: i.defaultMinutes,
+    recallDays: i.recallDays,
+    recallKind: i.recallKind,
   }));
 }
 
@@ -108,19 +115,29 @@ export async function listCatalogueForSettings(ctx: TenantContext): Promise<Cata
     gstRateBp: i.gstRateBp,
     active: i.active,
     isGoods: i.isGoods,
+    defaultMinutes: i.defaultMinutes,
+    recallDays: i.recallDays,
+    recallKind: i.recallKind,
   }));
 }
 
 export type SaveItemResult = { ok: true; id: string } | { ok: false; fieldErrors: FieldErrors };
 
-export async function createCatalogueItem(ctx: TenantContext, input: CatalogueItemInput): Promise<SaveItemResult> {
+/** Sprint 8: the optional length and come-back fields; undefined leaves them as they are. */
+function checkScheduling(input: ItemSchedulingInput | undefined): { ok: true; value: ItemScheduling | null } | { ok: false; fieldErrors: FieldErrors } {
+  if (!input) return { ok: true, value: null };
+  return checkItemScheduling(input);
+}
+
+export async function createCatalogueItem(ctx: TenantContext, input: CatalogueItemInput, scheduling?: ItemSchedulingInput): Promise<SaveItemResult> {
   assertCatalogueManager(ctx);
   const checked = checkCatalogueItem(input);
-  if (!checked.ok) return checked;
+  const sched = checkScheduling(scheduling);
+  if (!checked.ok || !sched.ok) return { ok: false, fieldErrors: { ...(checked.ok ? {} : checked.fieldErrors), ...(sched.ok ? {} : sched.fieldErrors) } };
   try {
     return await getDb().transaction(async (tx) => {
-      const [row] = await tx.insert(catalogueItems).values({ orgId: ctx.orgId, ...checked.value }).returning({ id: catalogueItems.id });
-      await writeAudit(tx, ctx, { action: 'catalogue.create', entityType: 'catalogue_item', entityId: row!.id, after: checked.value });
+      const [row] = await tx.insert(catalogueItems).values({ orgId: ctx.orgId, ...checked.value, ...(sched.value ?? {}) }).returning({ id: catalogueItems.id });
+      await writeAudit(tx, ctx, { action: 'catalogue.create', entityType: 'catalogue_item', entityId: row!.id, after: { ...checked.value, ...(sched.value ?? {}) } });
       return { ok: true as const, id: row!.id };
     });
   } catch (err) {
@@ -171,15 +188,17 @@ async function lockItem(tx: Tx, ctx: TenantContext, id: string) {
 }
 
 /** Edit an item. The code is fixed once created: the seed and imports match on it. */
-export async function updateCatalogueItem(ctx: TenantContext, id: string, input: CatalogueItemInput): Promise<SaveItemResult> {
+export async function updateCatalogueItem(ctx: TenantContext, id: string, input: CatalogueItemInput, scheduling?: ItemSchedulingInput): Promise<SaveItemResult> {
   assertCatalogueManager(ctx);
   return getDb().transaction(async (tx) => {
     const item = await lockItem(tx, ctx, id);
     const checked = checkCatalogueItem({ ...input, code: item.code });
-    if (!checked.ok) return checked;
-    await tx.update(catalogueItems).set(checked.value).where(and(eq(catalogueItems.id, item.id), eq(catalogueItems.orgId, ctx.orgId)));
+    const sched = checkScheduling(scheduling);
+    if (!checked.ok || !sched.ok) return { ok: false as const, fieldErrors: { ...(checked.ok ? {} : checked.fieldErrors), ...(sched.ok ? {} : sched.fieldErrors) } };
+    const after = { ...checked.value, ...(sched.value ?? {}) };
+    await tx.update(catalogueItems).set(after).where(and(eq(catalogueItems.id, item.id), eq(catalogueItems.orgId, ctx.orgId)));
     const { id: _id, orgId: _org, ...before } = item;
-    await writeAudit(tx, ctx, { action: 'catalogue.update', entityType: 'catalogue_item', entityId: item.id, before, after: checked.value });
+    await writeAudit(tx, ctx, { action: 'catalogue.update', entityType: 'catalogue_item', entityId: item.id, before, after });
     return { ok: true as const, id: item.id };
   });
 }
