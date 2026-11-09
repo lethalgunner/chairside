@@ -4,6 +4,8 @@ import { businessDate, displayDate, istTime } from '@/domain/dates';
 import { minutesBetween, VISIT_LABEL, waitLabel } from '@/domain/visits';
 import { canAnywhere, canDo, scopeBranchIds } from '@/services/context';
 import { queueFor } from '@/services/visits';
+import { duesFor } from '@/services/reports';
+import DueBadge from '@/components/DueBadge';
 import { Card, Empty, PageHead } from '@/components/ui';
 import AutoRefresh from '@/components/AutoRefresh';
 import VisitActions from './VisitActions';
@@ -24,6 +26,7 @@ export default async function QueuePage() {
   const today = businessDate();
   const now = new Date();
   const rows = await queueFor(ctx, scopeBranchIds(ctx), today);
+  const dues = await duesFor(ctx, scopeBranchIds(ctx), rows.filter((r) => r.status === 'waiting' || r.status === 'in_chair').map((r) => r.patientId));
   const active = rows.filter((r) => r.status === 'waiting' || r.status === 'in_chair');
   const finished = rows.filter((r) => r.status === 'done' || r.status === 'left');
   const seenNotBilled = rows.filter((r) => r.seenNotBilled);
@@ -51,7 +54,7 @@ export default async function QueuePage() {
             return (
               <tr key={r.id}>
                 <td data-label="Token" className="token">{r.token}</td>
-                <td data-label="Patient" className="strong"><Link className="link" href={`/patients/${r.patientId}`}>{r.patientName}</Link></td>
+                <td data-label="Patient" className="strong"><Link className="link" href={`/patients/${r.patientId}`}>{r.patientName}</Link> <DueBadge due={dues.get(r.patientId)} /></td>
                 {multi ? <td data-label="Branch">{r.branchName}</td> : null}
                 <td data-label="Status"><span className={`pill ${PILL[r.status]}`}>{VISIT_LABEL[r.status]}</span></td>
                 <td data-label="Time" className="small">

@@ -5,6 +5,8 @@ import { addDays, businessDate, isIsoDate, shortDay } from '@/domain/dates';
 import { appointmentConfirmHref } from '@/domain/whatsapp';
 import { dayAppointments, doctorDays, type AppointmentRow } from '@/services/appointments';
 import { getPrintHeader } from '@/services/branches';
+import { duesFor } from '@/services/reports';
+import DueBadge from '@/components/DueBadge';
 import { canAnywhere, canDo, scopeBranchIds } from '@/services/context';
 import { Card, Empty, PageHead } from '@/components/ui';
 import AppointmentActions from './AppointmentActions';
@@ -36,6 +38,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
     head && r.branchId === branch && (r.status === 'booked' || r.status === 'confirmed') && date >= today
       ? appointmentConfirmHref({ patientName: r.patientName, patientPhone: r.patientPhone, startsAt: r.startsAt, endsAt: r.endsAt }, head)
       : null;
+  const dues = await duesFor(ctx, scopeBranchIds(ctx), rows.filter((r) => r.status !== 'cancelled').map((r) => r.patientId));
   const justBooked = typeof booked === 'string' ? rows.find((r) => r.id === booked) : undefined;
   const justBookedHref = justBooked ? confirmHref(justBooked) : null;
 
@@ -79,7 +82,8 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                   <li key={r.id} className={`appt s-${r.status}`}>
                     <span className="mono strong">{r.time}</span>
                     <span>
-                      <Link className="link" href={`/patients/${r.patientId}`}>{r.patientName}</Link>
+                      <Link className="link" href={`/patients/${r.patientId}`}>{r.patientName}</Link>{' '}
+                      {r.status !== 'cancelled' ? <DueBadge due={dues.get(r.patientId)} /> : null}
                       {r.reason ? <span className="muted small"> · {r.reason}</span> : null}
                       <span className="muted small"> · {r.minutes} min</span>
                     </span>

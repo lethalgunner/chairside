@@ -579,13 +579,17 @@ export interface InvoiceRow {
 
 export async function listInvoices(
   ctx: TenantContext,
-  opts: { branchIds: string[]; patientId?: string; openOnly?: boolean; limit?: number; /** Only bills issued on this business date (Bills "Today", T27). */ issuedOn?: string },
+  opts: { branchIds: string[]; patientId?: string; /** Several patients at once (the "₹ due" badge, Sprint 8). */ patientIds?: string[]; openOnly?: boolean; limit?: number; /** Only bills issued on this business date (Bills "Today", T27). */ issuedOn?: string },
 ): Promise<InvoiceRow[]> {
   const ids = opts.branchIds.filter((b) => ctx.branchIds.includes(b));
   if (ids.length === 0) return [];
   const paid = paidOnInvoiceSql();
   const conds = [eq(invoices.orgId, ctx.orgId), inArray(invoices.branchId, ids)];
   if (opts.patientId) conds.push(eq(invoices.patientId, opts.patientId));
+  if (opts.patientIds) {
+    if (opts.patientIds.length === 0) return [];
+    conds.push(inArray(invoices.patientId, opts.patientIds));
+  }
   if (opts.issuedOn) conds.push(eq(invoices.issuedOn, opts.issuedOn));
   if (opts.openOnly) conds.push(eq(invoices.status, 'issued'), sql`${invoices.totalPaise} > ${paid}`);
   const rows = await getDb()

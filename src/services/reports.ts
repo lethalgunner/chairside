@@ -389,3 +389,17 @@ export async function unclosedEarlierDays(ctx: TenantContext, branchIds: string[
   }
   return out.sort((a, b) => a.branchName.localeCompare(b.branchName));
 }
+
+/**
+ * What each of these patients owes at these branches (Sprint 8, the "₹ due"
+ * badge on appointments and the waiting room). Worked out from open bills,
+ * the same way the patient page does; never stored.
+ */
+export async function duesFor(ctx: TenantContext, branchIds: string[], patientIds: string[]): Promise<Map<string, Paise>> {
+  const ids = [...new Set(patientIds)].filter(isUuid);
+  const out = new Map<string, Paise>();
+  if (ids.length === 0 || !canAnywhere(ctx, 'patient.view')) return out;
+  const rows = await listInvoices(ctx, { branchIds, patientIds: ids, openOnly: true, limit: 5000 });
+  for (const r of rows) out.set(r.patientId, add(out.get(r.patientId) ?? ZERO, r.duePaise));
+  return out;
+}
