@@ -33,6 +33,7 @@ export default defineConfig({
     // E2E_SERVER_LOG=1 shows the app's own output, including the [action] timing lines (T17).
     stdout: process.env.E2E_SERVER_LOG ? 'pipe' : 'ignore',
     timeout: 60_000,
-    env: { DATABASE_URL: DB, INSECURE_COOKIES: '1', NODE_ENV: 'production' },
+    // SIGNUP_ENABLED only here, so the sign-up flow is tested; production keeps it off until ADR-019 step 2.
+    env: { DATABASE_URL: DB, INSECURE_COOKIES: '1', NODE_ENV: 'production', SIGNUP_ENABLED: '1' },
   },
 });

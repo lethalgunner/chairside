@@ -1534,5 +1534,5 @@ input.filter { width: 100%; max-width: 320px; margin: 6px 0; }
 
 /* Getting started (Sprint 7) */
 .setup-list { display: grid; gap: 10px; }
-.setup-step.done { opacity: 0.75; }
+.setup-step.done { border-style: dashed; }
 .login-card.wide { max-width: 560px; }
