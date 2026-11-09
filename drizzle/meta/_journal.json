@@ -99,6 +99,13 @@
       "when": 1794212699521,
       "tag": "0013_s7_clinic_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794213109978,
+      "tag": "0014_s7_rls_policies",
+      "breakpoints": true
     }
   ]
 }

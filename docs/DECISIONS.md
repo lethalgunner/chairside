@@ -484,3 +484,18 @@ Revisit with the WhatsApp API in Q1 2027 (LET-177).
 about 6 months" beside it) and links to booking. Booking an appointment closes that patient's open
 reminders at that branch (`recall.close`, audited), so Recalls stops chasing someone already booked.
 A later cancellation does not reopen the reminder (support playbook: set it again).
+
+## ADR-019 — Tenant isolation in the database, step 1 of 2 (Sprint 7, 10 Nov 2026)
+
+**Amends ADR-012** ("RLS before org #2"). Self-serve sign-up makes org #2 a click away, so the policies
+land now. **Step 1 (this sprint):** migration 0014 creates role `chairside_app` (NOLOGIN, no BYPASSRLS),
+a `tenant_isolation` policy on every table with `org_id` (and on `organisations`), and `auth_lookup`
+policies for the sign-in tables, keyed on `SET LOCAL app.org_id` / `app.auth_lookup`. **The running app is
+unchanged**: it connects as the table owner, which bypasses RLS. `src/services/rls.db.test.ts` proves the
+policies under a login in that role across two clinics, every table, and fails if a new `org_id` table has
+no policy.
+
+**Step 2 (next, separate change, KS action needed):** a login in `chairside_app` with its own password in
+Vercel as `DATABASE_URL`; every request's queries run in a transaction that sets `app.org_id` (auth paths
+set `app.auth_lookup`); the whole db and browser suites pass under that role before the switch.
+**Sign-up (`SIGNUP_ENABLED=1`) stays off until step 2 is live.**
