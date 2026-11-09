@@ -1531,3 +1531,8 @@ input.filter { width: 100%; max-width: 320px; margin: 6px 0; }
 .role-table > summary { cursor: pointer; font-weight: 600; }
 .role-table table { font-size: 12px; }
 .role-table td.center { text-align: center; color: var(--jade); font-weight: 700; }
+
+/* Getting started (Sprint 7) */
+.setup-list { display: grid; gap: 10px; }
+.setup-step.done { opacity: 0.75; }
+.login-card.wide { max-width: 560px; }

@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 import type { TenantContext } from '@/services/context';
 import { loginHref, PATH_HEADER } from '@/lib/nav/safe-next';
 import { redeemInvite } from './invite';
-import { contextFromSession, revokeSession, signInWithPassword } from './session';
+import { contextFromSession, createSession, revokeSession, signInWithPassword } from './session';
 
 export const SESSION_COOKIE = 'cs_session';
 export const BRANCH_COOKIE = 'cs_branch';
@@ -88,4 +88,15 @@ export async function signOut(): Promise<void> {
 export async function setActiveBranch(branchId: string): Promise<void> {
   const jar = await cookies();
   jar.set(BRANCH_COOKIE, branchId, cookieOptions(new Date(Date.now() + 365 * 86_400_000)));
+}
+
+/** Clinic sign-up (Sprint 7): create the clinic and sign the new owner straight in. */
+export async function signUpAndSignIn(values: import('@/domain/signup').SignupValues): Promise<{ ok: true } | { ok: false; fieldErrors: Record<string, string> }> {
+  const { signUpClinic } = await import('@/services/onboarding');
+  const res = await signUpClinic(values);
+  if (!res.ok) return res;
+  const { sessionId, expiresAt } = await createSession(res.orgId, res.userId, 'signup');
+  const jar = await cookies();
+  jar.set(SESSION_COOKIE, sessionId, cookieOptions(expiresAt));
+  return { ok: true };
 }

@@ -4,6 +4,7 @@ import { EXPIRED_REASON, safeNext, SIGNED_OUT_MESSAGE } from '@/lib/nav/safe-nex
 import LoginForm from './LoginForm';
 import Link from 'next/link';
 import { emailConfigured } from '@/lib/email';
+import { signupEnabled } from '@/domain/signup';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <p className="muted">Accounts are created by your clinic administrator.</p>
         <LoginForm next={next} />
         {emailConfigured() ? <p className="small"><Link className="link" href="/forgot">Forgot password?</Link></p> : null}
+        {signupEnabled() ? <p className="small">New clinic? <Link className="link" href="/signup">Set up your clinic</Link></p> : null}
         <p className="pilot-note">Pilot test. Your clinic’s existing software remains the official record.</p>
       </div>
     </div>

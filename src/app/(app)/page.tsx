@@ -1,3 +1,4 @@
+import { REQUIRED_STEPS, setupProgress, showsSetup } from '@/services/onboarding';
 import { getClinicSettings } from '@/services/clinic';
 import Link from 'next/link';
 import { requireContext } from '@/lib/auth';
@@ -26,7 +27,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     isToday ? closeStreaks(ctx, scopeBranchIds(ctx), today) : Promise.resolve(new Map<string, number>()),
     isToday ? queueFor(ctx, scopeBranchIds(ctx), today) : Promise.resolve([]),
   ]);
-  const [appts, clinic] = await Promise.all([appointmentCounts(ctx, scopeBranchIds(ctx), date), getClinicSettings(ctx)]);
+  const [appts, clinic, setup] = await Promise.all([appointmentCounts(ctx, scopeBranchIds(ctx), date), getClinicSettings(ctx), isToday && showsSetup(ctx) ? setupProgress(ctx) : Promise.resolve([])]);
+  const setupLeft = setup.filter((s) => !s.done && REQUIRED_STEPS.includes(s.key)).length;
   const stockBranch = ctx.activeBranchId !== 'all' ? ctx.activeBranchId : null;
   const stock = isToday && stockBranch && canDo(ctx, 'stock.manage', stockBranch) ? (await listStock(ctx, stockBranch)).filter((r) => r.active) : [];
   const stockLow = stock.filter((r) => r.low).length;
@@ -60,6 +62,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         }
       />
       <DayNav date={date} today={today} isToday={isToday} href={(d) => (d ? `/?date=${d}` : '/')} />
+      {setupLeft > 0 ? (
+        <div className="callout" role="status">
+          <strong>Finish setting up:</strong> {setupLeft} step{setupLeft === 1 ? '' : 's'} left before your first bill. <Link className="link" href="/start">Getting started</Link>
+        </div>
+      ) : null}
       {unclosed.map((u) => (
         <div key={u.branchId} className="callout warn" role="status">
           <strong>{u.branchName}</strong>: {shortDay(u.date)} was not closed.{' '}

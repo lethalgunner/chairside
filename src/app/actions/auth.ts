@@ -2,7 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { acceptInvite, getContext, setActiveBranch, signIn, signOut } from '@/lib/auth';
+import { acceptInvite, getContext, setActiveBranch, signIn, signOut, signUpAndSignIn } from '@/lib/auth';
+import { checkSignup, signupEnabled, type SignupInput } from '@/domain/signup';
 import { signedOut, type SignedOut } from './run';
 import { appBaseUrl } from '@/lib/nav/base-url';
 import { emailConfigured, sendEmail } from '@/lib/email';
@@ -46,4 +47,23 @@ export async function forgotPasswordAction(_prev: { done?: boolean; error?: stri
     console.error('[action] auth.forgot: unexpected error');
   }
   return { done: true };
+}
+
+/** Clinic sign-up (Sprint 7). Refused unless SIGNUP_ENABLED=1. */
+export async function signUpAction(input: SignupInput): Promise<{ ok: true } | { ok: false; fieldErrors?: Record<string, string>; error?: string }> {
+  if (!signupEnabled()) return { ok: false, error: 'Sign-up isn’t open yet.' };
+  const raw = input as Partial<SignupInput>;
+  const str = (v: unknown) => (typeof v === 'string' ? v.slice(0, 300) : '');
+  const checked = checkSignup({
+    clinicName: str(raw.clinicName), fullName: str(raw.fullName), email: str(raw.email), password: str(raw.password), confirm: str(raw.confirm),
+    branchCode: str(raw.branchCode), branchName: str(raw.branchName), city: str(raw.city), state: str(raw.state),
+    gstRegistered: raw.gstRegistered === true, gstin: str(raw.gstin), isDentist: raw.isDentist === true,
+  });
+  if (!checked.ok) return { ok: false, fieldErrors: checked.fieldErrors };
+  try {
+    return await signUpAndSignIn(checked.value);
+  } catch {
+    console.error('[action] auth.signup: unexpected error');
+    return { ok: false, error: 'Something went wrong. Nothing was saved. Try again in a minute.' };
+  }
 }

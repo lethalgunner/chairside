@@ -28,6 +28,7 @@ export default async function SettingsPage() {
   return (
     <>
       <PageHead title="Settings" sub="Changes here are recorded with your name." />
+      {access.clinic ? <p className="small"><Link className="link" href="/start">Getting started checklist</Link></p> : null}
       <ul className="plain settings-list">
         {SECTIONS.filter((s) => access[s.key]).map((s) => (
           <li key={s.key}>
