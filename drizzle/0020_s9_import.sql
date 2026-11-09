@@ -1,0 +1,1 @@
+ALTER TABLE "appointments" ADD COLUMN "imported" boolean DEFAULT false NOT NULL;

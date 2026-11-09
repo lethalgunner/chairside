@@ -60,7 +60,7 @@ export default function DiscountCapsForm({ roles, initial }: { roles: { role: st
         {error ? <div className="callout warn" role="alert">{error}</div> : null}
         <NotSent message={notSent} />
         <div className="actions">
-          <button className="primary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save limits'}</button>
+          <button className="primary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Update discount limits'}</button>
         </div>
       </div>
     </form>

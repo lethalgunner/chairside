@@ -18,6 +18,8 @@ export interface SettingsAccess {
   clinic: boolean;
   /** Reminder rules and wording (Sprint 8). Owner only. */
   reminders: boolean;
+  /** Bring your data: patients and coming appointments (Sprint 9). Owner only. */
+  import: boolean;
 }
 
 export function settingsAccess(ctx: TenantContext): SettingsAccess {
@@ -31,6 +33,7 @@ export function settingsAccess(ctx: TenantContext): SettingsAccess {
     medicines: canAnywhere(ctx, 'medicine.manage'),
     clinic: canOrgWide(ctx.grants, 'staff.manage'),
     reminders: canOrgWide(ctx.grants, 'staff.manage'),
+    import: canOrgWide(ctx.grants, 'staff.manage'),
   };
 }
 

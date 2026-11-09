@@ -59,7 +59,7 @@ export default function RecallDaysForm({ kinds, initial }: { kinds: { kind: stri
         {error ? <div className="callout warn" role="alert">{error}</div> : null}
         <NotSent message={notSent} />
         <div className="actions">
-          <button className="primary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save gaps'}</button>
+          <button className="primary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Update come-back gaps'}</button>
         </div>
       </div>
     </form>

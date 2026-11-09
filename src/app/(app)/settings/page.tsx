@@ -12,6 +12,7 @@ const SECTIONS = [
   { key: 'catalogue', href: '/settings/catalogue', title: 'Price list', sub: 'Treatments and products, their prices and GST.' },
   { key: 'branches', href: '/settings/branches', title: 'Branches', sub: 'Address, GST registration and GSTIN, day-close tolerance, opening float and UPI ID.' },
   { key: 'print', href: '/settings/print', title: 'Bill header', sub: 'Clinic name, logo, address and footer printed on bills, estimates and prescriptions.' },
+  { key: 'import', href: '/settings/import', title: 'Bring your data', sub: 'Import patients and coming appointments from your old software (Excel or CSV).' },
   { key: 'export', href: '/settings/export', title: 'Export my data', sub: 'Download patients, bills and payments as spreadsheets.' },
 ] as const;
 

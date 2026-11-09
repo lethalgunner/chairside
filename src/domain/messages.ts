@@ -253,7 +253,7 @@ export interface Due {
  * appointment gets fresh reminders.
  */
 export function planAppointment(
-  a: { id: string; startsAt: Date; status: string; plannedFrom: Date },
+  a: { id: string; startsAt: Date; status: string; plannedFrom: Date; imported?: boolean },
   rules: readonly PlannedRule[],
   q: Quiet,
 ): Due[] {
@@ -262,6 +262,7 @@ export function planAppointment(
   if (a.status === 'booked' || a.status === 'confirmed') {
     for (const r of rules) {
       if (r.trigger === 'booked') {
+        if (a.imported) continue;
         out.push({ ruleId: r.id, key: `${r.id}:${a.id}:${at}`, dueAt: afterQuiet(a.plannedFrom, q), expiresAt: a.startsAt, group: `appt:${a.id}` });
       } else if (r.trigger === 'before_appointment') {
         let due = new Date(a.startsAt.getTime() - r.offsetMinutes * 60_000);

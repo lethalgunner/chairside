@@ -1561,3 +1561,9 @@ input.filter { width: 100%; max-width: 320px; margin: 6px 0; }
 .msg-list .msg-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .msg-list details { grid-column: 1 / -1; }
 @media (max-width: 640px) { .msg-list > li { grid-template-columns: 1fr; } .msg-list .msg-actions { justify-content: flex-start; } }
+
+/* Bring your data (Sprint 9) */
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 0 0 14px; border-bottom: 1px solid var(--line); }
+.tabs .tab { padding: 8px 14px; min-height: 24px; text-decoration: none; color: var(--ink-2); border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.tabs .tab.on { color: var(--ink); border-bottom-color: var(--jade); font-weight: 600; }
+.tabs .tab:focus-visible { outline: 2px solid var(--jade); outline-offset: 2px; }

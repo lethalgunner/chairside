@@ -117,6 +117,9 @@ describe('planAppointment', () => {
     const ns = rule('rns', { trigger: 'no_show', offsetMinutes: 120 });
     expect(planAppointment({ ...appt, status: 'no_show' }, [booked, ns], DEFAULT_QUIET).map((d) => [d.ruleId, d.dueAt.toISOString()])).toEqual([['rns', ist('2026-11-12', '13:00').toISOString()]]);
   });
+  it('an imported appointment gets no "right after booking" message, but still gets its reminders', () => {
+    expect(planAppointment({ ...appt, imported: true }, [booked, dayBefore], DEFAULT_QUIET).map((d) => d.ruleId)).toEqual(['r1d']);
+  });
   it('never more than 6 per appointment', () => {
     const many = Array.from({ length: 8 }, (_, i) => rule(`r${i}`, { trigger: 'before_appointment', offsetMinutes: (i + 1) * 60 }));
     expect(planAppointment({ ...appt, plannedFrom: ist('2026-11-01', '12:00') }, many, DEFAULT_QUIET)).toHaveLength(6);

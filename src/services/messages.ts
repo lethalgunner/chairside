@@ -357,7 +357,7 @@ export async function todaysMessages(ctx: TenantContext, branchId: string, now: 
         doctor: opts.doctorName ? doctor : null,
       };
       const plannedFrom = a.updatedAt > a.createdAt ? a.updatedAt : a.createdAt;
-      for (const d of planAppointment({ id: a.id, startsAt: a.startsAt, status: a.status, plannedFrom }, rules, opts.quiet)) {
+      for (const d of planAppointment({ id: a.id, startsAt: a.startsAt, status: a.status, plannedFrom, imported: a.imported }, rules, opts.quiet)) {
         planned.push({ ...d, patientId: a.patientId, patientName: name, phone, about: `${vars.date} ${vars.time}`, vars });
       }
     }

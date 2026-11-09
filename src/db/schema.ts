@@ -652,6 +652,8 @@ export const appointments = pgTable(
     /** Plain words for the desk ("Check-up", "RCT sitting 2"). Never in the calendar feed or WhatsApp. */
     reason: text('reason'),
     cancelReason: text('cancel_reason'),
+    /** Brought in from the old software (Sprint 9): no "right after booking" message, the patient already knows. */
+    imported: boolean('imported').notNull().default(false),
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

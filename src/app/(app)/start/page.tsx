@@ -8,7 +8,7 @@ const STEPS: Record<SetupStep['key'], { title: string; how: string; href: string
   doctors: { title: 'Set up your doctors', how: 'Who treats patients, their registration numbers, and the days and hours they work.', href: '/settings/doctors', cta: 'Open doctors' },
   header: { title: 'Bill header and UPI', how: 'Your logo, address and footer on bills; your UPI ID for scan-to-pay.', href: '/settings/print', cta: 'Open bill header', optional: true },
   team: { title: 'Invite your front desk', how: 'Each person gets their own sign-in, so the records show who did what.', href: '/settings/team', cta: 'Open team', optional: true },
-  patient: { title: 'Register your first patient', how: 'Name and mobile is enough to start.', href: '/patients/new', cta: 'New patient' },
+  patient: { title: 'Register your first patient', how: 'Name and mobile is enough to start. Moving from other software? Settings → Bring your data imports all your patients and coming appointments at once.', href: '/patients/new', cta: 'New patient' },
   bill: { title: 'Make your first bill', how: 'From the patient’s page: New bill.', href: '/patients', cta: 'Find a patient' },
 };
 
